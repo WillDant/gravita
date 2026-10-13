@@ -1,5 +1,5 @@
 import type { PlanRole, SquadPlan } from "@gravita/protocol";
-import { isWithin, overlaps } from "./paths";
+import { isWithin, normalizePath, overlaps } from "./paths";
 
 // The rules that relate a plan's fields to each other. The zod schema in
 // @gravita/protocol checks shapes; this checks meaning. The engine runs it on every
@@ -17,6 +17,7 @@ export type PlanIssueCode =
   | "unknown_role"
   | "path_absolute"
   | "path_parent"
+  | "path_pattern"
   | "path_backslash"
   | "path_dot_prefix"
   | "owns_overlap"
@@ -81,6 +82,12 @@ function pathIssue(p: string, where: string): PlanIssue | undefined {
     return { code: "path_dot_prefix", message: `"${p}" starts with "./"; drop it.`, path: where };
   if (p.split("/").includes(".."))
     return { code: "path_parent", message: `"${p}" leaves the repository with "..".`, path: where };
+  if (/[*?[\]{}]/.test(normalizePath(p)))
+    return {
+      code: "path_pattern",
+      message: `"${p}" is a pattern; use a folder ("apps/api/") or a file path.`,
+      path: where,
+    };
   return undefined;
 }
 

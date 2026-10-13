@@ -11,6 +11,10 @@ export function normalizePath(path: string): string {
   let p = path;
   while (p.startsWith("./")) p = p.slice(2);
   const segs = p.split("/").filter((s) => s !== "" && s !== ".");
+  // Planners often write a folder as a glob ("apps/api/**"); a trailing wildcard means
+  // the folder itself, so it's read as that prefix. Wildcards elsewhere are rejected by
+  // validatePlan.
+  while (segs.length > 0 && (segs.at(-1) === "**" || segs.at(-1) === "*")) segs.pop();
   return segs.join("/");
 }
 
