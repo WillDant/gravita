@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
-import { ConnectClaude } from "@/features/connect/ConnectClaude";
+import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
@@ -16,7 +16,7 @@ import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/prese
 import { squadNeedsYou } from "@/shared/presenters/squad";
 import { Button, CountChips } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
-import { useClaudeProblem, useNow, useProjection } from "@/state/hooks";
+import { useNow, useProjection, useProviderProblem } from "@/state/hooks";
 
 export function Home() {
   useLocale();
@@ -24,7 +24,7 @@ export function Home() {
   const now = useNow();
   const navigate = useNavigate();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
-  const problem = useClaudeProblem();
+  const problem = useProviderProblem();
   const [creating, setCreating] = useState<"session" | "squad">();
   const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
   const recent = useMemo(
@@ -78,7 +78,7 @@ export function Home() {
       {creating === "squad" && (
         <NewSquadPanel id="home-new-squad" onClose={() => setCreating(undefined)} />
       )}
-      {problem && !creating && <ConnectClaude problem={problem} />}
+      {problem && !creating && <ConnectProvider provider="claude" problem={problem} />}
 
       {waiting.length + decisions.length > 0 && (
         <section aria-labelledby="needs-you">

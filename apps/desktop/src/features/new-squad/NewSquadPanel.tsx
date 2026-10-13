@@ -3,12 +3,12 @@ import type { SquadAutonomy } from "@gravita/protocol";
 import { FolderOpen, UsersRound, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { usePickFolder } from "@/app/providers";
-import { ConnectClaude } from "@/features/connect/ConnectClaude";
+import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import { t } from "@/shared/i18n/i18n";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
-import { useClaudeProblem } from "@/state/hooks";
+import { useProviderProblem } from "@/state/hooks";
 import { useNewSquad } from "./useNewSquad";
 
 const AUTONOMY: readonly SquadAutonomy[] = ["ask", "guarded", "auto"];
@@ -54,13 +54,16 @@ export function NewSquadPanel({
   onClose: () => void;
 }) {
   const form = useNewSquad(defaultFolder);
-  const statusProblem = useClaudeProblem();
+  const statusProblem = useProviderProblem();
   const pickFolder = usePickFolder();
   const fid = useId();
   const folderRef = useRef<HTMLInputElement>(null);
   const goalRef = useRef<HTMLTextAreaElement>(null);
   const budgetRef = useRef<HTMLInputElement>(null);
-  const problem = form.error?.claude ?? statusProblem;
+  // An error names its provider; otherwise Claude Code's status (the provider these start).
+  const connect =
+    form.error?.connect ??
+    (statusProblem && { provider: "claude" as const, problem: statusProblem });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
   useEffect(() => {
@@ -116,7 +119,7 @@ export function NewSquadPanel({
           </button>
         </div>
 
-        {problem && <ConnectClaude problem={problem} />}
+        {connect && <ConnectProvider provider={connect.provider} problem={connect.problem} />}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${fid}-folder`} className="text-xs font-semibold text-ink-2">

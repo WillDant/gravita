@@ -79,7 +79,12 @@ describe("app store: projection", () => {
 
   it("goes offline and takes engine status from the gateway", () => {
     const { gateway, store } = setup();
-    gateway.emitStatus({ claude: { found: true }, indexing: { done: 1, total: 1 }, demo: true });
+    gateway.emitStatus({
+      providers: { claude: { found: true } },
+      claude: { found: true },
+      indexing: { done: 1, total: 1 },
+      demo: true,
+    });
     expect(store.getState().engineStatus?.demo).toBe(true);
     gateway.emitConnection("offline");
     expect(store.getState().connection).toBe("offline");

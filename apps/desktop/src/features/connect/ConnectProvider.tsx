@@ -1,38 +1,62 @@
+import type { AgentProvider } from "@gravita/protocol/constants";
 import { Check, Copy, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
-import type { ClaudeProblem } from "@/shared/presenters/errors";
+import type { ProviderProblem } from "@/shared/presenters/errors";
 import { cn } from "@/shared/utils";
 
-const INSTALL = "npm install -g @anthropic-ai/claude-code";
+interface Step {
+  label: string;
+  command: string;
+}
 
-const STEPS: Record<ClaudeProblem, { label: string; command: string }[]> = {
-  missing: [
-    { label: "connect.step.install", command: INSTALL },
-    { label: "connect.step.run", command: "claude" },
-    { label: "connect.step.login", command: "/login" },
-  ],
-  outdated: [{ label: "connect.step.update", command: "claude update" }],
-  loggedOut: [
-    { label: "connect.step.run", command: "claude" },
-    { label: "connect.step.login", command: "/login" },
-  ],
+/** What one provider's guidance says: its copy keys and its steps for each problem. */
+interface ProviderGuide {
+  /** The copy of a problem's title and body. */
+  copy: (problem: ProviderProblem, part: "title" | "body") => string;
+  steps: Readonly<Record<ProviderProblem, readonly Step[]>>;
+}
+
+const CLAUDE_INSTALL = "npm install -g @anthropic-ai/claude-code";
+
+/** Each provider's steps; a provider without guidance yet shows only the error line. */
+const GUIDES: Readonly<Partial<Record<AgentProvider, ProviderGuide>>> = {
+  claude: {
+    copy: (problem, part) => `connect.${problem}.${part}`,
+    steps: {
+      missing: [
+        { label: "connect.step.install", command: CLAUDE_INSTALL },
+        { label: "connect.step.run", command: "claude" },
+        { label: "connect.step.login", command: "/login" },
+      ],
+      outdated: [{ label: "connect.step.update", command: "claude update" }],
+      loggedOut: [
+        { label: "connect.step.run", command: "claude" },
+        { label: "connect.step.login", command: "/login" },
+      ],
+    },
+  },
 };
 
 /**
- * Calm guidance when Claude Code is missing, outdated or logged out. Gravita never logs
- * anyone in: the steps send the user to Claude Code in their own Terminal.
+ * Calm guidance when a provider's CLI is missing, outdated or logged out. Gravita never
+ * logs anyone in: the steps send the user to the provider's CLI in their own Terminal.
  */
-export function ConnectClaude({
+export function ConnectProvider({
+  provider,
   problem,
   className,
 }: {
-  problem: ClaudeProblem;
+  provider: AgentProvider;
+  problem: ProviderProblem;
   className?: string;
 }) {
+  const guide = GUIDES[provider];
+  if (!guide) return null;
+  const headingId = `connect-${provider}`;
   return (
     <section
-      aria-labelledby="connect-claude"
+      aria-labelledby={headingId}
       className={cn("rounded-xl border border-hairline bg-panel px-4 py-3.5", className)}
     >
       <div className="flex items-start gap-3">
@@ -40,12 +64,12 @@ export function ConnectClaude({
           <Terminal size={15} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="connect-claude" className="text-sm font-semibold text-ink">
-            {t(`connect.${problem}.title`)}
+          <h2 id={headingId} className="text-sm font-semibold text-ink">
+            {t(guide.copy(problem, "title"))}
           </h2>
-          <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t(`connect.${problem}.body`)}</p>
+          <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t(guide.copy(problem, "body"))}</p>
           <ol className="mt-3 flex flex-col gap-2">
-            {STEPS[problem].map((step, i) => (
+            {guide.steps[problem].map((step, i) => (
               <li key={step.command} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="w-56 max-w-full text-xs text-ink-2">
                   <span className="tabular-nums text-ink-3">{i + 1}.</span> {t(step.label)}

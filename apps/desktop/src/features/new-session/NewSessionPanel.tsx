@@ -1,7 +1,7 @@
 import { FolderOpen, Plus, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { usePickFolder } from "@/app/providers";
-import { ConnectClaude } from "@/features/connect/ConnectClaude";
+import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import {
   BypassWarning,
   ModelSelect,
@@ -11,7 +11,7 @@ import { t } from "@/shared/i18n/i18n";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY, tildify } from "@/shared/utils";
-import { useClaudeProblem, useModels } from "@/state/hooks";
+import { useModels, useProviderProblem } from "@/state/hooks";
 import { useNewSession } from "./useNewSession";
 
 export interface RecentFolder {
@@ -59,12 +59,15 @@ export function NewSessionPanel({
 }) {
   const form = useNewSession(defaultFolder);
   const models = useModels();
-  const statusProblem = useClaudeProblem();
+  const statusProblem = useProviderProblem();
   const pickFolder = usePickFolder();
   const fieldId = useId();
   const folderRef = useRef<HTMLInputElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
-  const problem = form.error?.claude ?? statusProblem;
+  // An error names its provider; otherwise Claude Code's status (the provider these start).
+  const connect =
+    form.error?.connect ??
+    (statusProblem && { provider: "claude" as const, problem: statusProblem });
 
   // Land where the typing starts: the message when the folder is known.
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
@@ -117,7 +120,7 @@ export function NewSessionPanel({
           </button>
         </div>
 
-        {problem && <ConnectClaude problem={problem} />}
+        {connect && <ConnectProvider provider={connect.provider} problem={connect.problem} />}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${fieldId}-folder`} className="text-xs font-semibold text-ink-2">

@@ -51,7 +51,7 @@ export class FakeGateway implements EngineGateway {
   readonly failures: Partial<Record<FakeCommand, GatewayError>> = {};
   startResult: RpcResult<"session.start"> = { sessionId: "new-s", projectId: "p1" };
   conversationResult: RpcResult<"session.conversation"> = { messages: [] };
-  modelsResult: RpcResult<"claude.models"> = {
+  modelsResult: RpcResult<"models.list"> = {
     models: [
       { value: "default", displayName: "Default" },
       { value: "opus", displayName: "Opus" },
@@ -156,8 +156,8 @@ export class FakeGateway implements EngineGateway {
   conversation(params: RpcParams<"session.conversation">) {
     return this.run("conversation", params, () => this.conversationResult);
   }
-  models() {
-    return this.run("models", {}, () => this.modelsResult);
+  models(params: RpcParams<"models.list">) {
+    return this.run("models", params, () => this.modelsResult);
   }
   stopAll() {
     return this.run("stopAll", {}, () => this.stopAllResult);

@@ -1,4 +1,5 @@
 import type { PermissionMode, RpcParams, RpcResult } from "@gravita/protocol";
+import type { AgentProvider } from "@gravita/protocol/constants";
 import { type GatewayError, toGatewayError } from "@/infrastructure/engine/GatewayError";
 import type { Slice } from "../store";
 
@@ -15,11 +16,14 @@ export interface ModelOption {
 export type ModelsStatus = "idle" | "loading" | "ready" | "failed";
 
 export interface ControlSlice {
-  /** Models Claude Code offers, loaded once from `claude.models`. */
-  models: ModelOption[];
-  modelsStatus: ModelsStatus;
-  /** Loads the models list unless it's loaded or loading (a failure can retry). */
-  loadModels: () => void;
+  /** Models each provider offers, loaded once per provider from `models.list`. */
+  models: Partial<Record<AgentProvider, ModelOption[]>>;
+  modelsStatus: Partial<Record<AgentProvider, ModelsStatus>>;
+  /**
+   * Loads a provider's models (Claude Code's by default) unless they're loaded or loading
+   * (a failure can retry).
+   */
+  loadModels: (provider?: AgentProvider) => void;
   /** The session just started from Gravita, until the projection catches up with it. */
   startingSessionId?: string;
   startSession: (
@@ -47,15 +51,20 @@ export async function done(call: () => Promise<unknown>): Promise<CommandResult>
 }
 
 export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) => ({
-  models: [],
-  modelsStatus: "idle",
-  loadModels: () => {
-    const status = get().modelsStatus;
+  models: {},
+  modelsStatus: {},
+  loadModels: (provider = "claude") => {
+    const status = get().modelsStatus[provider];
     if (status === "loading" || status === "ready") return;
-    set({ modelsStatus: "loading" });
-    gateway.models().then(
-      ({ models }) => set({ models, modelsStatus: "ready" }),
-      () => set({ modelsStatus: "failed" }),
+    const mark = (next: ModelsStatus, models?: ModelOption[]) =>
+      set((s) => ({
+        modelsStatus: { ...s.modelsStatus, [provider]: next },
+        ...(models ? { models: { ...s.models, [provider]: models } } : {}),
+      }));
+    mark("loading");
+    gateway.models({ provider }).then(
+      ({ models }) => mark("ready", models),
+      () => mark("failed"),
     );
   },
   startSession: async (params) => {

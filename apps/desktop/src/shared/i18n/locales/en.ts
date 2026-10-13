@@ -249,6 +249,8 @@ export const en = {
   "error.tooManySessions":
     "Too many sessions are running. Let one finish or interrupt it, then try again.",
   "error.notLoggedIn": "Claude Code isn't logged in.",
+  "error.codexUnavailable": "Codex isn't available on this Mac.",
+  "error.codexNotLoggedIn": "Codex isn't logged in.",
   "error.offline": "The Gravita engine isn't connected. Try again once it's back.",
   "error.timeout": "The engine didn't answer in time. Try again.",
   "error.generic": "Something went wrong: {message}",
