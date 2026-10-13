@@ -1,4 +1,11 @@
-import { estimatePlanCost, type SquadState, validatePlan } from "@gravita/core";
+import {
+  estimatePlanCost,
+  type ModelFamily,
+  modelFamily,
+  type PlanEstimate,
+  type SquadState,
+  validatePlan,
+} from "@gravita/core";
 import type { SquadPlan } from "@gravita/protocol";
 import { RotateCcw } from "lucide-react";
 import { useId, useMemo, useState } from "react";
@@ -31,6 +38,13 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
   const issues = useMemo(() => validatePlan(draft), [draft]);
   const pinned = useMemo(() => pinIssues(draft, issues), [draft, issues]);
   const estimate = useMemo(() => estimatePlanCost(draft, q.models), [draft, q.models]);
+  // Marked only when the squad mixes models: under "Opus everywhere" a mark says nothing.
+  const onOpus = useMemo(() => {
+    const opus = Object.entries(estimate.taskModels)
+      .filter(([, m]) => modelFamily(m) === "opus")
+      .map(([id]) => id);
+    return new Set(opus.length < draft.tasks.length ? opus : []);
+  }, [estimate, draft.tasks.length]);
   const approve = useSquadAction(useAppStore((s) => s.approvePlan));
   const edited = draft !== proposed;
   const order = useMemo(() => taskOrder(draft), [draft]);
@@ -86,7 +100,7 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
           </div>
           <ApproveBox
             squad={q}
-            estimateUsd={estimate.totalUsd}
+            estimate={estimate}
             issues={issues.length}
             edited={edited}
             busy={approve.busy}
@@ -195,6 +209,7 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
                     : {})}
                   issues={pinned.roles.get(r.id) ?? []}
                   taskIssues={pinned.tasks}
+                  onOpus={onOpus}
                   notes={notes}
                   edits={edits}
                 />
@@ -209,9 +224,12 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
   );
 }
 
+/** Cheapest last, so the eye lands on where the money goes. */
+const FAMILIES: readonly ModelFamily[] = ["opus", "sonnet", "haiku"];
+
 function ApproveBox({
   squad: q,
-  estimateUsd,
+  estimate,
   issues,
   edited,
   busy,
@@ -220,7 +238,7 @@ function ApproveBox({
   onApprove,
 }: {
   squad: SquadState;
-  estimateUsd: number;
+  estimate: PlanEstimate;
   issues: number;
   edited: boolean;
   busy: boolean;
@@ -228,13 +246,31 @@ function ApproveBox({
   onReset: () => void;
   onApprove: () => void;
 }) {
+  const estimateUsd = estimate.totalUsd;
   const over = estimateUsd > q.budgetUsd;
+  const byModel = FAMILIES.flatMap((f) => {
+    const usdOf = estimate.byModel[f];
+    return usdOf ? [{ f, usd: usdOf }] : [];
+  });
   return (
     <div className="flex w-[320px] flex-none flex-col gap-3 rounded-xl border border-hairline px-4 py-3.5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm text-ink-2">{t("squad.board.estimate")}</span>
         <span className="tabular text-xl font-medium text-ink">≈ {usd(estimateUsd)}</span>
       </div>
+      {byModel.length > 1 && (
+        <ul
+          aria-label={t("squad.board.byModel")}
+          className="-mt-2 flex flex-wrap justify-end gap-x-3 text-xs text-ink-2"
+        >
+          {byModel.map((m) => (
+            <li key={m.f}>
+              <span className="font-semibold">{t(`newSquad.model.${m.f}`)}</span>{" "}
+              <span className="tabular">≈ {usd(m.usd)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="-mt-2 text-xs text-ink-3">
         {over
           ? t("squad.board.overBudget", { budget: usd(q.budgetUsd) })

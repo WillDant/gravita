@@ -253,8 +253,12 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       expect(role?.options).toMatchObject({
         model: "opus",
         permissionMode: "acceptEdits",
-        settingSources: ["user", "project", "local"],
+        // Isolated from the user's own setup: repo settings only, Gravita's MCP only.
+        settingSources: ["project"],
+        strictMcpConfig: true,
+        skills: [],
       });
+      expect(Object.keys(role?.options.mcpServers ?? {})).toEqual(["gravita"]);
       expect(role?.options.env).toMatchObject({
         CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: "4",
         CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: "2",

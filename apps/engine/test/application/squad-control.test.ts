@@ -346,6 +346,13 @@ describe("tasks: retries and the user's decisions", () => {
         InvalidSquadPlanError,
       );
 
+      // Automatic: the error moved the automatic retry up a tier, Sonnet to Opus.
+      const backendModels = () =>
+        h.agents.filter((a) => a.isRole && roleOf(a) === "backend").map((a) => a.options.model);
+      expect(backendModels()).toEqual(["sonnet", "opus"]);
+      expect(q.tasks["api-1"]?.struggled).toEqual([1, 2]);
+
+      // The user's pick wins over the policy.
       h.squads.retryTask({ squadId, taskId: "api-1", model: "sonnet" });
       await h.squads.idle(squadId);
       q = h.squad(squadId);
@@ -393,8 +400,11 @@ describe("tasks: retries and the user's decisions", () => {
       expect(h.failures).toEqual([]);
       expect(q.merges["api-1:1"]?.state).toBe("reverted");
       expect(q.merges["api-1:2"]?.state).toBe("succeeded");
-      expect(q.tasks["api-1"]).toMatchObject({ status: "done", attempt: 2 });
+      expect(q.tasks["api-1"]).toMatchObject({ status: "done", attempt: 2, struggled: [1] });
       expect(prompts[1]).toContain("The no-broken check failed after the merge");
+      // The red check moved the next run up a tier.
+      const backend = h.agents.filter((a) => a.isRole && roleOf(a) === "backend");
+      expect(backend.map((a) => a.options.model)).toEqual(["sonnet", "opus"]);
       expect(q.phase).toBe("deliver");
     });
   });
@@ -406,7 +416,8 @@ describe("tasks: retries and the user's decisions", () => {
         tmp,
         script(async (a) => {
           await a.prompt(1);
-          if (roleOf(a) === "frontend") return work(a);
+          // The user's retry (on Opus, see below) does the work properly.
+          if (roleOf(a) === "frontend" || a.options.model === "opus") return work(a);
           await a.write({ "apps/web/mine-now.ts": "x\n" });
           for (let i = 0; i < 3; i++)
             replies.push((await a.tool("complete_task", { summary: "x" })).text);
@@ -421,6 +432,14 @@ describe("tasks: retries and the user's decisions", () => {
       expect(replies[0]).toContain("apps/web/mine-now.ts");
       expect(replies[2]).toContain("the task has failed");
       expect(q.commits.some((c) => c.taskId === "api-1")).toBe(false);
+      expect(q.tasks["api-1"]?.struggled).toEqual([1]);
+
+      // A plain retry after the failure runs a tier up, Sonnet to Opus.
+      h.squads.retryTask({ squadId, taskId: "api-1" });
+      await h.squads.idle(squadId);
+      const backend = h.agents.filter((a) => a.isRole && roleOf(a) === "backend");
+      expect(backend.map((a) => a.options.model)).toEqual(["sonnet", "opus"]);
+      expect(h.squad(squadId).tasks["api-1"]).toMatchObject({ status: "done", attempt: 2 });
     });
   });
 });
@@ -480,6 +499,7 @@ describe("role tools are bound to their session", () => {
       worktree: "/w",
       roleBranch: "b",
       integrationBranch: "i",
+      model: "sonnet",
       maxBudgetUsd: 1,
       bounces: 0,
       progressCount: 0,

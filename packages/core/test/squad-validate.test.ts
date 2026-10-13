@@ -29,6 +29,20 @@ const cases: [string, SquadPlan, PlanIssue[]][] = [
     ],
   ],
   [
+    "a trailing wildcard reads as the folder; other patterns are refused",
+    plan((p) => {
+      role(p, "backend").owns = ["apps/api/**"];
+      role(p, "frontend").owns.push("apps/web/*.ts");
+    }),
+    [
+      {
+        code: "path_pattern",
+        message: '"apps/web/*.ts" is a pattern; use a folder ("apps/api/") or a file path.',
+        path: "roles[2].owns[2]",
+      },
+    ],
+  ],
+  [
     "the integration role id is reserved",
     plan((p) => {
       p.roles.push({ ...role(p, "backend"), id: "integration", owns: ["apps/worker/"] });
@@ -292,6 +306,9 @@ describe("ownership helpers", () => {
   test("isWithin is segment-aware and ignores trailing slashes", () => {
     expect(isWithin("apps/api/src/x.ts", "apps/api/")).toBe(true);
     expect(isWithin("apps/api", "apps/api/")).toBe(true);
+    // A planner's "folder/**" is the folder.
+    expect(isWithin("apps/api/src/x.ts", "apps/api/**")).toBe(true);
+    expect(isWithin("apps/api-gateway/x.ts", "apps/api/*")).toBe(false);
     expect(isWithin("apps/api-gateway/x.ts", "apps/api")).toBe(false);
     expect(isWithin("apps", "apps/api")).toBe(false);
     expect(isWithin("anything", ".")).toBe(true);

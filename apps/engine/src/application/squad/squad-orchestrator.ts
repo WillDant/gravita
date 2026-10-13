@@ -1,11 +1,5 @@
 import { outsideOwnership, type SquadState, squadPlan, validatePlan } from "@gravita/core";
-import {
-  type DeliverMode,
-  keys,
-  type RpcParams,
-  type SquadModels,
-  type SquadPlan,
-} from "@gravita/protocol";
+import { type DeliverMode, keys, type RpcParams, type SquadPlan } from "@gravita/protocol";
 import {
   DirtyWorktreeError,
   InvalidCwdError,
@@ -16,7 +10,7 @@ import {
   SquadWorkspaceError,
   TooManySquadsError,
 } from "../../domain/errors";
-import { ACTIVE_PHASES, DEFAULT_SQUAD_MODELS, MAX_RUNNING_SQUADS } from "../../domain/squad-policy";
+import { ACTIVE_PHASES, MAX_RUNNING_SQUADS, squadModels } from "../../domain/squad-policy";
 import type { ClaudeEnvironmentSource } from "../ports/claude-environment";
 import type { Clock } from "../ports/clock";
 import type { GitWorkspace } from "../ports/git-workspace";
@@ -76,7 +70,7 @@ export class SquadOrchestrator {
     const baseBranch = await this.checkFolder(p.cwd);
     const project = await this.d.projects.execute(p.cwd, this.d.clock.iso());
     const squadId = this.newSquadId();
-    const models: SquadModels = { ...DEFAULT_SQUAD_MODELS, ...p.models };
+    const models = squadModels(p.models);
     this.d.emitter.emit("squad.created", keys.squadCreated(squadId), project.id, {
       squadId,
       cwd: p.cwd,

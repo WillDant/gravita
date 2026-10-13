@@ -1,8 +1,11 @@
+import { AUTO_MODELS, estimatePlanCost, MODEL_CHOICES, type SquadState } from "@gravita/core";
+import type { SquadModels } from "@gravita/protocol";
 import { RpcErrors } from "@gravita/protocol/constants";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { GatewayError } from "@/infrastructure/engine/GatewayError";
 import { setLocale } from "@/shared/i18n/i18n";
+import { usd } from "@/shared/presenters/money";
 import { FakeGateway, flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
 import { PLAN, PROJECT, SQ, type SquadFixture, squadFixture } from "@/test/squadFixtures";
@@ -24,9 +27,17 @@ afterAll(() => vi.unstubAllGlobals());
 
 async function renderSquad(
   kind: SquadFixture,
-  opts: { taskId?: string; gateway?: FakeGateway } = {},
+  opts: {
+    taskId?: string;
+    gateway?: FakeGateway;
+    models?: SquadModels;
+    edit?: (q: SquadState) => void;
+  } = {},
 ) {
   const data = squadFixture(kind);
+  const q = data.state.squads?.[SQ];
+  if (q && opts.models) q.models = opts.models;
+  if (q) opts.edit?.(q);
   const gateway = opts.gateway ?? new FakeGateway();
   gateway.conversationResult = { messages: data.conversation };
   const view = renderWithApp(
@@ -62,6 +73,14 @@ describe("Brief", () => {
     expect(gateway.callsOf("planSquad")).toEqual([{ squadId: SQ }]);
   });
 
+  it("names the squad's model choice, or an older squad's mix", async () => {
+    await renderSquad("brief", { models: { ...AUTO_MODELS } });
+    expect(screen.getByText("Automatic")).toBeTruthy();
+    cleanup();
+    await renderSquad("brief");
+    expect(screen.getByText("opus plans, sonnet builds")).toBeTruthy();
+  });
+
   it("keeps Generate plan off until the planner has said something", async () => {
     const gateway = new FakeGateway();
     const data = squadFixture("brief");
@@ -86,6 +105,31 @@ describe("Brief", () => {
 });
 
 describe("Board", () => {
+  const OPUS_MARK = "Runs on Opus: this one matters most to get right.";
+
+  it("estimates with the squad's model policy and marks the tasks that run on Opus", async () => {
+    await renderSquad("review", { models: { ...AUTO_MODELS } });
+    const est = estimatePlanCost(PLAN, AUTO_MODELS);
+    expect(screen.getByText(`≈ ${usd(est.totalUsd)}`)).toBeTruthy();
+    const byModel = screen.getByRole("list", { name: "The estimate by model" });
+    expect(byModel.textContent).toContain(`Opus ≈ ${usd(est.byModel.opus ?? 0)}`);
+    expect(byModel.textContent).toContain(`Sonnet ≈ ${usd(est.byModel.sonnet ?? 0)}`);
+    // The two foundation tasks (the scaffold and the contract) run on Opus.
+    const marked = screen
+      .getAllByTitle(OPUS_MARK)
+      .map((m) => m.closest("li")?.querySelector("h4")?.textContent);
+    expect(marked).toEqual(["Scaffold the API", "Todo API contract"]);
+  });
+
+  it("marks nothing and splits nothing when one model runs everything", async () => {
+    await renderSquad("review", { models: { ...MODEL_CHOICES.opus } });
+    const est = estimatePlanCost(PLAN, MODEL_CHOICES.opus);
+    expect(screen.getByText(`≈ ${usd(est.totalUsd)}`)).toBeTruthy();
+    expect(est.totalUsd).toBeGreaterThan(estimatePlanCost(PLAN, AUTO_MODELS).totalUsd);
+    expect(screen.queryAllByTitle(OPUS_MARK)).toEqual([]);
+    expect(screen.queryByRole("list", { name: "The estimate by model" })).toBeNull();
+  });
+
   it("sends the answers to the planner's questions with the approval", async () => {
     const { gateway } = await renderSquad("review");
     fireEvent.change(screen.getByLabelText(PLAN.questions[0] as string), {
@@ -186,6 +230,18 @@ describe("Run", () => {
       { squadId: SQ, taskId: "tests-api" },
       { squadId: SQ, taskId: "tests-api", model: "opus" },
     ]);
+  });
+
+  it("offers no stronger model when the policy already stepped the task up to Opus", async () => {
+    await renderSquad("run", {
+      models: { ...AUTO_MODELS },
+      edit: (q) => {
+        const task = q.tasks["tests-api"];
+        if (task) task.struggled = [1];
+      },
+    });
+    await click("Retry");
+    expect(screen.queryByRole("button", { name: "Retry with Opus" })).toBeNull();
   });
 
   it("skips a stuck task after a confirmation", async () => {

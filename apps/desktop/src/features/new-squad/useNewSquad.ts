@@ -1,3 +1,4 @@
+import { MODEL_CHOICES, type ModelChoice } from "@gravita/core";
 import type { SquadAutonomy } from "@gravita/protocol";
 import { useState } from "react";
 import { useNavigate } from "@/app/providers";
@@ -9,8 +10,8 @@ export type SquadField = "folder" | "goal" | "budget";
 /** What a squad may spend unless the user says otherwise. */
 export const DEFAULT_BUDGET_USD = 25;
 export const MAX_BUDGET_USD = 1_000;
-/** Squads plan and build with Opus unless the user picks another model. */
-export const DEFAULT_SQUAD_MODEL = "opus";
+/** Squads run the Automatic (cost-benefit) model policy unless the user picks otherwise. */
+export const DEFAULT_MODEL_CHOICE: ModelChoice = "auto";
 
 export interface NewSquadForm {
   folder: string;
@@ -18,14 +19,12 @@ export interface NewSquadForm {
   /** As typed, so "12." can be on its way to "12.5". */
   budget: string;
   autonomy: SquadAutonomy;
-  plannerModel: string;
-  rolesModel: string;
+  models: ModelChoice;
   setFolder: (v: string) => void;
   setGoal: (v: string) => void;
   setBudget: (v: string) => void;
   setAutonomy: (v: SquadAutonomy) => void;
-  setPlannerModel: (v: string) => void;
-  setRolesModel: (v: string) => void;
+  setModels: (v: ModelChoice) => void;
   busy: boolean;
   /** The first field that stopped the last attempt. */
   invalid?: SquadField;
@@ -46,8 +45,7 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
   const [goal, setGoal] = useState("");
   const [budget, setBudget] = useState(String(DEFAULT_BUDGET_USD));
   const [autonomy, setAutonomy] = useState<SquadAutonomy>("guarded");
-  const [plannerModel, setPlannerModel] = useState(DEFAULT_SQUAD_MODEL);
-  const [rolesModel, setRolesModel] = useState(DEFAULT_SQUAD_MODEL);
+  const [models, setModels] = useState<ModelChoice>(DEFAULT_MODEL_CHOICE);
   const [busy, setBusy] = useState(false);
   const [invalid, setInvalid] = useState<SquadField>();
   const [error, setError] = useState<ErrorView>();
@@ -73,7 +71,7 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
       brief,
       budgetUsd: Math.round(usd * 100) / 100,
       autonomy,
-      models: { planner: plannerModel, roles: rolesModel },
+      models: { ...MODEL_CHOICES[models] },
     }).then((r) => {
       setBusy(false);
       if (r.ok)
@@ -91,8 +89,7 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
     goal,
     budget,
     autonomy,
-    plannerModel,
-    rolesModel,
+    models,
     setFolder: (v) => {
       setFolder(v);
       clear("folder");
@@ -106,8 +103,7 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
       clear("budget");
     },
     setAutonomy,
-    setPlannerModel,
-    setRolesModel,
+    setModels,
     busy,
     invalid,
     error,

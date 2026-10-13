@@ -8,7 +8,7 @@ import {
 } from "../../src/domain/autonomy-policy";
 import { guardToolCall, type OwnershipScope } from "../../src/domain/ownership-guard";
 import { simpleCommands } from "../../src/domain/shell-command";
-import { plannerBudget, taskBudget } from "../../src/domain/squad-policy";
+import { plannerBudget, squadEnv, squadModels, taskBudget } from "../../src/domain/squad-policy";
 import { testPlan } from "../git-helpers";
 
 const WT = "/data/worktrees/p1/q1/frontend";
@@ -252,5 +252,44 @@ describe("budget slices", () => {
       roles: plan.roles.map((r) => (r.id === "backend" ? { ...r, budgetUsd: 4 } : r)),
     };
     expect(taskBudget(withRole, models, 20, "api-1")).toBe(4);
+  });
+
+  test("a task's share prices it at the model its run uses", () => {
+    const plan = testPlan();
+    const auto = squadModels();
+    // Both small tasks on Sonnet under Automatic: half each, times 1.5.
+    expect(taskBudget(plan, auto, 20, "api-1")).toBeCloseTo(15);
+    // An escalated run on Opus is the bigger share of the same squad budget.
+    const escalated = taskBudget(plan, auto, 20, "api-1", "opus");
+    expect(escalated).toBeGreaterThan(15);
+    expect(escalated).toBeLessThanOrEqual(20);
+  });
+});
+
+describe("model policy", () => {
+  test("new squads run Automatic; a client's planner and roles alone mean fixed models", () => {
+    expect(squadModels()).toEqual({
+      mode: "auto",
+      briefing: "sonnet",
+      planner: "opus",
+      roles: "sonnet",
+    });
+    expect(squadModels({ planner: "opus", roles: "opus" })).toEqual({
+      mode: "fixed",
+      planner: "opus",
+      roles: "opus",
+    });
+    expect(squadModels({ mode: "auto", planner: "opus", roles: "haiku" })).toEqual({
+      mode: "auto",
+      briefing: "sonnet",
+      planner: "opus",
+      roles: "haiku",
+    });
+  });
+
+  test("subagents run on Haiku under Automatic only", () => {
+    expect(squadEnv(squadModels())).toEqual({ CLAUDE_CODE_SUBAGENT_MODEL: "haiku" });
+    expect(squadEnv({ mode: "fixed", planner: "opus", roles: "opus" })).toEqual({});
+    expect(squadEnv({ planner: "opus", roles: "opus" })).toEqual({});
   });
 });

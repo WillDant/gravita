@@ -1,4 +1,4 @@
-import { modelFamily, outsideOwnership, type SquadState } from "@gravita/core";
+import { modelFamily, outsideOwnership, type SquadState, squadTaskModel } from "@gravita/core";
 import { useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { roleCode, roleColorKey } from "@/shared/presenters/squad";
@@ -8,11 +8,13 @@ import { useAppStore } from "@/state/hooks";
 import type { SquadView, TaskView } from "../model";
 import { useSquadAction } from "../useSquadAction";
 
-/** The model a stuck task can retry with, when the role doesn't use it already. */
+/**
+ * The model a stuck task can retry with, when its next run wouldn't use it already (the
+ * squad's policy may have stepped it up to Opus by itself).
+ */
 export function strongerModel(q: SquadState, view: SquadView, task: TaskView): string | undefined {
-  const role = view.plan?.roles.find((r) => r.id === task.role);
-  const current = role?.model ?? q.models.roles;
-  return modelFamily(current) === "opus" ? undefined : "opus";
+  const next = view.plan ? squadTaskModel(q, view.plan, task.task.id) : undefined;
+  return modelFamily(next ?? q.models.roles) === "opus" ? undefined : "opus";
 }
 
 /**

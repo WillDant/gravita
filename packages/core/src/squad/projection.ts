@@ -110,6 +110,12 @@ function addOnce<T>(list: T[], item: T) {
   if (!list.includes(item)) list.push(item);
 }
 
+/** The struggled attempts with `attempt` added once, ascending. */
+function withStruggle(list: number[] | undefined, attempt: number | undefined) {
+  if (attempt === undefined || list?.includes(attempt)) return list;
+  return [...(list ?? []), attempt].sort((a, b) => a - b);
+}
+
 /** Applies a squad event. Returns false for any other event type. */
 export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
   switch (e.type) {
@@ -212,12 +218,18 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
 
     case "task.status_changed": {
       const prev = q.tasks[e.data.taskId];
+      // A struggle is a fact about an attempt, kept whatever order the statuses come in.
+      const struggled = withStruggle(prev?.struggled, e.data.struggledAttempt);
+      if (prev && e.data.attempt < prev.attempt) {
+        if (struggled) prev.struggled = struggled;
+        return true;
+      }
       // A newer attempt wins; within one attempt, source order wins.
-      if (prev && e.data.attempt < prev.attempt) return true;
       const task: SquadTaskState = {
         status: e.data.status,
         attempt: e.data.attempt,
         role: e.data.role,
+        ...(struggled ? { struggled } : {}),
         updatedTs: e.ts,
       };
       // Later statuses of the same run (review, done) may omit the session; keep it.

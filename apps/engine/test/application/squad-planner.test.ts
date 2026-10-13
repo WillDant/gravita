@@ -70,7 +70,12 @@ describe("briefing", () => {
         disallowedTools: ["Write", "Edit", "NotebookEdit", "Bash", "MultiEdit"],
         // Not dontAsk: that would deny AskUserQuestion before it reaches the user.
         permissionMode: "default",
-        model: "opus",
+        // Isolated from the user's own Claude Code setup (their MCP servers, plugins, skills).
+        settingSources: ["project"],
+        strictMcpConfig: true,
+        skills: [],
+        // Automatic: the conversation runs on Sonnet (the plan itself on Opus).
+        model: "sonnet",
         maxTurns: 30,
         // A twentieth of $30, at least $0.50.
         maxBudgetUsd: 1.5,
@@ -92,7 +97,7 @@ describe("briefing", () => {
         squadId,
         roleId: "planner",
         cwd,
-        model: "opus",
+        model: "sonnet",
       });
       expect(h.events("message.user")[0]?.data).toMatchObject({
         textPreview: "A todo app",
@@ -183,7 +188,12 @@ describe("planner", () => {
       expect(q.phase).toBe("review");
       expect(q.planStatus).toBe("proposed");
       expect(q.planAttempts).toBe(2);
-      expect(q.models).toEqual({ planner: "opus", roles: "opus" });
+      expect(q.models).toEqual({
+        mode: "auto",
+        briefing: "sonnet",
+        planner: "opus",
+        roles: "sonnet",
+      });
       expect(q.baseBranch).toBe("main");
       const rejected = h.events("plan.rejected")[0];
       expect(rejected?.data).toMatchObject({ attempt: 1 });

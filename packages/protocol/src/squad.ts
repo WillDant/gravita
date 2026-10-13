@@ -122,7 +122,28 @@ export type TaskStatus = z.infer<typeof TaskStatus>;
 export const SquadAutonomy = z.enum(["ask", "guarded", "auto"]);
 export type SquadAutonomy = z.infer<typeof SquadAutonomy>;
 
-export const SquadModels = z.object({ planner: z.string(), roles: z.string() });
+/**
+ * How a squad picks its models. `auto` is Gravita's cost-benefit policy (core's pickModel):
+ * a cheaper model where the work is routine, the strongest where a mistake costs most.
+ * `fixed` runs one model per job, as the user picked it.
+ */
+export const SquadModelMode = z.enum(["auto", "fixed"]);
+export type SquadModelMode = z.infer<typeof SquadModelMode>;
+
+/**
+ * Which models a squad runs. Under `mode: "auto"` the briefing runs on `briefing`, the
+ * planning run on `planner`, everyday tasks on `roles`, and high-leverage or struggling
+ * tasks a tier up. Under `fixed` (or no mode: squads made before the policy) the briefing
+ * and planning run on `planner` and every task on `roles`. A plan role's own `model` wins
+ * over both.
+ */
+export const SquadModels = z.object({
+  planner: z.string(),
+  roles: z.string(),
+  /** The briefing conversation's model; `planner` when absent. */
+  briefing: z.string().optional(),
+  mode: SquadModelMode.optional(),
+});
 export type SquadModels = z.infer<typeof SquadModels>;
 
 export const BudgetScope = z.enum(["task", "role", "squad"]);

@@ -72,9 +72,10 @@ export class BudgetGuard {
   /**
    * What a task's session may spend: its own slice (the role's budget when set), within what
    * is left of its role, and within its share of what is left of the squad among the
-   * `concurrent` sessions that will run side by side (this one included).
+   * `concurrent` sessions that will run side by side (this one included). `model` is the
+   * one the run uses, so the slice follows the policy's (or the user's) choice.
    */
-  forTask(q: SquadState, taskId: string, roleId: string, concurrent = 1): number {
+  forTask(q: SquadState, taskId: string, roleId: string, concurrent = 1, model?: string): number {
     const plan = squadPlan(q);
     if (!plan) return 0;
     const roleLimit = roleBudget(q, roleId);
@@ -82,7 +83,7 @@ export class BudgetGuard {
     const limits = [
       roleLimit !== undefined
         ? Math.min(roleLimit, q.budgetUsd)
-        : taskBudget(plan, q.models, q.budgetUsd, taskId),
+        : taskBudget(plan, q.models, q.budgetUsd, taskId, model),
       left / Math.max(1, concurrent),
     ];
     if (roleLimit !== undefined) limits.push(roleLimit - (q.roles[roleId]?.spentUsd ?? 0));
