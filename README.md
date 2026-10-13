@@ -11,6 +11,7 @@ When Claude Code fans out into subagents, it gets hard to tell who is doing what
 - **Home:** every project with agents running, like a service status board, plus a "Needs you" list that says exactly which subagent of which session is asking.
 - **Project:** all sessions in a repo (worktrees included), with their lines, status and token use.
 - **Session:** the live line map, an Orbit lens (the project as a sun, agents as planets, subagents as moons), the conversation, a plain-language "What's happening" column, and a tree lens. Start and steer Claude Code chats right there: approve tools, answer questions, interrupt, switch model or mode.
+- **Squads:** describe a goal and a team of role agents (backend, frontend, tests…) builds it in parallel git worktrees. You approve the plan first; each role can only change its own paths; Gravita commits, merges and runs the checks; a budget caps the spend; you deliver by merge, pull request or branch. See [docs/squad.md](docs/squad.md).
 - **Tray and notifications:** close the window and agents keep running; the menu-bar icon shows who is waiting and stops every Gravita agent at once, and the OS tells you when someone needs you.
 - **Agent panel:** what the agent is doing now, what it did (Story → Steps → Raw), its subagents and the files it touched.
 - Sessions you start in your own terminal show up on their own. Gravita reads Claude Code's transcripts (read-only) and its live session registry.
@@ -26,7 +27,7 @@ Transcripts don't say when a terminal session is waiting on a permission dialog.
 
 On Claude Code 2.1.275 or later: `/plugin install deep-observe --marketplace WillDant/gravita`. The hooks never block or answer anything, and never send your prompts. See [docs/deep-observe.md](docs/deep-observe.md).
 
-Coming next: starting chats from Gravita with an approvals inbox (M1), and **Squads**: a planner, backend, frontend, design and tests team working in parallel worktrees with shared context and enforced file ownership (M2).
+Coming next: **Codex support** (OpenAI's coding agent, with "Sign in with ChatGPT"), then polish and a public launch. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Your account, your machine
 

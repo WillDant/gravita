@@ -41,7 +41,7 @@ export const NAMED: Record<string, AgentColor> = {
   Explore: C("#0e9f9a", "#2ec4be", "#0b7f7b"),
   Plan: C("#f0552f", "#ff7a59", "#c63d1d"),
   "general-purpose": C("#2f7df6", "#5b9bff", "#1f66d1"),
-  // Squad roles (M2) reuse these slots.
+  // Squad roles reuse these slots.
   planner: C("#5b47f0", "#7c6cf7", "#4c3bd9"),
   backend: C("#2f7df6", "#5b9bff", "#1f66d1"),
   frontend: C("#f0552f", "#ff7a59", "#c63d1d"),
