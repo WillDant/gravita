@@ -18,11 +18,16 @@ import type { StopAllSessions } from "../../application/usecases/stop-all-sessio
 import {
   BypassLockedError,
   ClaudeUnavailableError,
+  DirtyWorktreeError,
+  GhUnavailableError,
   InvalidAnswerError,
   InvalidCwdError,
+  InvalidSquadPlanError,
+  NotARepositoryError,
   NotControllableError,
   NotLoggedInError,
   SquadsUnavailableError,
+  SquadWorkspaceError,
   TooManySessionsError,
 } from "../../domain/errors";
 
@@ -110,7 +115,7 @@ const isRouted = (handlers: RpcHandlers, method: string): method is RoutedMethod
   Object.hasOwn(handlers, method);
 
 /** Maps a failure of a use case to the error the client sees. */
-function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
+export function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
   if (err instanceof NotControllableError) return RpcErrors.notControllable;
   if (err instanceof ClaudeUnavailableError) return RpcErrors.claudeUnavailable;
   if (err instanceof InvalidCwdError) return RpcErrors.invalidCwd;
@@ -118,6 +123,16 @@ function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
   if (err instanceof NotLoggedInError) return RpcErrors.notLoggedIn;
   if (err instanceof InvalidAnswerError) return RpcErrors.badRequest;
   if (err instanceof SquadsUnavailableError)
+    return { code: RpcErrors.squadPhase.code, message: err.message };
+  // Squad workspace errors keep their message: it says what the user should do.
+  if (err instanceof DirtyWorktreeError) return RpcErrors.dirtyWorktree;
+  if (err instanceof GhUnavailableError)
+    return { code: RpcErrors.ghUnavailable.code, message: err.message };
+  if (err instanceof NotARepositoryError)
+    return { code: RpcErrors.invalidCwd.code, message: err.message };
+  if (err instanceof InvalidSquadPlanError)
+    return { code: RpcErrors.invalidPlan.code, message: err.message };
+  if (err instanceof SquadWorkspaceError)
     return { code: RpcErrors.squadPhase.code, message: err.message };
   if (err instanceof BypassLockedError)
     return { code: RpcErrors.badRequest.code, message: err.message };

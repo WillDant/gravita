@@ -80,6 +80,8 @@ describe("runtime file and Deep Observe hooks", () => {
       });
       expect(runtime.hookToken).toMatch(/^[0-9a-f]{64}$/);
       expect((await stat(path)).mode & 0o777).toBe(0o600);
+      // Squads' worktrees get an owner-only home next to the database.
+      expect((await stat(join(dataDir, "worktrees"))).mode & 0o777).toBe(0o700);
 
       const hook = (token: string) =>
         fetch(`http://127.0.0.1:${runtime.port}/hooks`, {
