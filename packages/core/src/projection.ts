@@ -1,5 +1,6 @@
 import type { GravitaEvent } from "@gravita/protocol";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
+import { advanceMeter, isCounting, isPlanWindow, meterKey } from "./squad/plan-usage";
 import { applySquad, linkSquadSession, recomputeSpend } from "./squad/projection";
 import {
   type AgentNode,
@@ -9,6 +10,7 @@ import {
   type SessionState,
   TERMINAL,
   type Tokens,
+  usageKey,
   ZERO_TOKENS,
 } from "./state";
 
@@ -131,8 +133,13 @@ function squadSpend(state: GravitaState, s: SessionState) {
  * same projection, and duplicates are filtered upstream by idempotency keys.
  */
 export function apply(state: GravitaState, e: GravitaEvent): void {
-  // Snapshots from before squads lack the map.
+  // Snapshots from before squads (and before plan usage) lack the maps.
   state.squads ??= {};
+  state.usage ??= {};
+  if (e.type === "usage.limits") {
+    applyUsage(state, e);
+    return;
+  }
   if (e.type === "project.discovered") {
     const p = ensureProject(state, e.projectId, e.data.root, e.ts);
     p.name = e.data.name;
@@ -348,6 +355,40 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
     case "todo.updated":
     case "compact.happened":
       return;
+  }
+}
+
+/**
+ * Keeps the latest reading of a plan window and moves every plan squad's meter of that
+ * provider and window. Account-wide: it belongs to no session or project. An older reading
+ * than the one kept changes nothing.
+ */
+function applyUsage(state: GravitaState, e: Extract<GravitaEvent, { type: "usage.limits" }>) {
+  const d = e.data;
+  const key = usageKey(d.provider, d.window, d.model);
+  const prev = state.usage[key];
+  if (prev && prev.ts > e.ts) return;
+  state.usage[key] = {
+    provider: d.provider,
+    window: d.window,
+    ...(d.model ? { model: d.model } : {}),
+    usedPercent: d.usedPercent,
+    ...(d.resetsAt ? { resetsAt: d.resetsAt } : {}),
+    ...(d.planType ? { planType: d.planType } : {}),
+    ...(d.status ? { status: d.status } : {}),
+    ts: e.ts,
+  };
+  if (d.model || !isPlanWindow(d.window)) return;
+  const sample = {
+    usedPercent: d.usedPercent,
+    ts: e.ts,
+    ...(d.resetsAt ? { resetsAt: d.resetsAt } : {}),
+  };
+  for (const q of Object.values(state.squads)) {
+    if (!isCounting(q)) continue;
+    const meters = q.budget.meters;
+    const m = meters?.[meterKey(d.provider, d.window)];
+    if (meters && m) meters[meterKey(d.provider, d.window)] = advanceMeter(m, sample);
   }
 }
 
