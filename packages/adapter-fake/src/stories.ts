@@ -19,6 +19,7 @@ export const DEMO_PROJECTS = {
   gravita: project("gravita-demo"),
   landing: project("landing-site"),
   payments: project("payments-api"),
+  todo: project("todo-app"),
 } as const;
 
 export function projectDiscovered(p: ProjectInfo): Timed {

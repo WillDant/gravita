@@ -19,7 +19,7 @@ describe("demo scenario", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  test("covers every tool kind, permissions, usage and both projects", () => {
+  test("covers every tool kind, permissions, usage and every project", () => {
     const events = scenarioEvents({ seed: 1, now: NOW }, SPAN);
     const kinds = new Set(events.flatMap((e) => (e.type === "tool.started" ? [e.data.kind] : [])));
     for (const k of ["read", "search", "edit", "write", "bash", "web", "agent", "mcp", "todo"]) {
@@ -45,7 +45,12 @@ describe("demo scenario", () => {
     expect(asks).toContain("pnpm add jose");
     expect(events.some((e) => e.type === "usage.reported")).toBe(true);
     expect(new Set(events.map((e) => e.projectId))).toEqual(
-      new Set([DEMO_PROJECTS.gravita.id, DEMO_PROJECTS.landing.id, DEMO_PROJECTS.payments.id]),
+      new Set([
+        DEMO_PROJECTS.gravita.id,
+        DEMO_PROJECTS.landing.id,
+        DEMO_PROJECTS.payments.id,
+        DEMO_PROJECTS.todo.id,
+      ]),
     );
   });
 
