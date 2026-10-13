@@ -1,3 +1,15 @@
+export {
+  type HookContext,
+  type HookMapping,
+  type HookSignal,
+  type HookToolCall,
+  hookAgentId,
+  hookSessionStartedKey,
+  inputKeyOf,
+  mapHook,
+  stableJson,
+} from "./hooks/map-hook";
+export { HOOK_EVENTS, type HookEventName, HookPayload, parseHookPayload } from "./hooks/payload";
 export { type SdkMapperOptions, SdkSessionMapper } from "./sdk/map-sdk-message";
 export type {
   SdkConversationMessage,
