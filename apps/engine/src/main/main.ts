@@ -33,8 +33,11 @@ async function main() {
   const shutdown = (code = 0) => {
     if (exiting) return;
     exiting = true;
-    engine?.stop();
-    process.exit(code);
+    // Close the sessions Gravita runs (their claude processes) before the database.
+    const stopped = engine?.stop() ?? Promise.resolve();
+    stopped
+      .catch((err) => stderrLogger.log("shutdown failed", err))
+      .finally(() => process.exit(code));
   };
   process.on("SIGINT", () => shutdown());
   process.on("SIGTERM", () => shutdown());

@@ -16,7 +16,7 @@ export interface FileContext {
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 12);
 
 /** Slash commands and their output are recorded as user turns; they aren't human prompts. */
-function isCommandEcho(text: string): boolean {
+export function isCommandEcho(text: string): boolean {
   return /^\s*<(command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat)>/.test(
     text,
   );

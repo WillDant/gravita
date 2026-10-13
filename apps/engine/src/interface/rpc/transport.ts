@@ -20,6 +20,7 @@ import { INTERNAL_ERROR, type RpcError, type RpcRouter } from "./router";
 
 export const TAURI_ORIGINS = ["tauri://localhost", "http://tauri.localhost"];
 export const WS_PATH = "/ws";
+export const MAX_PAYLOAD_BYTES = 256 * 1024;
 
 export interface TransportOptions {
   port: number;
@@ -132,7 +133,8 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
       return new Response("Not found", { status: 404 });
     },
     websocket: {
-      maxPayloadLength: 64 * 1024,
+      // session.start/send allow 32k characters; escaped or multi-byte text can be ~6× that.
+      maxPayloadLength: MAX_PAYLOAD_BYTES,
       open(ws) {
         ws.data.timer = setTimeout(() => {
           if (!ws.data.authed) ws.close(UNAUTHORIZED_CLOSE, "Auth timeout");

@@ -27,3 +27,12 @@ Both apps use layers with one dependency rule: **domain ← application ← infr
 
 ## Consequences
 Use cases and the router are tested without SQLite, sockets or timers, and the desktop store with a fake gateway. M1b adds the Agent SDK as one more `SessionRuntime` plus use cases, without touching the transport or the projection. The cost is more files and an explicit wiring step in the container.
+
+## Addendum (M1b): driving sessions through the Agent SDK
+
+- **Ports added:** `ChatRuntimeFactory` (creates a `SessionRuntime` for a new chat), `ClaudeEnvironment` (the user's `claude` path and an allowlisted login-shell env), `Workspace` (is this folder a directory), `TranscriptReader` (full conversation text, read-only), `IdGenerator`.
+- **`SessionRuntime` grew** `send`, `interrupt`, `stopAgent`, `setModel`, `setPermissionMode` and `answerQuestion`. Each control has its own use case (`StartChat`, `SendMessage`, `InterruptSession`, `StopAgent`, `SetModel`, `SetPermissionMode`, `AnswerQuestion`, `GetConversation`, `ListModels`) and an RPC method in `RpcContract`.
+- **`PermissionBroker`** turns the SDK's `canUseTool` callback into `permission.requested` / `question.asked` events and back into answers.
+- **`ClaudeSdkRuntime`** (infrastructure) is the only code that imports the SDK. It runs the user's own `claude` via `pathToClaudeCodeExecutable`; SDK messages go through the pure `SdkSessionMapper` in adapter-claude, which reuses the transcript normaliser so both sources produce identical keys.
+- **Policies in `domain/`:** at most six chat sessions at once; bypass mode only when a session starts (`BypassLockedError`), never switched on later.
+- **One writer per session:** a registered runtime owns its session, so the transcript tailer skips it until the runtime ends.

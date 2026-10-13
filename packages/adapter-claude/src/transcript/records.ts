@@ -31,6 +31,8 @@ export interface RawRecord {
   agentId?: string;
   isSidechain?: boolean;
   isMeta?: boolean;
+  /** The summary that continues a compacted session (not something the user typed). */
+  isCompactSummary?: boolean;
   timestamp?: string;
   cwd?: string;
   gitBranch?: string;
