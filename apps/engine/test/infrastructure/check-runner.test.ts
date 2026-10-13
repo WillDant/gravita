@@ -38,9 +38,10 @@ describe("BunCheckRunner", () => {
     async () => {
       await withTempDir(async (root) => {
         // exitCode, not process.exit(): on Linux, Node writes to a pipe asynchronously and
-        // exit() would drop most of the output before it reaches the runner.
+        // exit() would drop most of the output before it reaches the runner. Everything
+        // goes to stdout so its order is fixed; stdout and stderr interleave by arrival.
         const script =
-          "for (let i = 0; i < 5000; i++) console.log('line ' + i); console.error('the end'); process.exitCode = 3";
+          "for (let i = 0; i < 5000; i++) console.log('line ' + i); console.log('the end'); process.exitCode = 3";
         const o = await runner().run({ argv: ["node", "-e", script], root, cwd: "." });
         expect(o).toMatchObject({ ok: false, exitCode: 3, timedOut: false });
         expect(o.output.length).toBeLessThanOrEqual(CHECK_OUTPUT_CAP);
