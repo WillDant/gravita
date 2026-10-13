@@ -78,12 +78,22 @@ const waitForever: AgentScript = async (a) => {
 describe("budgets", () => {
   test("a squad out of budget interrupts every session (disposing a stuck one after 5 s), pauses, and goes on with a raised budget", async () => {
     await withTempDir(async (tmp) => {
+      // The backend spends the budget only once the frontend is running too; otherwise, on
+      // a busy machine, the squad would pause before the frontend ever started.
+      let frontendStarted!: () => void;
+      const bothRunning = new Promise<void>((resolve) => {
+        frontendStarted = resolve;
+      });
       const h = squadCore(
         tmp,
         script(async (a) => {
           await a.prompt(1);
           if (a.options.resume) return work(a);
-          if (roleOf(a) === "backend") return a.result({ cost: 2.5 });
+          if (roleOf(a) === "backend") {
+            await bothRunning;
+            return a.result({ cost: 2.5 });
+          }
+          frontendStarted();
           // The frontend's session ignores the interrupt: Gravita disposes it after the grace.
           a.onInterrupt = () => {};
           await never();
