@@ -12,6 +12,7 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "check:bundle": "bun tools/check-bundle.ts",
     "lint": "biome check .",
     "format": "biome format --write ."
   },

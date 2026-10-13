@@ -20,3 +20,5 @@ apps/desktop/src-tauri/binaries/*
 .impeccable/build/
 .playwright-mcp/
 *.bun-build
+# Test runner caches
+.vitest/
