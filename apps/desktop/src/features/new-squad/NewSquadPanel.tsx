@@ -365,7 +365,7 @@ function PlanShareField({
             ))}
           </select>
         </div>
-        <span className={cn("tabular text-xs", reading ? "text-ink-2" : "text-ink-3")}>
+        <span className={cn("text-xs tabular-nums", reading ? "text-ink-2" : "text-ink-3")}>
           {reading ? windowLine(reading, now) : t("newSquad.budget.unknown")}
         </span>
       </div>
