@@ -150,7 +150,14 @@ export class ClaudeSdkRuntime implements ChatRuntime {
       cwd: s.cwd,
       // Resuming continues the session under its own id; a new one is started with ours.
       ...(s.resume ? { resume: s.sessionId } : { sessionId: s.sessionId }),
-      settingSources: ["user", "project", "local"],
+      // A chat is the user's own Claude Code: their settings, MCP servers, plugins and
+      // skills. A squad session is isolated: only the repo's CLAUDE.md and project
+      // settings, and no MCP server but Gravita's. Otherwise every squad agent carries the
+      // user's whole setup (hundreds of thousands of tokens of tool definitions on each
+      // call) and tools no autonomous agent should hold, like sending messages.
+      ...(this.kind === "squad"
+        ? { settingSources: ["project"], strictMcpConfig: true, skills: [] }
+        : { settingSources: ["user", "project", "local"] }),
       systemPrompt: {
         type: "preset",
         preset: "claude_code",

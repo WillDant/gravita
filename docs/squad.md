@@ -49,6 +49,8 @@ If you use a Claude subscription rather than an API key, the amounts are what th
 
 Whatever you choose, a role can never edit another role's folders, the shared files (lockfiles, the root `package.json`, CI config), or anything outside its own copy of the repository, and it can't commit, push, merge or switch branches: Gravita does all of that.
 
+Squad agents also don't inherit your personal Claude Code setup. They load the repository's own `CLAUDE.md` and project settings, but not your user settings, MCP servers, plugins or skills: an autonomous agent shouldn't hold tools like sending messages on your behalf, and carrying a large personal setup into every call multiplies the cost. Chats you start in Gravita are your own Claude Code and keep all of it.
+
 ## What Gravita does to your repository
 
 - **An empty folder** becomes a git repository on `main` with one first commit (a `.gitignore`), when you approve the plan.

@@ -70,6 +70,10 @@ describe("briefing", () => {
         disallowedTools: ["Write", "Edit", "NotebookEdit", "Bash", "MultiEdit"],
         // Not dontAsk: that would deny AskUserQuestion before it reaches the user.
         permissionMode: "default",
+        // Isolated from the user's own Claude Code setup (their MCP servers, plugins, skills).
+        settingSources: ["project"],
+        strictMcpConfig: true,
+        skills: [],
         // Automatic: the conversation runs on Sonnet (the plan itself on Opus).
         model: "sonnet",
         maxTurns: 30,
