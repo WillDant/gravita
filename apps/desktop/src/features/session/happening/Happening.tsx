@@ -1,11 +1,11 @@
 import type { AgentNode, SessionState } from "@gravita/core";
 import { toPersona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { Orb } from "@/features/agents/Orb";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
 import { QuestionCard } from "@/features/questions/QuestionCard";
 import { firstQuestion } from "@/features/questions/questions";
 import { ago, t } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary, toolShort } from "@/shared/presenters/agent";
 import { liveAgents } from "@/shared/presenters/selectors";
 import { cn } from "@/shared/utils";

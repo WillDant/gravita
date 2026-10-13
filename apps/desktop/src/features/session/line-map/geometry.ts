@@ -1,6 +1,6 @@
 import type { Lifecycle, Line, LineMap, Station } from "@gravita/core";
 import { TERMINAL } from "@gravita/core";
-import { lineCode } from "@/shared/palette";
+import { lineCode } from "@gravita/orbs";
 
 // Pure layout of the line map: from the timeline (lines, stations, columns) and the
 // frame size to positioned primitives. No React, no i18n, no DOM. Render components

@@ -29,6 +29,9 @@ importers:
       '@gravita/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@gravita/orbs':
+        specifier: workspace:*
+        version: link:../../packages/orbs
       '@gravita/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -169,6 +172,16 @@ importers:
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
+
+  packages/orbs:
+    dependencies:
+      '@gravita/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/bun':
+        specifier: 1.4.3
+        version: 1.4.3
 
   packages/protocol:
     dependencies:

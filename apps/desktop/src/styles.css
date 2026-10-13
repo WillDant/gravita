@@ -150,7 +150,7 @@ input {
 /* Persona motion. Every loop is opt-in through prefers-reduced-motion. */
 @media (prefers-reduced-motion: no-preference) {
   .orb-breathe {
-    animation: orb-breathe var(--orb-breath, 3.6s) ease-in-out infinite;
+    animation: orb-breathe var(--orb-breath, 3.2s) ease-in-out infinite;
     transform-origin: center;
     transform-box: fill-box;
   }

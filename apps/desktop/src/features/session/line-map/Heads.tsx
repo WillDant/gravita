@@ -1,6 +1,6 @@
 import type { Persona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { Orb } from "@/features/agents/Orb";
-import { agentColor } from "@/shared/palette";
 import { type HeadPrimitive, ORB } from "./geometry";
 
 /** The orb riding at the head of each running line. */

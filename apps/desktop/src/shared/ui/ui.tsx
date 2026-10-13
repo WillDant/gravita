@@ -1,7 +1,7 @@
 import type { SessionCounts } from "@gravita/core";
+import { agentColor, lineCode } from "@gravita/orbs";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { t } from "@/shared/i18n/i18n";
-import { agentColor, lineCode } from "@/shared/palette";
 import type { SessionStatus } from "@/shared/presenters/selectors";
 import { cn } from "@/shared/utils";
 

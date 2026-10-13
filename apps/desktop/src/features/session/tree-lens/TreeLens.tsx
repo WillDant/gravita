@@ -1,9 +1,9 @@
 import { type AgentNode, effectiveLifecycle, type SessionState, toPersona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 import type { ReactNode } from "react";
 import { Orb } from "@/features/agents/Orb";
 import { t } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 import { agentName } from "@/shared/presenters/agent";
 import { cn } from "@/shared/utils";
 

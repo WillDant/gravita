@@ -1,4 +1,4 @@
-import { agentColor } from "@/shared/palette";
+import { agentColor } from "@gravita/orbs";
 import type { InterchangePrimitive } from "./geometry";
 
 /** Where a branch leaves its parent and where it merges back: a capsule with a pip. */

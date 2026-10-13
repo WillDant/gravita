@@ -1,7 +1,7 @@
 import { type AgentNode, effectiveLifecycle, type SessionState, TERMINAL } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 import { t } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 
 const W = 176;
 const H = 44;

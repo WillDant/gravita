@@ -1,4 +1,5 @@
 import { type AgentNode, buildLineMap, type SessionState, toPersona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import type { GravitaEvent } from "@gravita/protocol";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 import { X } from "lucide-react";
@@ -8,7 +9,6 @@ import { PermissionActions } from "@/features/permissions/PermissionActions";
 import { QuestionCard } from "@/features/questions/QuestionCard";
 import { firstQuestion } from "@/features/questions/questions";
 import { ago, compact, t } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { basename, cn } from "@/shared/utils";
 import { StopAgent } from "./StopAgent";
