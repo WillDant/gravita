@@ -2,7 +2,7 @@
 
 All notable changes to Gravita. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [SemVer](https://semver.org/).
 
-## [0.1.0-alpha] - unreleased
+## [0.1.0-alpha] - 2026-10-13
 
 The first preview: see and steer Claude Code sessions and their subagents, on macOS.
 
@@ -27,3 +27,5 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - macOS only for now, unsigned (right-click → Open the first time).
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
+
+[0.1.0-alpha]: https://github.com/WillDant/gravita/releases/tag/v0.1.0-alpha
