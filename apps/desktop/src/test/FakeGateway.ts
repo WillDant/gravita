@@ -18,7 +18,18 @@ export type FakeCommand =
   | "answerQuestion"
   | "conversation"
   | "models"
-  | "stopAll";
+  | "stopAll"
+  | "createSquad"
+  | "planSquad"
+  | "replanSquad"
+  | "approvePlan"
+  | "pauseSquad"
+  | "resumeSquad"
+  | "stopSquad"
+  | "retryTask"
+  | "skipTask"
+  | "reassignTask"
+  | "deliverSquad";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -47,6 +58,8 @@ export class FakeGateway implements EngineGateway {
     ],
   };
   stopAllResult: RpcResult<"engine.stopAll"> = { stopped: 0 };
+  createSquadResult: RpcResult<"squad.create"> = { squadId: "sq-new", projectId: "p1" };
+  deliverResult: RpcResult<"squad.deliver"> = { ref: "gravita/sq-new/integration" };
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
   private pendingCalls: (() => void)[] = [];
@@ -148,6 +161,39 @@ export class FakeGateway implements EngineGateway {
   }
   stopAll() {
     return this.run("stopAll", {}, () => this.stopAllResult);
+  }
+  createSquad(params: RpcParams<"squad.create">) {
+    return this.run("createSquad", params, () => this.createSquadResult);
+  }
+  planSquad(params: RpcParams<"squad.plan">) {
+    return this.run("planSquad", params, () => ({ ok: true }) as const);
+  }
+  replanSquad(params: RpcParams<"squad.replan">) {
+    return this.run("replanSquad", params, () => ({ ok: true }) as const);
+  }
+  approvePlan(params: RpcParams<"squad.approvePlan">) {
+    return this.run("approvePlan", params, () => ({ ok: true }) as const);
+  }
+  pauseSquad(params: RpcParams<"squad.pause">) {
+    return this.run("pauseSquad", params, () => ({ ok: true }) as const);
+  }
+  resumeSquad(params: RpcParams<"squad.resume">) {
+    return this.run("resumeSquad", params, () => ({ ok: true }) as const);
+  }
+  stopSquad(params: RpcParams<"squad.stop">) {
+    return this.run("stopSquad", params, () => ({ ok: true }) as const);
+  }
+  retryTask(params: RpcParams<"squad.task.retry">) {
+    return this.run("retryTask", params, () => ({ ok: true }) as const);
+  }
+  skipTask(params: RpcParams<"squad.task.skip">) {
+    return this.run("skipTask", params, () => ({ ok: true }) as const);
+  }
+  reassignTask(params: RpcParams<"squad.task.reassign">) {
+    return this.run("reassignTask", params, () => ({ ok: true }) as const);
+  }
+  deliverSquad(params: RpcParams<"squad.deliver">) {
+    return this.run("deliverSquad", params, () => this.deliverResult);
   }
 
   onEvents(l: (b: EventsNotification) => void): Unsubscribe {

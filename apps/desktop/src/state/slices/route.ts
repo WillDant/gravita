@@ -4,8 +4,10 @@ export type Route =
   | { level: "home" }
   | { level: "project"; projectId: string }
   | { level: "session"; projectId: string; sessionId: string; agentId?: string }
-  /** Dev builds only: the persona gallery (#/gallery). */
-  | { level: "gallery" };
+  /** A squad's screen; `taskId` opens one task's panel. */
+  | { level: "squad"; projectId: string; squadId: string; taskId?: string }
+  /** Dev builds only: the persona gallery (#/gallery), or a squad fixture (#/gallery/squad/run). */
+  | { level: "gallery"; squad?: string };
 
 export interface RouteSlice {
   route: Route;

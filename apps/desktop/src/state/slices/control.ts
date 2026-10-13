@@ -33,7 +33,7 @@ export interface ControlSlice {
   answerQuestion: (params: RpcParams<"question.answer">) => Promise<CommandResult>;
 }
 
-async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
+export async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
   try {
     return { ok: true, value: await call() };
   } catch (e) {
@@ -41,7 +41,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
   }
 }
 
-async function done(call: () => Promise<unknown>): Promise<CommandResult> {
+export async function done(call: () => Promise<unknown>): Promise<CommandResult> {
   const r = await attempt(call);
   return r.ok ? { ok: true, value: undefined } : r;
 }

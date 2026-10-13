@@ -1,11 +1,18 @@
 import { apply, type GravitaState } from "@gravita/core";
 import type { GravitaEvent } from "@gravita/protocol";
 
+/** The squad an event can change: its own (squad events, a role session starting) or its session's. */
+function squadOf(state: GravitaState, e: GravitaEvent): string | undefined {
+  const data = e.data as { squadId?: unknown };
+  if (typeof data.squadId === "string") return data.squadId;
+  return e.sessionId ? state.sessions[e.sessionId]?.squadId : undefined;
+}
+
 /**
  * Applies a batch with structural sharing: the core reducer mutates for speed, so it
- * runs on a working copy where only the sessions and projects the batch touches are
- * cloned. Everything else keeps its reference, so components that select one session
- * or project re-render only when that object changed.
+ * runs on a working copy where only the sessions, projects and squads the batch touches
+ * are cloned. Everything else keeps its reference, so components that select one
+ * session, project or squad re-render only when that object changed.
  */
 export function applyEvents(prev: GravitaState, events: readonly GravitaEvent[]): GravitaState {
   if (events.length === 0) return prev;
@@ -13,8 +20,13 @@ export function applyEvents(prev: GravitaState, events: readonly GravitaEvent[])
     ...prev,
     projects: { ...prev.projects },
     sessions: { ...prev.sessions },
+    squads: { ...prev.squads },
   };
-  const drafted = { projects: new Set<string>(), sessions: new Set<string>() };
+  const drafted = {
+    projects: new Set<string>(),
+    sessions: new Set<string>(),
+    squads: new Set<string>(),
+  };
 
   const draftProject = (id: string) => {
     if (drafted.projects.has(id)) return;
@@ -29,8 +41,18 @@ export function applyEvents(prev: GravitaState, events: readonly GravitaEvent[])
     if (s) next.sessions[id] = structuredClone(s);
   };
 
-  // `apply` touches exactly: the event's project, its session, and that session's project.
+  const draftSquad = (id: string) => {
+    if (drafted.squads.has(id)) return;
+    drafted.squads.add(id);
+    const q = next.squads[id];
+    if (q) next.squads[id] = structuredClone(q);
+  };
+
+  // `apply` touches exactly: the event's project, its session, that session's project,
+  // and the squad the event or its session belongs to (spend follows session costs).
   for (const e of events) {
+    const squadId = squadOf(next, e);
+    if (squadId) draftSquad(squadId);
     draftProject(e.projectId);
     if (e.sessionId) {
       draftSession(e.sessionId);

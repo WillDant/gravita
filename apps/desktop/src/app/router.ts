@@ -8,7 +8,10 @@ export type { Route };
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   // Production builds drop this branch (and with it the gallery chunk).
-  if (import.meta.env.DEV && parts[0] === "gallery") return { level: "gallery" };
+  if (import.meta.env.DEV && parts[0] === "gallery")
+    return parts[1] === "squad"
+      ? { level: "gallery", squad: parts[2] || "run" }
+      : { level: "gallery" };
   if (parts[0] === "p" && parts[1]) {
     if (parts[2] === "s" && parts[3]) {
       return {
@@ -16,6 +19,14 @@ export function parseHash(hash: string): Route {
         projectId: parts[1],
         sessionId: parts[3],
         ...(parts[4] ? { agentId: parts[4] } : {}),
+      };
+    }
+    if (parts[2] === "q" && parts[3]) {
+      return {
+        level: "squad",
+        projectId: parts[1],
+        squadId: parts[3],
+        ...(parts[4] === "t" && parts[5] ? { taskId: parts[5] } : {}),
       };
     }
     return { level: "project", projectId: parts[1] };
@@ -28,9 +39,11 @@ export function hashOf(route: Route): string {
     case "home":
       return "#/";
     case "gallery":
-      return "#/gallery";
+      return route.squad ? `#/gallery/squad/${encodeURIComponent(route.squad)}` : "#/gallery";
     case "project":
       return `#/p/${encodeURIComponent(route.projectId)}`;
+    case "squad":
+      return `#/p/${encodeURIComponent(route.projectId)}/q/${encodeURIComponent(route.squadId)}${route.taskId ? `/t/${encodeURIComponent(route.taskId)}` : ""}`;
     case "session":
       return `#/p/${encodeURIComponent(route.projectId)}/s/${encodeURIComponent(route.sessionId)}${route.agentId ? `/${encodeURIComponent(route.agentId)}` : ""}`;
   }

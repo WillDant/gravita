@@ -7,11 +7,17 @@ import { Session } from "@/features/session/Session";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";
 
+// Squads load on first open, off the initial bundle.
+const SquadScreen = lazy(() => import("@/features/squad/SquadScreen"));
+
 // Dev-only: production builds fold this to undefined, so the gallery never ships.
 const PersonaGallery = import.meta.env.DEV
   ? lazy(() =>
       import("@/features/gallery/PersonaGallery").then((m) => ({ default: m.PersonaGallery })),
     )
+  : undefined;
+const SquadGallery = import.meta.env.DEV
+  ? lazy(() => import("@/features/gallery/SquadGallery").then((m) => ({ default: m.SquadGallery })))
   : undefined;
 
 export function App() {
@@ -50,11 +56,32 @@ export function App() {
             <Home />
           ) : route.level === "project" ? (
             <Project projectId={route.projectId} />
+          ) : route.level === "squad" ? (
+            <Suspense
+              fallback={
+                <p role="status" className="p-8 text-ink-2">
+                  {t("squad.loading")}
+                </p>
+              }
+            >
+              <SquadScreen
+                key={route.squadId}
+                projectId={route.projectId}
+                squadId={route.squadId}
+                {...(route.taskId ? { taskId: route.taskId } : {})}
+              />
+            </Suspense>
           ) : route.level === "gallery" ? (
-            PersonaGallery && (
+            route.squad && SquadGallery ? (
               <Suspense>
-                <PersonaGallery />
+                <SquadGallery fixture={route.squad} />
               </Suspense>
+            ) : (
+              PersonaGallery && (
+                <Suspense>
+                  <PersonaGallery />
+                </Suspense>
+              )
             )
           ) : (
             <Session

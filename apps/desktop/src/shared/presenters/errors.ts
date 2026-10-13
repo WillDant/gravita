@@ -24,6 +24,16 @@ export function describeError(error: GatewayError): ErrorView {
       return { text: t("error.tooManySessions") };
     case KnownErrors.notLoggedIn:
       return { text: t("error.notLoggedIn"), claude: "loggedOut" };
+    case KnownErrors.squadNotFound:
+      return { text: t("error.squadNotFound") };
+    case KnownErrors.invalidPlan:
+      return { text: t("error.invalidPlan", { message: error.message }) };
+    case KnownErrors.squadPhase:
+      return { text: t("error.squadPhase", { message: error.message }) };
+    case KnownErrors.dirtyWorktree:
+      return { text: t("error.dirtyWorktree") };
+    case KnownErrors.ghUnavailable:
+      return { text: t("error.ghUnavailable") };
     case LocalErrors.offline:
       return { text: t("error.offline") };
     case LocalErrors.timeout:

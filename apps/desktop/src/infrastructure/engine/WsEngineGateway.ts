@@ -137,6 +137,52 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.stopAll, {});
   }
 
+  createSquad(params: RpcParams<"squad.create">): Promise<RpcResult<"squad.create">> {
+    return this.call(Methods.squadCreate, params);
+  }
+
+  planSquad(params: RpcParams<"squad.plan">): Promise<RpcResult<"squad.plan">> {
+    return this.call(Methods.squadPlan, params);
+  }
+
+  replanSquad(params: RpcParams<"squad.replan">): Promise<RpcResult<"squad.replan">> {
+    return this.call(Methods.squadReplan, params);
+  }
+
+  approvePlan(params: RpcParams<"squad.approvePlan">): Promise<RpcResult<"squad.approvePlan">> {
+    return this.call(Methods.squadApprovePlan, params);
+  }
+
+  pauseSquad(params: RpcParams<"squad.pause">): Promise<RpcResult<"squad.pause">> {
+    return this.call(Methods.squadPause, params);
+  }
+
+  resumeSquad(params: RpcParams<"squad.resume">): Promise<RpcResult<"squad.resume">> {
+    return this.call(Methods.squadResume, params);
+  }
+
+  stopSquad(params: RpcParams<"squad.stop">): Promise<RpcResult<"squad.stop">> {
+    return this.call(Methods.squadStop, params);
+  }
+
+  retryTask(params: RpcParams<"squad.task.retry">): Promise<RpcResult<"squad.task.retry">> {
+    return this.call(Methods.squadTaskRetry, params);
+  }
+
+  skipTask(params: RpcParams<"squad.task.skip">): Promise<RpcResult<"squad.task.skip">> {
+    return this.call(Methods.squadTaskSkip, params);
+  }
+
+  reassignTask(
+    params: RpcParams<"squad.task.reassign">,
+  ): Promise<RpcResult<"squad.task.reassign">> {
+    return this.call(Methods.squadTaskReassign, params);
+  }
+
+  deliverSquad(params: RpcParams<"squad.deliver">): Promise<RpcResult<"squad.deliver">> {
+    return this.call(Methods.squadDeliver, params);
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }

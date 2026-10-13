@@ -35,4 +35,9 @@ export const KnownErrors = {
   invalidCwd: RpcErrors.invalidCwd.code,
   tooManySessions: RpcErrors.tooManySessions.code,
   notLoggedIn: RpcErrors.notLoggedIn.code,
+  squadNotFound: RpcErrors.squadNotFound.code,
+  invalidPlan: RpcErrors.invalidPlan.code,
+  squadPhase: RpcErrors.squadPhase.code,
+  dirtyWorktree: RpcErrors.dirtyWorktree.code,
+  ghUnavailable: RpcErrors.ghUnavailable.code,
 } as const;
