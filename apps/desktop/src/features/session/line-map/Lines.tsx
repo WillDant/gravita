@@ -1,5 +1,5 @@
+import { agentColor } from "@gravita/orbs";
 import type { CSSProperties } from "react";
-import { agentColor } from "@/shared/palette";
 import { DIM, LINE_W, type NowRule, type PathPrimitive } from "./geometry";
 
 /** The "now" rule: a dashed hairline with its label, where running lines end. */

@@ -13,10 +13,12 @@ import { Happening } from "./happening/Happening";
 import { LineMap } from "./line-map/LineMap";
 import { TreeLens } from "./tree-lens/TreeLens";
 
-// The Conversation lens (renderer and all) loads on first open, off the initial bundle.
+// The Conversation and Orbit lenses (renderer, canvas scene and all) load on first open,
+// off the initial bundle.
 const ConversationLens = lazy(() => import("./conversation/ConversationLens"));
+const OrbitLens = lazy(() => import("./orbit-lens/OrbitLens"));
 
-const LENSES = ["lines", "conversation", "tree"] as const;
+const LENSES = ["lines", "orbit", "conversation", "tree"] as const;
 type Lens = (typeof LENSES)[number];
 
 export function Session({
@@ -103,6 +105,17 @@ export function Session({
                 selectedAgentId={agentId}
                 onSelectAgent={select}
               />
+            )}
+            {lens === "orbit" && (
+              <Suspense fallback={null}>
+                <OrbitLens
+                  session={session}
+                  project={project}
+                  now={now}
+                  selectedAgentId={agentId}
+                  onSelect={select}
+                />
+              </Suspense>
             )}
             {lens === "conversation" && (
               <Suspense fallback={null}>

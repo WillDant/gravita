@@ -127,6 +127,8 @@ export interface ToolOptions {
   changes?: { path: string; added: number; removed: number }[];
   /** Ask the user first; resolves (allow) after `waitMs`. */
   permission?: { waitMs: number };
+  /** The call fails with this error instead of succeeding. */
+  error?: string;
 }
 
 export class Actor {
@@ -225,7 +227,7 @@ export class Actor {
 
   private endTool(
     toolUseId: string,
-    opts: { output?: string; changes?: ToolOptions["changes"]; ok?: boolean },
+    opts: { output?: string; changes?: ToolOptions["changes"]; error?: string },
   ) {
     this.s.push(
       this.t,
@@ -233,8 +235,9 @@ export class Actor {
       keys.toolCompleted(toolUseId),
       {
         toolUseId,
-        ok: opts.ok ?? true,
+        ok: opts.error === undefined,
         ...(opts.output ? { outputPreview: opts.output } : {}),
+        ...(opts.error ? { error: opts.error } : {}),
         ...(opts.changes?.length ? { fileChanges: opts.changes } : {}),
       },
       this.agentId,
@@ -347,11 +350,20 @@ export class Actor {
 
   /** Ends a subagent. Foreground: the parent's Agent call returns. Background: a task notification. */
   finish(summary: string): this {
+    return this.end(summary, "completed");
+  }
+
+  /** Ends a subagent with an error; a foreground parent's Agent call returns it as a failure. */
+  fail(error: string): this {
+    return this.end(error, "failed");
+  }
+
+  private end(summary: string, status: "completed" | "failed"): this {
     const parent = this.parent;
     if (!parent || !this.spawnToolUseId) return this;
     const sid = this.s.sessionId;
     const done = {
-      status: "completed" as const,
+      status,
       summary,
       totalTokens: this.tokens,
       toolUseCount: this.toolCount,
@@ -375,7 +387,10 @@ export class Actor {
       );
     } else {
       parent.t = Math.max(parent.t, this.t);
-      parent.endTool(this.spawnToolUseId, { output: summary });
+      parent.endTool(
+        this.spawnToolUseId,
+        status === "failed" ? { error: summary } : { output: summary },
+      );
       this.s.push(
         this.t,
         "agent.completed",

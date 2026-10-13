@@ -1,4 +1,5 @@
 import { toPersona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
@@ -8,7 +9,6 @@ import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSes
 import { PermissionActions } from "@/features/permissions/PermissionActions";
 import { firstQuestion } from "@/features/questions/questions";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/presenters/selectors";
 import { Button, CountChips } from "@/shared/ui/ui";
@@ -90,7 +90,12 @@ export function Home() {
                     onClick={open}
                     className="flex min-w-[280px] flex-1 items-center gap-3 text-left"
                   >
-                    <Orb color={agentColor(agent.agentType)} persona={persona} size={34} />
+                    <Orb
+                      color={agentColor(agent.agentType)}
+                      persona={persona}
+                      size={34}
+                      seed={agent.id}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs text-ink-2">
                         {project.name} › {sessionTitle(session) ?? t("session.untitled")}
@@ -149,6 +154,7 @@ export function Home() {
                     <Orb
                       color={agentColor(agent.agentType)}
                       persona={persona}
+                      seed={agent.id}
                       size={30}
                       glyph={false}
                     />

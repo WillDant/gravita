@@ -16,6 +16,11 @@ describe("hash routes", () => {
     for (const r of routes) expect(parseHash(hashOf(r))).toEqual(r);
   });
 
+  it("open the persona gallery in dev builds", () => {
+    expect(parseHash("#/gallery")).toEqual({ level: "gallery" });
+    expect(hashOf({ level: "gallery" })).toBe("#/gallery");
+  });
+
   it("fall back to home for anything else", () => {
     expect(parseHash("")).toEqual({ level: "home" });
     expect(parseHash("#/x/y")).toEqual({ level: "home" });

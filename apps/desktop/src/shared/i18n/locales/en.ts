@@ -55,6 +55,7 @@ export const en = {
   "status.detached": "Closed",
 
   "session.lens.lines": "Lines",
+  "session.lens.orbit": "Orbit",
   "session.lens.tree": "Tree",
   "session.happening": "What's happening",
   "session.happeningEmpty": "Nothing is running. The last result is on the map.",
@@ -190,6 +191,10 @@ export const en = {
   "conversation.retry": "Try again",
   "conversation.openAgent": "Open {agent}",
 
+  "orbit.label": "Agents orbiting {project}",
+  "orbit.swarm.one": "{count} more subagent of {parent}",
+  "orbit.swarm.other": "{count} more subagents of {parent}",
+
   "question.reply": "Or answer in your own words",
   "question.replyPlaceholder": "Optional",
   "question.send": "Send answer",
@@ -213,6 +218,15 @@ export const en = {
   "connect.step.login": "Then log in and follow its steps",
   "connect.copy": "Copy {command}",
   "connect.copied": "Copied",
+
+  "gallery.title": "Persona gallery",
+  "gallery.intro": "Every persona an agent can show, drawn in SVG and on canvas.",
+  "gallery.dark": "Dark theme",
+  "gallery.reducedMotion": "Reduced motion",
+  "gallery.svg": "SVG",
+  "gallery.canvas": "Canvas",
+  "gallery.budget": "Motion budget",
+  "gallery.budgetNote": "Nine agents wait for you: three bounce, every one keeps its halo.",
 
   "error.notControllable": "This session runs in your terminal. Answer it there.",
   "error.claudeUnavailable": "Claude Code isn't available on this Mac.",

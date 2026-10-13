@@ -1,4 +1,4 @@
-import { agentColor } from "@/shared/palette";
+import { agentColor } from "@gravita/orbs";
 import type { LabelPrimitive } from "./geometry";
 
 /** Line names with their metro code, on a knockout so crossing lines don't cut them. */

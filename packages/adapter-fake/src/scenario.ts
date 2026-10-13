@@ -1,6 +1,7 @@
 import type { GravitaEvent } from "@gravita/protocol";
 import type { Timed } from "./script";
 import { DEMO_PROJECTS, landingSession, oauthSessions, projectDiscovered } from "./stories";
+import { swarmSessions } from "./swarm";
 
 export interface ScenarioOptions {
   /** Same seed → same ids, texts and timings. Default 1. */
@@ -29,7 +30,11 @@ function* merge(a: Iterator<Timed, never>, b: Iterator<Timed, never>): Generator
 export function* timeline(seed: number): Generator<Timed, never> {
   yield projectDiscovered(DEMO_PROJECTS.gravita);
   yield projectDiscovered(DEMO_PROJECTS.landing);
-  return yield* merge(oauthSessions(seed, 0), landingSession(seed, 2_500));
+  yield projectDiscovered(DEMO_PROJECTS.payments);
+  return yield* merge(
+    merge(oauthSessions(seed, 0), landingSession(seed, 2_500)),
+    swarmSessions(seed, 5_000),
+  );
 }
 
 const stamp = (t: Timed, base: number, speed: number): GravitaEvent => ({

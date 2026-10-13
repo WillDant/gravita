@@ -40,5 +40,8 @@ jobs:
       - name: Test
         run: pnpm -r --if-present run test
 
-      - name: Build UI (bundle budget)
+      - name: Build UI
         run: pnpm --filter @gravita/desktop build
+
+      - name: Bundle budget
+        run: pnpm check:bundle

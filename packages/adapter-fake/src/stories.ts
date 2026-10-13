@@ -3,14 +3,14 @@ import { keys, projectDiscoveredEvent } from "@gravita/protocol";
 import { mixSeed, Rng } from "./rng";
 import { type ProjectInfo, SessionScript, type Timed } from "./script";
 
-const OPUS = "claude-opus-5-5";
-const HAIKU = "claude-haiku-5-5";
+export const OPUS = "claude-opus-5-5";
+export const HAIKU = "claude-haiku-5-5";
 
 /** Idle time between the end of one OAuth story and the next session. */
 export const IDLE_BETWEEN_SESSIONS_MS = 20_000;
 const IDLE_BETWEEN_TURNS_MS = 25_000;
 
-function project(name: string): ProjectInfo {
+export function project(name: string): ProjectInfo {
   const id = createHash("sha1").update(`fake:${name}`).digest("hex").slice(0, 16);
   return { id, name, root: `/Users/demo/code/${name}` };
 }
@@ -18,6 +18,7 @@ function project(name: string): ProjectInfo {
 export const DEMO_PROJECTS = {
   gravita: project("gravita-demo"),
   landing: project("landing-site"),
+  payments: project("payments-api"),
 } as const;
 
 export function projectDiscovered(p: ProjectInfo): Timed {

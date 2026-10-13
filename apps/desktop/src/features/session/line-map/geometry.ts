@@ -1,6 +1,6 @@
 import type { Lifecycle, Line, LineMap, Station } from "@gravita/core";
 import { TERMINAL } from "@gravita/core";
-import { lineCode } from "@/shared/palette";
+import { lineCode } from "@gravita/orbs";
 
 // Pure layout of the line map: from the timeline (lines, stations, columns) and the
 // frame size to positioned primitives. No React, no i18n, no DOM. Render components
@@ -59,7 +59,24 @@ export interface PathPrimitive {
 export interface InterchangePrimitive {
   key: string;
   agentType: string;
+  /** Where the branch leaves its parent, or where it merges back. */
+  kind: "spawn" | "merge";
+  /** Centre of the pip, on the parent's lane; the capsule hangs below it. */
   cx: number;
+  cy: number;
+}
+
+/**
+ * A white connector joining interchanges of one kind on one parent at consecutive
+ * columns (subagents launched in one message, or merging back one after another),
+ * like the linked interchange circles of an Underground map. Drawn behind the capsules.
+ */
+export interface InterchangeLinkPrimitive {
+  /** The first capsule's key, so the link keeps its identity as the group grows. */
+  key: string;
+  /** Pip centres of the first and last capsule. */
+  x0: number;
+  x1: number;
   cy: number;
 }
 
@@ -116,6 +133,7 @@ export interface LineMapLayout {
   now?: NowRule;
   paths: PathPrimitive[];
   interchanges: InterchangePrimitive[];
+  links: InterchangeLinkPrimitive[];
   stations: StationPrimitive[];
   signage: SignagePrimitive[];
   labels: LabelPrimitive[];
@@ -181,6 +199,38 @@ function label(line: Line, x: X, y: Y, maxRight: number, mainText: string): Labe
   };
 }
 
+/**
+ * Groups interchanges of the same kind on the same parent at consecutive columns and
+ * returns one connector per group of two or more. A spawn next to a merge stays apart:
+ * they are different events that only happen to be neighbours.
+ */
+function linkInterchanges(
+  stops: { parentId: string; kind: "spawn" | "merge"; col: number; i: number }[],
+  items: readonly InterchangePrimitive[],
+): InterchangeLinkPrimitive[] {
+  const sorted = [...stops].sort(
+    (a, b) => a.parentId.localeCompare(b.parentId) || a.kind.localeCompare(b.kind) || a.col - b.col,
+  );
+  const links: InterchangeLinkPrimitive[] = [];
+  let group: typeof sorted = [];
+  const close = () => {
+    if (group.length < 2) return;
+    const first = items[group[0]!.i]!;
+    const last = items[group.at(-1)!.i]!;
+    links.push({ key: first.key, x0: first.cx, x1: last.cx, cy: first.cy });
+  };
+  for (const s of sorted) {
+    const prev = group.at(-1);
+    if (prev && (prev.parentId !== s.parentId || prev.kind !== s.kind || s.col - prev.col !== 1)) {
+      close();
+      group = [];
+    }
+    group.push(s);
+  }
+  close();
+  return links;
+}
+
 /** Fits the map to its frame like a printed diagram; it scrolls only when it can't fit. */
 export function layoutLineMap(map: LineMap, frame: Frame, opts: LayoutOptions): LineMapLayout {
   const { live, agents, selectedAgentId, texts } = opts;
@@ -213,15 +263,24 @@ export function layoutLineMap(map: LineMap, frame: Frame, opts: LayoutOptions): 
 
   // Interchanges: where a branch leaves its parent and where it merges back.
   const interchanges: InterchangePrimitive[] = [];
+  const stops: { parentId: string; kind: "spawn" | "merge"; col: number; i: number }[] = [];
+  const stop = (l: Line, parent: Line, kind: "spawn" | "merge", col: number) => {
+    stops.push({ parentId: parent.agentId, kind, col, i: interchanges.length });
+    interchanges.push({
+      key: `${l.agentId}:${kind === "spawn" ? "start" : "end"}`,
+      agentType: l.agentType,
+      kind,
+      cx: x(col),
+      cy: y(parent.lane),
+    });
+  };
   for (const l of map.lines) {
     const parent = l.parentId ? lineById.get(l.parentId) : undefined;
     if (!parent) continue;
-    const cy = y(parent.lane);
-    interchanges.push({ key: `${l.agentId}:start`, agentType: l.agentType, cx: x(l.startCol), cy });
-    if (l.ended && l.endCol !== undefined) {
-      interchanges.push({ key: `${l.agentId}:end`, agentType: l.agentType, cx: x(l.endCol), cy });
-    }
+    stop(l, parent, "spawn", l.startCol);
+    if (l.ended && l.endCol !== undefined) stop(l, parent, "merge", l.endCol);
   }
+  const links = linkInterchanges(stops, interchanges);
 
   const stations: StationPrimitive[] = map.lines.flatMap((l) => {
     const signed = !l.ended ? l.stations.at(-1)?.id : undefined;
@@ -270,6 +329,7 @@ export function layoutLineMap(map: LineMap, frame: Frame, opts: LayoutOptions): 
     ...(live ? { now: { x: x(nowCol), y1: 22, y2: height - 8, labelY: 14 } } : {}),
     paths,
     interchanges,
+    links,
     stations,
     signage,
     labels,

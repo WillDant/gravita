@@ -1,10 +1,17 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Home } from "@/features/home/Home";
 import { Sidebar } from "@/features/navigation/Sidebar";
 import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";
+
+// Dev-only: production builds fold this to undefined, so the gallery never ships.
+const PersonaGallery = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/features/gallery/PersonaGallery").then((m) => ({ default: m.PersonaGallery })),
+    )
+  : undefined;
 
 export function App() {
   useLocale();
@@ -41,6 +48,12 @@ export function App() {
             <Home />
           ) : route.level === "project" ? (
             <Project projectId={route.projectId} />
+          ) : route.level === "gallery" ? (
+            PersonaGallery && (
+              <Suspense>
+                <PersonaGallery />
+              </Suspense>
+            )
           ) : (
             <Session
               projectId={route.projectId}

@@ -1,9 +1,9 @@
 import { type AgentNode, effectiveLifecycle, type SessionState, toPersona } from "@gravita/core";
+import { agentColor } from "@gravita/orbs";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 import type { ReactNode } from "react";
 import { Orb } from "@/features/agents/Orb";
 import { t } from "@/shared/i18n/i18n";
-import { agentColor } from "@/shared/palette";
 import { agentName } from "@/shared/presenters/agent";
 import { cn } from "@/shared/utils";
 
@@ -34,7 +34,13 @@ export function TreeLens({
           )}
           style={{ paddingLeft: 12 + depth * 28 }}
         >
-          <Orb color={agentColor(a.agentType)} persona={persona} size={28} glyph={false} />
+          <Orb
+            color={agentColor(a.agentType)}
+            persona={persona}
+            size={28}
+            glyph={false}
+            seed={a.id}
+          />
           <span className="min-w-0 flex-1 truncate text-sm">
             <span className="font-semibold">{agentName(a)}</span>{" "}
             <span className={lc === "active" || lc === "waiting_user" ? "text-ink" : "text-ink-3"}>
