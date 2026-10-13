@@ -136,7 +136,7 @@ const WANDER: Frame[] = [
   { at: 1, v: [0, 0] },
 ];
 
-function seedPhase(seed: string | undefined): number {
+export function seedPhase(seed: string | undefined): number {
   if (!seed) return 0;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
