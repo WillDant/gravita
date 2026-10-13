@@ -1,5 +1,5 @@
 import { startScenario } from "@gravita/adapter-fake";
-import { type GravitaEvent, keys, type Provider } from "@gravita/protocol";
+import { type GravitaEvent, keys, type PermissionMode, type Provider } from "@gravita/protocol";
 import type { Clock } from "../../application/ports/clock";
 import type { ProjectionReader } from "../../application/ports/projection-reader";
 import type {
@@ -50,7 +50,11 @@ export class DemoRuntime {
   }
 }
 
-/** One demo session as a runtime: answers the permission requests it is waiting on. */
+/**
+ * One demo session as a runtime: answers the permission requests it is waiting on and
+ * accepts model and mode changes. The script can't take a message, be interrupted or
+ * stop an agent, so those are refused as not controllable.
+ */
 class DemoSession implements SessionRuntime {
   constructor(
     readonly sessionId: string,
@@ -78,6 +82,31 @@ class DemoSession implements SessionRuntime {
         data: { requestId, decision, by: "user" },
       },
     ]);
+  }
+
+  async send(_text: string, _uuid: string): Promise<void> {
+    throw new NotControllableError(this.sessionId);
+  }
+
+  async interrupt(): Promise<void> {
+    throw new NotControllableError(this.sessionId);
+  }
+
+  async stopAgent(_agentId: string): Promise<void> {
+    throw new NotControllableError(this.sessionId);
+  }
+
+  /** The script ignores it; the use case records the new setting. */
+  async setModel(_model: string) {}
+
+  async setPermissionMode(_mode: PermissionMode) {}
+
+  async answerQuestion(
+    _agentId: string,
+    _requestId: string,
+    _answers: Record<string, string>,
+  ): Promise<void> {
+    throw new NotControllableError(this.sessionId);
   }
 
   /** Nothing to release: the scenario owns the playback. */

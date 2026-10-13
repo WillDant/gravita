@@ -35,4 +35,7 @@ export const keys = {
   turnCompleted: (sid: string, uuid: string) => `turn:${sid}:${uuid}`,
   permissionRequested: (requestId: string) => `perm:${requestId}:requested`,
   permissionResolved: (requestId: string) => `perm:${requestId}:resolved`,
+  questionAsked: (requestId: string) => `question:${requestId}:asked`,
+  questionAnswered: (requestId: string) => `question:${requestId}:answered`,
+  sessionSettings: (sid: string, seq: number) => `settings:${sid}:${seq}`,
 } as const;

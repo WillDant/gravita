@@ -1,5 +1,6 @@
 import { resolveEndpoint } from "@/infrastructure/engine/resolveEndpoint";
 import { WsEngineGateway } from "@/infrastructure/engine/WsEngineGateway";
+import { createFolderPicker } from "@/infrastructure/platform/tauri";
 import { startTheme } from "@/infrastructure/theme/themeStorage";
 import { syncWithEngine } from "@/state/engineSync";
 import { createAppStore } from "@/state/store";
@@ -28,7 +29,13 @@ export function bootstrap(): App {
   if (route.level === "session") store.getState().loadSession(route.sessionId);
 
   return {
-    services: { store, gateway, navigate: router.navigate, toggleTheme: theme.toggle },
+    services: {
+      store,
+      gateway,
+      navigate: router.navigate,
+      toggleTheme: theme.toggle,
+      pickFolder: createFolderPicker(),
+    },
     dispose: () => {
       clearInterval(clock);
       unroute();

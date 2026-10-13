@@ -29,6 +29,7 @@ export const createProjectionSlice: Slice<ProjectionSlice> = (gateway) => (set, 
   loadSnapshot: (snapshot) => {
     set({ connection: "online", projection: snapshot.state });
     get().reloadSession();
+    get().refreshConversation();
   },
   applyBatch: (batch) => {
     const prev = get().projection;
@@ -38,6 +39,7 @@ export const createProjectionSlice: Slice<ProjectionSlice> = (gateway) => (set, 
       set({ projection: next });
     }
     get().appendLive(batch.events);
+    get().noteConversationEvents(batch.events);
   },
   respondPermission: async (params) => {
     await gateway.respondPermission(params);

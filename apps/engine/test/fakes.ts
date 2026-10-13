@@ -1,10 +1,32 @@
-import type { GravitaEvent, Provider } from "@gravita/protocol";
+import type {
+  ConversationMessage,
+  GravitaEvent,
+  PermissionMode,
+  Provider,
+} from "@gravita/protocol";
+import type {
+  ChatRuntime,
+  ChatRuntimeFactory,
+  ChatRuntimeSpec,
+} from "../src/application/ports/chat-runtime";
 import type { CheckpointStore, SavedTail } from "../src/application/ports/checkpoint-store";
+import type {
+  ClaudeEnvironment,
+  ClaudeEnvironmentSource,
+} from "../src/application/ports/claude-environment";
 import type { Clock } from "../src/application/ports/clock";
 import type { EventPublisher } from "../src/application/ports/event-publisher";
 import type { EventStore } from "../src/application/ports/event-store";
+import type { IdGenerator } from "../src/application/ports/id-generator";
 import type { Logger } from "../src/application/ports/logger";
-import type { PermissionDecision, SessionRuntime } from "../src/application/ports/session-runtime";
+import type {
+  ModelOption,
+  PermissionDecision,
+  SessionRuntime,
+  SessionRuntimeRegistry,
+} from "../src/application/ports/session-runtime";
+import type { TranscriptReader } from "../src/application/ports/transcript-reader";
+import type { Workspace } from "../src/application/ports/workspace";
 
 // In-memory fakes of the application ports, for use-case tests without SQLite or sockets.
 
@@ -111,7 +133,19 @@ export class SilentLogger implements Logger {
 
 export class FakeRuntime implements SessionRuntime {
   readonly answered: { agentId: string; requestId: string; decision: PermissionDecision }[] = [];
+  readonly sent: { text: string; uuid: string }[] = [];
+  /** Control calls in order, e.g. "interrupt", "stop:a1", "model:opus", "mode:plan". */
+  readonly calls: string[] = [];
+  readonly questions: {
+    agentId: string;
+    requestId: string;
+    answers: Record<string, string>;
+    response?: string;
+  }[] = [];
   disposed = false;
+  /** When set, every control call rejects with it. */
+  failWith: Error | undefined;
+  supportedModels?: () => Promise<ModelOption[]>;
 
   constructor(
     readonly sessionId: string,
@@ -120,10 +154,127 @@ export class FakeRuntime implements SessionRuntime {
   ) {}
 
   async respondPermission(agentId: string, requestId: string, decision: PermissionDecision) {
+    this.check();
     this.answered.push({ agentId, requestId, decision });
+  }
+
+  async send(text: string, uuid: string) {
+    this.check();
+    this.sent.push({ text, uuid });
+  }
+
+  async interrupt() {
+    this.check();
+    this.calls.push("interrupt");
+  }
+
+  async stopAgent(agentId: string) {
+    this.check();
+    this.calls.push(`stop:${agentId}`);
+  }
+
+  async setModel(model: string) {
+    this.check();
+    this.calls.push(`model:${model}`);
+  }
+
+  async setPermissionMode(mode: PermissionMode) {
+    this.check();
+    this.calls.push(`mode:${mode}`);
+  }
+
+  async answerQuestion(
+    agentId: string,
+    requestId: string,
+    answers: Record<string, string>,
+    response?: string,
+  ) {
+    this.check();
+    this.questions.push({ agentId, requestId, answers, ...(response ? { response } : {}) });
   }
 
   async dispose() {
     this.disposed = true;
+  }
+
+  private check() {
+    if (this.failWith) throw this.failWith;
+  }
+}
+
+/** A chat runtime that records whether it was registered when it started. */
+export class FakeChatRuntime extends FakeRuntime implements ChatRuntime {
+  started = false;
+  registeredAtStart = false;
+
+  constructor(
+    readonly spec: ChatRuntimeSpec,
+    private readonly runtimes: SessionRuntimeRegistry,
+  ) {
+    super(spec.sessionId, spec.projectId);
+  }
+
+  start() {
+    this.started = true;
+    this.registeredAtStart = this.runtimes.get(this.sessionId) === this;
+  }
+}
+
+export class FakeChatFactory implements ChatRuntimeFactory {
+  readonly created: FakeChatRuntime[] = [];
+  /** Makes `send` of the next runtime fail (to test the rollback). */
+  failSend: Error | undefined;
+
+  constructor(private readonly runtimes: SessionRuntimeRegistry) {}
+
+  create(spec: ChatRuntimeSpec): FakeChatRuntime {
+    const r = new FakeChatRuntime(spec, this.runtimes);
+    if (this.failSend) r.failWith = this.failSend;
+    this.created.push(r);
+    return r;
+  }
+}
+
+export class FakeWorkspace implements Workspace {
+  constructor(readonly dirs: Set<string> = new Set(["/work/demo"])) {}
+
+  async isDirectory(path: string): Promise<boolean> {
+    return this.dirs.has(path);
+  }
+}
+
+export class FakeClaudeEnvironment implements ClaudeEnvironmentSource {
+  loads = 0;
+
+  constructor(
+    public result: ClaudeEnvironment | Error = {
+      cliPath: "/bin/claude",
+      cliVersion: "2.1.296",
+      env: { PATH: "/usr/bin", HOME: "/home/u" },
+    },
+  ) {}
+
+  async load(): Promise<ClaudeEnvironment> {
+    this.loads++;
+    if (this.result instanceof Error) throw this.result;
+    return this.result;
+  }
+}
+
+/** Ids "id-1", "id-2", … in order. */
+export class SeqIds implements IdGenerator {
+  private n = 0;
+
+  uuid(): string {
+    this.n++;
+    return `id-${this.n}`;
+  }
+}
+
+export class FakeTranscriptReader implements TranscriptReader {
+  constructor(readonly bySession: Record<string, ConversationMessage[]> = {}) {}
+
+  async conversation(sessionId: string): Promise<ConversationMessage[]> {
+    return this.bySession[sessionId] ?? [];
   }
 }

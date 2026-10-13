@@ -19,6 +19,8 @@ fn engine_info(engine: tauri::State<'_, Engine>) -> EngineInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        // Only the folder picker of the new-session panel (capability: dialog:allow-open).
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let engine = Engine::spawn().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(engine);

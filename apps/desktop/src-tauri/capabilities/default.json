@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window. No shell or filesystem access for the webview: data comes from the engine over a local, token-authenticated WebSocket.",
+  "description": "Main window. No shell or filesystem access for the webview: data comes from the engine over a local, token-authenticated WebSocket. The one native dialog it may open is the folder picker.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

@@ -1,7 +1,9 @@
 import { sessionCounts } from "@gravita/core";
 import { GitBranch } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
+import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
 import {
   projectSummaries,
@@ -19,6 +21,7 @@ export function Project({ projectId }: { projectId: string }) {
   const now = useNow();
   const navigate = useNavigate();
   const summary = projectSummaries(state, now).find((p) => p.project.id === projectId);
+  const [creating, setCreating] = useState(false);
 
   if (!summary) {
     return <p className="p-8 text-ink-2">{t("project.empty")}</p>;
@@ -41,8 +44,23 @@ export function Project({ projectId }: { projectId: string }) {
             )}
           </p>
         </div>
-        <CountChips counts={counts} />
+        <div className="flex flex-wrap items-center gap-3">
+          <CountChips counts={counts} />
+          <NewSessionButton
+            open={creating}
+            onToggle={() => setCreating((v) => !v)}
+            controls="project-new-session"
+          />
+        </div>
       </header>
+
+      {creating && (
+        <NewSessionPanel
+          id="project-new-session"
+          defaultFolder={project.root}
+          onClose={() => setCreating(false)}
+        />
+      )}
 
       <section aria-labelledby="sessions">
         <h2 id="sessions" className="sr-only">

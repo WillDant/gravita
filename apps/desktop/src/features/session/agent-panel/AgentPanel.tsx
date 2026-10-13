@@ -1,13 +1,17 @@
 import { type AgentNode, buildLineMap, type SessionState, toPersona } from "@gravita/core";
 import type { GravitaEvent } from "@gravita/protocol";
+import { MAIN_AGENT } from "@gravita/protocol/ids";
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Orb } from "@/features/agents/Orb";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
+import { QuestionCard } from "@/features/questions/QuestionCard";
+import { firstQuestion } from "@/features/questions/questions";
 import { ago, compact, t } from "@/shared/i18n/i18n";
 import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { basename, cn } from "@/shared/utils";
+import { StopAgent } from "./StopAgent";
 import { Steps, Story } from "./Timeline";
 
 type Tab = "story" | "steps" | "raw";
@@ -32,6 +36,10 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
   );
   const stations = line?.stations ?? [];
   const tokens = agent.tokens.input + agent.tokens.output + agent.tokens.cacheWrite;
+  const waiting = persona.lifecycle === "waiting_user";
+  const stoppable =
+    session.controllable && (persona.lifecycle === "active" || waiting) && agent.id !== MAIN_AGENT;
+  const question = waiting ? firstQuestion(agent) : undefined;
   const children = agent.children
     .map((c) => session.agents[c])
     .filter((c): c is AgentNode => Boolean(c));
@@ -42,18 +50,13 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
         <Orb color={color} persona={persona} size={48} label={agentName(agent)} />
         <div className="min-w-0 flex-1 pt-0.5">
           <h2 className="truncate text-md font-bold tracking-[-0.01em]">{agentName(agent)}</h2>
-          <p
-            className={cn(
-              "text-sm leading-snug",
-              persona.lifecycle === "waiting_user" ? "text-waiting-ink" : "text-ink-2",
-            )}
-          >
+          <p className={cn("text-sm leading-snug", waiting ? "text-waiting-ink" : "text-ink-2")}>
             {t(persona.label.key, persona.label.params)}
           </p>
           {agent.description && (
             <p className="mt-1 truncate text-xs text-ink-3">{agent.description}</p>
           )}
-          {persona.lifecycle === "waiting_user" && (
+          {waiting && !question && (
             <div className="mt-3 flex flex-col gap-2">
               {permissionSummary(agent) && (
                 <p className="rounded-md bg-waiting-bg px-2 py-1.5 font-mono text-xs break-all text-waiting-ink">
@@ -73,6 +76,12 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
           <X size={16} />
         </button>
       </div>
+
+      {question && (
+        <div className="max-h-[55%] flex-none overflow-y-auto border-b border-waiting/30 bg-waiting-bg px-5 py-4">
+          <QuestionCard session={session} agent={agent} pending={question} />
+        </div>
+      )}
 
       <dl className="grid flex-none grid-cols-3 gap-2 border-b border-hairline px-5 py-3 text-xs">
         <div>
@@ -155,6 +164,7 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
           </section>
         )}
       </div>
+      {stoppable && <StopAgent session={session} agent={agent} />}
     </div>
   );
 }

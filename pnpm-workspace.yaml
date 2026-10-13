@@ -1,3 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# The Agent SDK's per-platform Claude Code binaries (~270 MB each, proprietary) are never
+# installed: Gravita always runs the user's own `claude` (pathToClaudeCodeExecutable).
+ignoredOptionalDependencies:
+  - "@anthropic-ai/claude-agent-sdk-*"

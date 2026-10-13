@@ -86,3 +86,14 @@ const nf: Record<Locale, Intl.NumberFormat> = {
 export function compact(n: number): string {
   return nf[locale].format(n);
 }
+
+const clockFormat: Record<Locale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }),
+  "pt-BR": new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+};
+
+/** Wall-clock time of a timestamp ("3:42 PM" / "15:42"); empty when it can't be read. */
+export function clock(ts: string): string {
+  const ms = Date.parse(ts);
+  return Number.isNaN(ms) ? "" : clockFormat[locale].format(ms);
+}

@@ -1,16 +1,19 @@
 import { toPersona } from "@gravita/core";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
+import { ConnectClaude } from "@/features/connect/ConnectClaude";
+import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
+import { firstQuestion } from "@/features/questions/questions";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/presenters/selectors";
-import { CountChips } from "@/shared/ui/ui";
-import { tildify } from "@/shared/utils";
-import { useNow, useProjection } from "@/state/hooks";
+import { Button, CountChips } from "@/shared/ui/ui";
+import { cn, tildify } from "@/shared/utils";
+import { useClaudeProblem, useNow, useProjection } from "@/state/hooks";
 
 export function Home() {
   useLocale();
@@ -18,6 +21,16 @@ export function Home() {
   const now = useNow();
   const navigate = useNavigate();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
+  const problem = useClaudeProblem();
+  const [creating, setCreating] = useState(false);
+  const recent = useMemo(
+    () =>
+      [...summaries]
+        .sort((a, b) => b.lastEventTs.localeCompare(a.lastEventTs))
+        .slice(0, 5)
+        .map(({ project }) => ({ name: project.name, root: project.root })),
+    [summaries],
+  );
   const waiting = needsYou(state, now);
   const all = totals(summaries);
   const running = summaries.flatMap(({ project, live }) =>
@@ -35,8 +48,20 @@ export function Home() {
             <p className="mt-1.5 text-ink-2">{t("home.allQuiet")}</p>
           )}
         </div>
-        <CountChips counts={all} />
+        <div className="flex flex-wrap items-center gap-3">
+          <CountChips counts={all} />
+          <NewSessionButton
+            open={creating}
+            onToggle={() => setCreating((v) => !v)}
+            controls="home-new-session"
+          />
+        </div>
       </header>
+
+      {creating && (
+        <NewSessionPanel id="home-new-session" recent={recent} onClose={() => setCreating(false)} />
+      )}
+      {problem && !creating && <ConnectClaude problem={problem} />}
 
       {waiting.length > 0 && (
         <section aria-labelledby="needs-you">
@@ -46,7 +71,15 @@ export function Home() {
           <ul className="flex flex-col gap-2">
             {waiting.map(({ project, session, agent }) => {
               const persona = toPersona(agent, session, now);
-              const asks = permissionSummary(agent);
+              const question = firstQuestion(agent);
+              const asks = question?.questions[0]?.question ?? permissionSummary(agent);
+              const open = () =>
+                navigate({
+                  level: "session",
+                  projectId: project.id,
+                  sessionId: session.id,
+                  agentId: agent.id,
+                });
               return (
                 <li
                   key={`${session.id}:${agent.id}`}
@@ -54,14 +87,7 @@ export function Home() {
                 >
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate({
-                        level: "session",
-                        projectId: project.id,
-                        sessionId: session.id,
-                        agentId: agent.id,
-                      })
-                    }
+                    onClick={open}
                     className="flex min-w-[280px] flex-1 items-center gap-3 text-left"
                   >
                     <Orb color={agentColor(agent.agentType)} persona={persona} size={34} />
@@ -73,13 +99,24 @@ export function Home() {
                         {agentName(agent)} {t(persona.label.key, persona.label.params)}
                       </span>
                       {asks && (
-                        <span className="block truncate font-mono text-xs text-waiting-ink">
+                        <span
+                          className={cn(
+                            "block truncate text-xs text-waiting-ink",
+                            question ? "font-medium" : "font-mono",
+                          )}
+                        >
                           {asks}
                         </span>
                       )}
                     </span>
                   </button>
-                  <PermissionActions session={session} agent={agent} />
+                  {question ? (
+                    <Button variant="primary" onClick={open}>
+                      {t("question.answer")}
+                    </Button>
+                  ) : (
+                    <PermissionActions session={session} agent={agent} />
+                  )}
                 </li>
               );
             })}

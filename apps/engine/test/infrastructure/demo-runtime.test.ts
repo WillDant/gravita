@@ -90,4 +90,31 @@ describe("DemoRuntime", () => {
     expect(after).toEqual(resolved);
     core.close();
   });
+
+  test("takes model and mode changes; refuses what a script can't do", async () => {
+    const { core, playUntil } = setup();
+    const sid = playUntil((e) => e.type === "session.started").sessionId!;
+    const r = core.runtimes.get(sid)!;
+    const refused = [
+      () => r.send("hi", "u1"),
+      () => r.interrupt(),
+      () => r.stopAgent("main"),
+      () => r.answerQuestion("main", "q1", { a: "b" }),
+    ];
+    for (const call of refused) await expect(call()).rejects.toBeInstanceOf(NotControllableError);
+    expect(
+      await core.router.dispatch("session.setModel", { sessionId: sid, model: "opus" }),
+    ).toEqual({ result: { ok: true } });
+    expect(core.projection.session(sid)!.model).toBe("opus");
+    expect(
+      await core.router.dispatch("session.send", { sessionId: sid, text: "hi" }),
+    ).toMatchObject({
+      error: { code: 4004 },
+    });
+    expect(
+      await core.router.dispatch("session.start", { cwd: "/tmp", prompt: "hi" }),
+    ).toMatchObject({
+      error: { code: 4005 },
+    });
+  });
 });

@@ -1,11 +1,28 @@
 import { RpcContract, RpcErrors, type RpcMethod, type RpcResult } from "@gravita/protocol";
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
+import type { AnswerQuestion } from "../../application/usecases/answer-question";
+import type { GetConversation } from "../../application/usecases/get-conversation";
 import type { GetEngineStatus } from "../../application/usecases/get-engine-status";
 import type { GetSessionEvents } from "../../application/usecases/get-session-events";
 import type { GetSnapshot } from "../../application/usecases/get-snapshot";
+import type { InterruptSession } from "../../application/usecases/interrupt-session";
+import type { ListModels } from "../../application/usecases/list-models";
 import type { RespondToPermission } from "../../application/usecases/respond-to-permission";
-import { NotControllableError } from "../../domain/errors";
+import type { SendMessage } from "../../application/usecases/send-message";
+import type { SetModel } from "../../application/usecases/set-model";
+import type { SetPermissionMode } from "../../application/usecases/set-permission-mode";
+import type { StartChat } from "../../application/usecases/start-chat";
+import type { StopAgent } from "../../application/usecases/stop-agent";
+import {
+  BypassLockedError,
+  ClaudeUnavailableError,
+  InvalidAnswerError,
+  InvalidCwdError,
+  NotControllableError,
+  NotLoggedInError,
+  TooManySessionsError,
+} from "../../domain/errors";
 
 // Method → use case, with params validated by the protocol's RpcContract. Pure dispatch:
 // no sockets, so it is tested without a network. `auth` is the transport's handshake.
@@ -36,6 +53,16 @@ export interface RouterDeps {
   getEngineStatus: GetEngineStatus;
   getSessionEvents: GetSessionEvents;
   respondToPermission: RespondToPermission;
+  /** Absent in demo mode: there is no Claude Code to start. */
+  startChat?: StartChat;
+  sendMessage: SendMessage;
+  interruptSession: InterruptSession;
+  stopAgent: StopAgent;
+  setModel: SetModel;
+  setPermissionMode: SetPermissionMode;
+  answerQuestion: AnswerQuestion;
+  getConversation: GetConversation;
+  listModels: ListModels;
 }
 
 export function rpcHandlers(d: RouterDeps): RpcHandlers {
@@ -44,6 +71,18 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "engine.status": () => d.getEngineStatus.execute(),
     "session.events": (p) => d.getSessionEvents.execute(p.sessionId),
     "permission.respond": (p) => d.respondToPermission.execute(p),
+    "session.start": (p) => {
+      if (!d.startChat) throw new ClaudeUnavailableError("not-found");
+      return d.startChat.execute(p);
+    },
+    "session.send": (p) => d.sendMessage.execute(p),
+    "session.interrupt": (p) => d.interruptSession.execute(p),
+    "agent.stop": (p) => d.stopAgent.execute(p),
+    "session.setModel": (p) => d.setModel.execute(p),
+    "session.setPermissionMode": (p) => d.setPermissionMode.execute(p),
+    "question.answer": (p) => d.answerQuestion.execute(p),
+    "session.conversation": (p) => d.getConversation.execute(p),
+    "claude.models": () => d.listModels.execute(),
   };
 }
 
@@ -53,6 +92,13 @@ const isRouted = (handlers: RpcHandlers, method: string): method is RoutedMethod
 /** Maps a failure of a use case to the error the client sees. */
 function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
   if (err instanceof NotControllableError) return RpcErrors.notControllable;
+  if (err instanceof ClaudeUnavailableError) return RpcErrors.claudeUnavailable;
+  if (err instanceof InvalidCwdError) return RpcErrors.invalidCwd;
+  if (err instanceof TooManySessionsError) return RpcErrors.tooManySessions;
+  if (err instanceof NotLoggedInError) return RpcErrors.notLoggedIn;
+  if (err instanceof InvalidAnswerError) return RpcErrors.badRequest;
+  if (err instanceof BypassLockedError)
+    return { code: RpcErrors.badRequest.code, message: err.message };
   logger.log(`${method} failed`, err);
   return INTERNAL_ERROR;
 }

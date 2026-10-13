@@ -2,6 +2,8 @@ import type { AgentNode, SessionState } from "@gravita/core";
 import { toPersona } from "@gravita/core";
 import { Orb } from "@/features/agents/Orb";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
+import { QuestionCard } from "@/features/questions/QuestionCard";
+import { firstQuestion } from "@/features/questions/questions";
 import { ago, t } from "@/shared/i18n/i18n";
 import { agentColor } from "@/shared/palette";
 import { agentName, permissionSummary, toolShort } from "@/shared/presenters/agent";
@@ -69,7 +71,8 @@ function AgentRow({
 }) {
   const persona = toPersona(agent, session, now);
   const waiting = persona.lifecycle === "waiting_user";
-  const asks = waiting ? permissionSummary(agent) : undefined;
+  const question = waiting ? firstQuestion(agent) : undefined;
+  const asks = waiting && !question ? permissionSummary(agent) : undefined;
   return (
     <li className={cn("rounded-lg", waiting && "bg-waiting-bg pb-2")}>
       <button
@@ -103,7 +106,11 @@ function AgentRow({
           </span>
         </span>
       </button>
-      {waiting && <PermissionActions session={session} agent={agent} className="pl-[52px]" />}
+      {question ? (
+        <QuestionCard session={session} agent={agent} pending={question} className="px-3 pt-1" />
+      ) : (
+        waiting && <PermissionActions session={session} agent={agent} className="pl-[52px]" />
+      )}
     </li>
   );
 }

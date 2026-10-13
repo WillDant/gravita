@@ -16,10 +16,18 @@ export interface FileContext {
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 12);
 
 /** Slash commands and their output are recorded as user turns; they aren't human prompts. */
-function isCommandEcho(text: string): boolean {
+export function isCommandEcho(text: string): boolean {
   return /^\s*<(command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat)>/.test(
     text,
   );
+}
+
+/**
+ * Removes the context blocks Claude Code and hosts inject into user turns
+ * (`<system-reminder>…</system-reminder>`), leaving only what the person typed.
+ */
+export function stripInjected(text: string): string {
+  return text.replace(/<system-reminder>[\s\S]*?(<\/system-reminder>|$)/g, "").trim();
 }
 
 function blockText(content: unknown): string {
@@ -153,9 +161,12 @@ export function normalizeRecords(records: RawRecord[], ctx: FileContext): Gravit
           typeof content === "string" ||
           (Array.isArray(content) && !content.some((b) => b.type === "tool_result"))
         ) {
-          const text = typeof content === "string" ? content : blockText(content);
-          if (r.uuid && text.trim()) {
-            const note = parseTaskNotification(text);
+          const raw = typeof content === "string" ? content : blockText(content);
+          if (r.uuid && raw.trim()) {
+            const note = parseTaskNotification(raw);
+            // A turn that was only injected context isn't something the person said.
+            const typed = stripInjected(raw);
+            const text = typed || raw;
             out.push({
               ...base(r.timestamp),
               key: keys.userMessage(r.uuid),
@@ -165,7 +176,7 @@ export function normalizeRecords(records: RawRecord[], ctx: FileContext): Gravit
                 textPreview: preview(text),
                 origin: note
                   ? "task-notification"
-                  : r.isMeta || isCommandEcho(text)
+                  : r.isMeta || !typed || isCommandEcho(typed)
                     ? "meta"
                     : "human",
               },

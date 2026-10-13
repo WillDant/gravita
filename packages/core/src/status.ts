@@ -137,15 +137,20 @@ export function toPersona(a: AgentNode, s: SessionState, now: number): Persona {
   const tool = newestInflight(a);
 
   switch (lifecycle) {
-    case "waiting_user":
+    case "waiting_user": {
+      // A question reads differently from a permission prompt, though both wait on the user.
+      const asking = Object.keys(a.questions ?? {}).length > 0;
       return {
         lifecycle,
         mood: "waiting",
         gaze: { kind: "viewer" },
-        glyph: "hand",
-        label: { key: "persona.waiting", params: toolParams(a.lastTool) },
+        glyph: asking ? "question" : "hand",
+        label: asking
+          ? { key: "persona.asking", params: {} }
+          : { key: "persona.waiting", params: toolParams(a.lastTool) },
         intensity: 1,
       };
+    }
     case "blocked":
       return {
         lifecycle,

@@ -215,6 +215,36 @@ export const Notification = ev("notification", {
   message: z.string().optional(),
 });
 
+export const PermissionModeSchema = z.enum(["default", "acceptEdits", "plan", "bypassPermissions"]);
+export type PermissionMode = z.infer<typeof PermissionModeSchema>;
+
+/** Model and permission mode a Gravita-run session uses now. */
+export const SessionSettings = ev("session.settings", {
+  model: z.string().optional(),
+  permissionMode: PermissionModeSchema.optional(),
+});
+
+export const QuestionOption = z.object({ label: z.string(), description: z.string().optional() });
+export const Question = z.object({
+  question: z.string(),
+  header: z.string().optional(),
+  multiSelect: z.boolean(),
+  options: z.array(QuestionOption),
+});
+export type Question = z.infer<typeof Question>;
+
+/** An agent asks the user to choose (AskUserQuestion). */
+export const QuestionAsked = ev("question.asked", {
+  requestId: z.string(),
+  toolUseId: z.string().optional(),
+  questions: z.array(Question),
+});
+
+export const QuestionAnswered = ev("question.answered", {
+  requestId: z.string(),
+  by: z.enum(["user", "timeout"]),
+});
+
 export const ErrorEvent = ev("error", {
   kind: z.string(),
   message: z.string(),
@@ -246,6 +276,9 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   PermissionRequested,
   PermissionResolved,
   Notification,
+  SessionSettings,
+  QuestionAsked,
+  QuestionAnswered,
   ErrorEvent,
 ]);
 

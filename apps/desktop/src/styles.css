@@ -142,6 +142,11 @@ a {
   text-underline-offset: 3px;
 }
 
+textarea,
+input {
+  caret-color: var(--focus);
+}
+
 /* Persona motion. Every loop is opt-in through prefers-reduced-motion. */
 @media (prefers-reduced-motion: no-preference) {
   .orb-breathe {
@@ -184,6 +189,10 @@ a {
   }
   .line-grow {
     animation: line-grow 520ms var(--ease-signature) both;
+  }
+  /* Chrome: an inline panel settling open under its header. */
+  .reveal {
+    animation: reveal 240ms var(--ease-signature) both;
   }
 }
 
@@ -273,6 +282,16 @@ a {
   100% {
     transform: scale(1.6);
     opacity: 0;
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 @keyframes line-grow {
