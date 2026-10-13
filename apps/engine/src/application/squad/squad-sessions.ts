@@ -147,7 +147,7 @@ export class SquadSessions {
       runtime.start();
       await this.send(session, prompt);
     } catch (err) {
-      this.d.runtimes.unregister(sessionId);
+      this.d.runtimes.unregister(sessionId, runtime);
       await session.dispose();
       throw err;
     }

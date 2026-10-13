@@ -60,7 +60,11 @@ export interface SessionOwnership {
  */
 export interface SessionRuntimeRegistry extends SessionOwnership {
   register(runtime: SessionRuntime): void;
-  unregister(sessionId: string): void;
+  /**
+   * Forgets the session's runtime. With `runtime`, only if it is still that one: a session
+   * resumed under the same id may already have a new runtime when the old one winds down.
+   */
+  unregister(sessionId: string, runtime?: SessionRuntime): void;
   get(sessionId: string): SessionRuntime | undefined;
   all(): SessionRuntime[];
 }

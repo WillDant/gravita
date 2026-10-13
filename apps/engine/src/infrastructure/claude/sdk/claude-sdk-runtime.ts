@@ -337,7 +337,7 @@ export class ClaudeSdkRuntime implements ChatRuntime {
       this.input.close();
       this.safely(() => this.broker.dispose());
       // The transcript tailer takes the session over from here (same keys, no duplicates).
-      this.safely(() => this.d.runtimes.unregister(this.sessionId));
+      this.safely(() => this.d.runtimes.unregister(this.sessionId, this));
       this.endedAs = {
         kind: "ended",
         reason: this.disposing ? "disposed" : crashed ? "crashed" : "closed",

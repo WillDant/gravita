@@ -5,19 +5,32 @@ import {
   PLANNER_TOOLS,
   plannerPermission,
 } from "../../domain/autonomy-policy";
-import { MAX_PLAN_ATTEMPTS, PLANNER_MAX_TURNS, STOP_GRACE_MS } from "../../domain/squad-policy";
+import {
+  MAX_PLAN_ATTEMPTS,
+  PLANNER_MAX_TURNS,
+  PLANNER_ROLE_ID,
+  STOP_GRACE_MS,
+} from "../../domain/squad-policy";
 import type { TurnOutcome } from "../ports/chat-runtime";
 import type { SquadReader } from "../ports/squad-reader";
 import type { BudgetGuard } from "./budget-guard";
-import { PLANNER_CHARTER, planFixPrompt, plannerPrompt } from "./prompts";
+import {
+  type BriefingLine,
+  PLANNER_CHARTER,
+  planFixPrompt,
+  plannerPrompt,
+  resumedPlannerPrompt,
+} from "./prompts";
 import type { SquadEmitter } from "./squad-emitter";
 import type { SquadRun } from "./squad-run";
 import type { SquadSessions } from "./squad-sessions";
 
 // The planner: a read-only Claude Code session in the user's repository that answers with a
-// SquadPlan as structured output. Gravita checks the shape (zod) and the meaning
-// (validatePlan); a plan with problems goes back to the same session with the problems,
-// up to three proposals, before the squad fails.
+// SquadPlan as structured output. It resumes the briefing conversation when it can (so it
+// keeps what the user told it), else it starts afresh with the brief and a summary of that
+// conversation. Gravita checks the shape (zod) and the meaning (validatePlan); a plan with
+// problems goes back to the same session with the problems, up to three proposals, before
+// the squad fails.
 
 export type PlannerEnd =
   | { kind: "proposed" }
@@ -25,7 +38,17 @@ export type PlannerEnd =
   /** Gravita stopped it (pause, stop): it runs again on resume. */
   | { kind: "interrupted" }
   /** Someone else disposed it: the kill switch. */
-  | { kind: "killed" };
+  | { kind: "killed" }
+  /** The session it resumed ended before a single turn (no transcript to go on). */
+  | { kind: "unresumable" };
+
+export interface PlannerRun {
+  feedback?: string;
+  /** Continue this session (the briefing, or the previous planning run). */
+  resumeSessionId?: string;
+  /** For a fresh session: the briefing conversation it couldn't resume. */
+  briefing?: readonly BriefingLine[];
+}
 
 /** What's wrong with a structured output as a plan; empty when it is a valid plan. */
 export function judgePlan(output: unknown): { plan?: SquadPlan; errors: string[] } {
@@ -60,30 +83,36 @@ export class RunPlanner {
   ) {}
 
   /** Runs the planner in `cwd` (the repository, or the empty folder) until it ends. */
-  async execute(run: SquadRun, cwd: string, feedback?: string): Promise<PlannerEnd> {
+  async execute(run: SquadRun, cwd: string, p: PlannerRun = {}): Promise<PlannerEnd> {
     const ref = { squadId: run.squadId, projectId: run.projectId };
     const q = this.current(run);
+    const resume = p.resumeSessionId;
     run.plannerStopRequested = false;
     if (q.phase !== "planning") this.d.emitter.phase(ref, "planning");
     const session = await this.d.sessions.start({
       squadId: run.squadId,
       projectId: run.projectId,
+      roleId: PLANNER_ROLE_ID,
       cwd,
       model: q.models.planner,
       permissionMode: "dontAsk",
-      prompt: plannerPrompt(q, feedback),
+      prompt: resume
+        ? resumedPlannerPrompt(q, p.feedback)
+        : plannerPrompt(q, p.feedback, p.briefing),
+      ...(resume ? { resumeSessionId: resume } : {}),
       systemPromptAppend: PLANNER_CHARTER,
       tools: [...PLANNER_TOOLS],
       disallowedTools: [...PLANNER_DISALLOWED_TOOLS],
       outputSchema: squadPlanJsonSchema(),
       maxTurns: PLANNER_MAX_TURNS,
-      maxBudgetUsd: this.d.budget.forPlanner(q),
+      maxBudgetUsd: this.d.budget.forPlanner(q, resume),
       permissionPolicy: (tool) => plannerPermission(tool),
     });
     run.planner = session;
+    run.plannerSessionId = session.sessionId;
     if (run.plannerStopRequested) session.stop(STOP_GRACE_MS);
     try {
-      const end = await this.converse(run, session);
+      const end = await this.converse(run, session, resume !== undefined);
       if (end.kind === "failed") this.d.emitter.phase(ref, "failed", end.reason);
       return end;
     } finally {
@@ -101,15 +130,18 @@ export class RunPlanner {
   private async converse(
     run: SquadRun,
     session: NonNullable<SquadRun["planner"]>,
+    resumed: boolean,
   ): Promise<PlannerEnd> {
     const ref = { squadId: run.squadId, projectId: run.projectId };
     for (let tries = 1; ; tries++) {
       const o: TurnOutcome = await session.nextTurn();
       if (session.stopping) return { kind: "interrupted" };
-      if (o.kind === "ended")
-        return o.reason === "disposed" && !session.disposedByGravita
-          ? { kind: "killed" }
-          : { kind: "failed", reason: "The planner's session stopped unexpectedly." };
+      if (o.kind === "ended") {
+        if (o.reason === "disposed" && !session.disposedByGravita) return { kind: "killed" };
+        // Claude Code couldn't pick the conversation up: the caller starts afresh.
+        if (resumed && tries === 1) return { kind: "unresumable" };
+        return { kind: "failed", reason: "The planner's session stopped unexpectedly." };
+      }
       const failure = FAILURES[o.subtype];
       if (failure) return { kind: "failed", reason: failure };
       if (o.subtype !== "success" && o.subtype !== "error_max_structured_output_retries")

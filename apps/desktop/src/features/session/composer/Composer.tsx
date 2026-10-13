@@ -17,7 +17,16 @@ import { useComposer } from "./useComposer";
  * Talk to a session Gravita runs: message box (⌘↩ sends), model and permissions, and
  * Interrupt standing apart from Send so the destructive action is never a slip away.
  */
-export function Composer({ session }: { session: SessionState }) {
+export function Composer({
+  session,
+  settings = true,
+  placeholder,
+}: {
+  session: SessionState;
+  /** Model and permission selects; a squad's planner has neither to choose. */
+  settings?: boolean;
+  placeholder?: string;
+}) {
   const c = useComposer(session);
   const models = useModels();
   const id = useId();
@@ -56,26 +65,30 @@ export function Composer({ session }: { session: SessionState }) {
                 send();
               }
             }}
-            placeholder={t("composer.placeholder")}
+            placeholder={placeholder ?? t("composer.placeholder")}
             maxRows={8}
             aria-describedby={c.error ? `${id}-status` : undefined}
             className="px-3 pt-2.5 pb-1"
           />
           <div className="flex flex-wrap items-center gap-2 px-2 pt-1 pb-2">
-            <ModelSelect
-              models={models}
-              value={c.model}
-              onChange={c.changeModel}
-              label={t("composer.model")}
-              className="w-48"
-            />
-            <ModeSelect
-              value={c.mode}
-              onChange={c.changeMode}
-              allowBypass={false}
-              label={t("composer.mode")}
-              className="w-44"
-            />
+            {settings && (
+              <>
+                <ModelSelect
+                  models={models}
+                  value={c.model}
+                  onChange={c.changeModel}
+                  label={t("composer.model")}
+                  className="w-48"
+                />
+                <ModeSelect
+                  value={c.mode}
+                  onChange={c.changeMode}
+                  allowBypass={false}
+                  label={t("composer.mode")}
+                  className="w-44"
+                />
+              </>
+            )}
             <span aria-live="polite" className="min-w-0 flex-1 truncate px-1 text-xs text-ink-2">
               {c.sending ? t("composer.sending") : ""}
             </span>
@@ -103,7 +116,7 @@ export function Composer({ session }: { session: SessionState }) {
           {c.error}
         </p>
       )}
-      {c.mode === "bypassPermissions" && <BypassWarning className="mt-2" />}
+      {settings && c.mode === "bypassPermissions" && <BypassWarning className="mt-2" />}
     </div>
   );
 }

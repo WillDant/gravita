@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
+import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
+import { SquadRow } from "@/features/squad-row/SquadRow";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
 import {
   projectSummaries,
@@ -11,6 +13,7 @@ import {
   sessionTitle,
   tokensOf,
 } from "@/shared/presenters/selectors";
+import { projectItems } from "@/shared/presenters/squad";
 import { CountChips, StatusText } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
 import { useNow, useProjection } from "@/state/hooks";
@@ -21,13 +24,15 @@ export function Project({ projectId }: { projectId: string }) {
   const now = useNow();
   const navigate = useNavigate();
   const summary = projectSummaries(state, now).find((p) => p.project.id === projectId);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"session" | "squad">();
 
   if (!summary) {
     return <p className="p-8 text-ink-2">{t("project.empty")}</p>;
   }
   const { project, sessions, counts } = summary;
-  const branch = sessions.find((s) => s.gitBranch)?.gitBranch;
+  const branch = sessions.find((s) => s.gitBranch && !s.squadId)?.gitBranch;
+  const items = projectItems(state, project);
+  const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
 
   return (
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-8 px-8 pt-8 pb-16">
@@ -46,19 +51,31 @@ export function Project({ projectId }: { projectId: string }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={counts} />
+          <NewSquadButton
+            open={creating === "squad"}
+            onToggle={() => toggle("squad")}
+            controls="project-new-squad"
+          />
           <NewSessionButton
-            open={creating}
-            onToggle={() => setCreating((v) => !v)}
+            open={creating === "session"}
+            onToggle={() => toggle("session")}
             controls="project-new-session"
           />
         </div>
       </header>
 
-      {creating && (
+      {creating === "session" && (
         <NewSessionPanel
           id="project-new-session"
           defaultFolder={project.root}
-          onClose={() => setCreating(false)}
+          onClose={() => setCreating(undefined)}
+        />
+      )}
+      {creating === "squad" && (
+        <NewSquadPanel
+          id="project-new-squad"
+          defaultFolder={project.root}
+          onClose={() => setCreating(undefined)}
         />
       )}
 
@@ -87,7 +104,19 @@ export function Project({ projectId }: { projectId: string }) {
             </tr>
           </thead>
           <tbody>
-            {sessions.map((s) => {
+            {items.map((item) => {
+              if (item.kind === "squad")
+                return (
+                  <SquadRow
+                    key={item.squad.id}
+                    squad={item.squad}
+                    sessions={item.sessions}
+                    lastEventTs={item.lastEventTs}
+                    now={now}
+                    onOpen={() => navigate({ level: "squad", projectId, squadId: item.squad.id })}
+                  />
+                );
+              const s = item.session;
               const c = sessionCounts(s, now);
               return (
                 <tr

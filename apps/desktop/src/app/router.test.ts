@@ -10,10 +10,23 @@ describe("hash routes", () => {
     { level: "project", projectId: "/work/my app" },
     { level: "session", projectId: "p", sessionId: "s/1" },
     { level: "session", projectId: "p", sessionId: "s", agentId: "a" },
+    { level: "squad", projectId: "p", squadId: "sq-1" },
+    { level: "squad", projectId: "p", squadId: "sq/1", taskId: "api-routes" },
   ];
 
   it("round-trip through the hash", () => {
     for (const r of routes) expect(parseHash(hashOf(r))).toEqual(r);
+  });
+
+  it("open a squad at #/p/:projectId/q/:squadId", () => {
+    expect(parseHash("#/p/p1/q/sq-1")).toEqual({
+      level: "squad",
+      projectId: "p1",
+      squadId: "sq-1",
+    });
+    expect(hashOf({ level: "squad", projectId: "p1", squadId: "sq-1", taskId: "t1" })).toBe(
+      "#/p/p1/q/sq-1/t/t1",
+    );
   });
 
   it("open the persona gallery in dev builds", () => {

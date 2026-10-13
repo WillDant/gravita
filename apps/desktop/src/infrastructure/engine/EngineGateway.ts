@@ -45,6 +45,20 @@ export interface EngineGateway {
   /** The kill switch: stops every session Gravita runs (the tray calls it over HTTP too). */
   stopAll(): Promise<RpcResult<"engine.stopAll">>;
 
+  // Squads: a team of role agents working one approved plan. Same error contract.
+  createSquad(params: RpcParams<"squad.create">): Promise<RpcResult<"squad.create">>;
+  /** Ends the brief conversation: the planner writes the plan. */
+  planSquad(params: RpcParams<"squad.plan">): Promise<RpcResult<"squad.plan">>;
+  replanSquad(params: RpcParams<"squad.replan">): Promise<RpcResult<"squad.replan">>;
+  approvePlan(params: RpcParams<"squad.approvePlan">): Promise<RpcResult<"squad.approvePlan">>;
+  pauseSquad(params: RpcParams<"squad.pause">): Promise<RpcResult<"squad.pause">>;
+  resumeSquad(params: RpcParams<"squad.resume">): Promise<RpcResult<"squad.resume">>;
+  stopSquad(params: RpcParams<"squad.stop">): Promise<RpcResult<"squad.stop">>;
+  retryTask(params: RpcParams<"squad.task.retry">): Promise<RpcResult<"squad.task.retry">>;
+  skipTask(params: RpcParams<"squad.task.skip">): Promise<RpcResult<"squad.task.skip">>;
+  reassignTask(params: RpcParams<"squad.task.reassign">): Promise<RpcResult<"squad.task.reassign">>;
+  deliverSquad(params: RpcParams<"squad.deliver">): Promise<RpcResult<"squad.deliver">>;
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
   onStatus(listener: (status: EngineStatus) => void): Unsubscribe;
   onConnection(listener: (connection: GatewayConnection) => void): Unsubscribe;

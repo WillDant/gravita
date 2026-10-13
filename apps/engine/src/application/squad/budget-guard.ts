@@ -1,6 +1,11 @@
 import { roleBudget, type SquadState, squadPlan } from "@gravita/core";
 import type { BudgetScope } from "@gravita/protocol";
-import { BUDGET_WARN_RATIO, plannerBudget, taskBudget } from "../../domain/squad-policy";
+import {
+  BUDGET_WARN_RATIO,
+  briefingBudget,
+  plannerBudget,
+  taskBudget,
+} from "../../domain/squad-policy";
 import type { ProjectionReader } from "../ports/projection-reader";
 import type { SquadEmitter } from "./squad-emitter";
 import type { SquadRun } from "./squad-run";
@@ -84,10 +89,22 @@ export class BudgetGuard {
     return round(Math.max(0, Math.min(...limits)));
   }
 
-  /** The planner's slice, within what is left of the squad. */
-  forPlanner(q: SquadState): number {
+  /**
+   * The planner's slice, within what is left of the squad. A planner that resumes a session
+   * (the briefing, an earlier plan) gets what that session already spent on top: Claude Code
+   * compares maxBudgetUsd with the session's cost, which a resumed session carries over.
+   */
+  forPlanner(q: SquadState, resumeSessionId?: string): number {
+    const carried = resumeSessionId ? (this.d.sessions.session(resumeSessionId)?.costUsd ?? 0) : 0;
     return round(
-      Math.max(0, Math.min(plannerBudget(q.budgetUsd), q.budgetUsd - q.budget.spentUsd)),
+      Math.max(0, Math.min(plannerBudget(q.budgetUsd), q.budgetUsd - q.budget.spentUsd)) + carried,
+    );
+  }
+
+  /** The briefing conversation's slice, within what is left of the squad. */
+  forBriefing(q: SquadState): number {
+    return round(
+      Math.max(0, Math.min(briefingBudget(q.budgetUsd), q.budgetUsd - q.budget.spentUsd)),
     );
   }
 }

@@ -23,9 +23,15 @@ export function spawnedAgents(events: readonly GravitaEvent[]): Map<string, stri
 export default function ConversationLens({
   session,
   onSelect,
+  speaker,
+  empty,
 }: {
   session: SessionState;
   onSelect: (agentId: string) => void;
+  /** Who answers the user, when it isn't the session's main agent (a squad's planner). */
+  speaker?: { name: string; agentType: string };
+  /** What an empty conversation says instead of the default. */
+  empty?: string;
 }) {
   useLocale();
   const view = useConversation(session.id);
@@ -70,7 +76,8 @@ export default function ConversationLens({
   if (count === 0) {
     return (
       <p className="px-8 py-8 text-sm text-ink-2">
-        {session.controllable ? t("conversation.emptyControllable") : t("conversation.empty")}
+        {empty ??
+          (session.controllable ? t("conversation.emptyControllable") : t("conversation.empty"))}
       </p>
     );
   }
@@ -86,7 +93,13 @@ export default function ConversationLens({
     >
       <ol className="mx-auto flex max-w-[760px] flex-col gap-6 px-6 py-6">
         {view.messages.map((m) => (
-          <Message key={m.uuid} message={m} spawned={spawned} onSelect={onSelect} />
+          <Message
+            key={m.uuid}
+            message={m}
+            spawned={spawned}
+            onSelect={onSelect}
+            {...(speaker ? { speaker } : {})}
+          />
         ))}
       </ol>
     </div>
@@ -97,18 +110,20 @@ const Message = memo(function Message({
   message,
   spawned,
   onSelect,
+  speaker,
 }: {
   message: ConversationMessage;
   spawned: Map<string, string>;
   onSelect: (agentId: string) => void;
+  speaker?: { name: string; agentType: string };
 }) {
   const user = message.role === "user";
   return (
     <li className={cn("flex flex-col gap-1.5", user && "rounded-xl bg-panel px-4 py-3")}>
       <div className="flex items-center gap-2 text-xs">
-        {!user && <LineBadge agentType={MAIN_AGENT} size={16} />}
+        {!user && <LineBadge agentType={speaker?.agentType ?? MAIN_AGENT} size={16} />}
         <span className="font-semibold text-ink">
-          {user ? t("conversation.you") : t("agent.main")}
+          {user ? t("conversation.you") : (speaker?.name ?? t("agent.main"))}
         </span>
         <time dateTime={message.ts} className="text-ink-3 tabular-nums">
           {clock(message.ts)}

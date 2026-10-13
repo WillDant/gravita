@@ -47,9 +47,16 @@ export const createOpenSessionSlice: Slice<OpenSessionSlice> = (gateway) => (set
   },
   reloadSession: () => {
     const route = get().route;
-    if (route.level !== "session") return;
+    // On a squad's screen the open session is whichever role the user is looking at.
+    const id =
+      route.level === "session"
+        ? route.sessionId
+        : route.level === "squad"
+          ? get().openSession?.id
+          : undefined;
+    if (!id) return;
     set({ openSession: undefined });
-    get().loadSession(route.sessionId);
+    get().loadSession(id);
   },
   appendLive: (events) => {
     const open = get().openSession;

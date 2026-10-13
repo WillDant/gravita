@@ -170,6 +170,16 @@ components:
     backgroundColor: "{colors.waiting-bg}"
     rounded: "{rounded.xl}"
     padding: "12px 16px"
+  squad-decision-row:
+    backgroundColor: "{colors.waiting-bg}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.xl}"
+    padding: "12px 16px"
+  role-strip:
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.xl}"
+    width: "300px"
 ---
 
 # Design System: Gravita
@@ -186,6 +196,7 @@ Motion has two registers. Chrome is short and settled: a single signature ease (
 
 **Key Characteristics:**
 - Transit-map signature: 5px lines, round caps, octolinear routing with 45° chamfered knees, white stations with ink rings, white interchange capsules, line-code badges.
+- Squads are the same map at team scale: integration is an ink trunk across the top, each role a line in its hue below it, each task a station, each merge a spur rising back into the trunk.
 - Quiet neutral chrome; colour belongs to agents and to three reserved state hues.
 - Signage typography: DM Sans, sentence case, 600-700 weight for names and labels, tabular numerals.
 - Flat surfaces separated by hairlines; a soft lift only marks the selected item.
@@ -197,14 +208,14 @@ Motion has two registers. Chrome is short and settled: a single signature ease (
 A cool, near-colourless frame around a set of saturated metro-line hues, with orange reserved to mean "you are needed".
 
 ### Primary
-- **Signal Ink** (ink): the one strong neutral. Body text, ink rings on stations, orbs and interchanges, the primary button and the "running" count chip. In dark theme it inverts to a pale gray (#eceef2).
+- **Signal Ink** (ink): the one strong neutral. Body text, ink rings on stations, orbs and interchanges, the primary button and the "running" count chip. On squads it is also the integration trunk (the one line drawn in ink, with an ink line-code disc), the phase track's travelled stretch and passed stops, and the budget meter's fill. In dark theme it inverts to a pale gray (#eceef2).
 
 ### Secondary
-- **Hold Orange** (waiting / waiting-ink / waiting-bg): the "waiting for you" state and nothing else. Waiting station rings, the orb's pulsing halo, the Needs-you count, the waiting card on Home, held-line signage ("waiting for you · Bash"). `waiting-ink` is the text-safe shade; `waiting-bg` the tinted row fill.
+- **Hold Orange** (waiting / waiting-ink / waiting-bg): the "waiting for you" state and nothing else. Waiting station rings, the orb's pulsing halo, the Needs-you count, the waiting card on Home, held-line signage ("waiting for you · Bash"). On squads: blocked task stations, squad decision rows, the Run column's "needs you" band, planner questions on the Board, and a pause that waits on the user (budget, restart, kill switch); a pause the user chose stays panel gray, and the budget meter turns orange only once the budget has actually stopped the squad. `waiting-ink` is the text-safe shade; `waiting-bg` the tinted row fill.
 
 ### Tertiary
-- **Agent Line Hues** (line-main, line-explore, line-plan, line-general, line-design, line-tests, line-rose, line-sky, line-orchid): one fixed hue per agent type, identical across every lens and screen. Main is an indigo-violet, Explore teal, Plan coral, general-purpose blue; squad roles reuse slots (planner = main, backend = general blue, frontend = coral, design = mustard, tests = green); unknown types hash into the rose / mustard / green / sky / orchid pool. Each hue has three cuts in code: `line` (the stroke), a lighter `fill` (the orb body) and a deeper `badge` (the line-code disc, white text at AA; design yellow takes dark brown text, #3b2a00).
-- **Error Red** (error / error-ink / error-bg) and **Running Green** (ok / ok-ink): state only. Green is the live dot in chips and session rows; red rings an error station and colours error status text.
+- **Agent Line Hues** (line-main, line-explore, line-plan, line-general, line-design, line-tests, line-rose, line-sky, line-orchid): one fixed hue per agent type, identical across every lens and screen. Main is an indigo-violet, Explore teal, Plan coral, general-purpose blue; squad roles reuse slots (planner = main, backend = general blue, frontend = coral, design = mustard, tests = green); custom squad roles take pool hues by the Custom Role Hue Rule below; unknown types hash into the rose / mustard / green / sky / orchid pool. Each hue has three cuts in code: `line` (the stroke), a lighter `fill` (the orb body) and a deeper `badge` (the line-code disc, white text at AA; design yellow takes dark brown text, #3b2a00).
+- **Error Red** (error / error-ink / error-bg) and **Running Green** (ok / ok-ink): state only. Green is the live dot in chips and session rows; red rings an error station and colours error status text; on squads it also marks failed task stations, conflicted or reverted merge capsules, the failed-squad band and red final checks, always with an × and a word.
 - **Focus Blue** (focus / select): focus outlines and the tree lens's selected-row tint. Never decoration.
 
 ### Neutral
@@ -219,6 +230,8 @@ A cool, near-colourless frame around a set of saturated metro-line hues, with or
 **The One Line, One Hue Rule.** An agent type owns its colour everywhere: map line, badge disc, orb body, mini-map on Home. Never recolour an agent per screen or per theme.
 
 **The Orange Means You Rule.** Hold Orange marks only things waiting on the user. If nothing is waiting, no orange is on screen.
+
+**The Custom Role Hue Rule.** A custom squad role draws in a pool hue (rose, sky, orchid, mustard, green, handed out in that order), allocated per plan in plan order: first the hues no built-in role of that plan comes near, then those that only resemble one (sky beside backend's blue, rose beside frontend's coral). A built-in role's exact hue (mustard while design is in the plan, green while tests is) is never handed to a custom role; past the remaining hues the order repeats and the line-code letters tell the roles apart. The slot is stable for the plan and drawn everywhere the role appears: map, badge, orb, Board, Orbit, squad rows. This is One Line, One Hue at squad scope; built-in roles always keep their kind's hue.
 
 ## Typography
 
@@ -235,6 +248,7 @@ A cool, near-colourless frame around a set of saturated metro-line hues, with or
 - **Body** (400, 0.875rem, 1.45): default text; Happening rows and lists run at 0.8125rem.
 - **Label** (500, 0.75rem): chips, metadata lines, descriptions, sidebar group label (600, ink-3, sentence case).
 - **Map name** (600, 12px) and **Map signage** (600, 11px; 700 in waiting-ink when held): SVG text on the line map. Station repeat counts are 9.5px 600 tabular in ink-3.
+- **Squad signage** reuses Map signage at 11px 600: station titles (ink-2 once work began, ink-3 ahead), zone names along the map's top (ink-3), phase-track stop names (current stop 700 in ink, error-ink when the squad failed). The Board's plan goal takes the 1.375rem step at 700, -0.01em; Deliver's "Ready to deliver" is Display.
 - **Count** (700, 0.6875rem, tabular): numeric pills in the sidebar.
 - **Mono** (DM Mono 400, 0.75rem, tabular, -0.01em): permission asks ("Bash · pnpm add jose"), paths, raw tab (11px).
 
@@ -249,13 +263,15 @@ A fixed three-part operating frame. The sidebar is 232px on the cool panel; belo
 
 The line map fits its frame like a printed diagram: columns flex between 16px and 96px, lanes between 56px and 104px, spare height lifts the diagram 30% off the top, and the map scrolls horizontally only when it cannot fit, following "now" like a departures board unless the user scrolls back. Spacing rides Tailwind's 4px grid; the recurring steps are 4, 8, 12, 16, 20, 24, 32, 40.
 
+The squad screen keeps the frame. Its header holds the breadcrumb (at most 380px, the squad title truncated), the phase track, then the budget meter and Pause / Stop pushed right; below 1280px the phase track switches to its compact form. A status band may sit under the header; the lens tabs are Lines · Orbit · Tasks, with Deliver first once the squad reaches it; the 340px right column stays. The squad map fits its frame like the session map, with a 136px left gutter for line names, columns between 18px and 120px and lanes between 58px and 104px. The Board is a horizontal row of 300px role strips under the plan summary and the cost / approve card. Deliver stacks the summary, the finished map in a 360px band between hairlines, then a centred column (max 1000px) of choices, final checks and changes by role; the three choices stack to one column below 860px.
+
 ## Elevation & Depth
 
-Flat by default. Surfaces separate by tone (ground vs panel) and 1px hairlines, not by shadow. A soft two-layer shadow appears only to show "this one is selected": the active sidebar item, the active session row and the selected lens tab sit as white tiles lifted off the gray track. Depth on the map comes from the white casing drawn under every line, so crossings read as over/under like a metro diagram.
+Flat by default. Surfaces separate by tone (ground vs panel) and 1px hairlines, not by shadow. A soft two-layer shadow appears only to show "this one is selected": the active sidebar item, the active session row, the selected lens tab and the chosen delivery option sit as white tiles lifted off the gray track. Depth on the map comes from the white casing drawn under every line, so crossings read as over/under like a metro diagram.
 
 ### Shadow Vocabulary
 - **Panel lift** (`box-shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%)`; dark: `0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%)`): selected tile on a panel track.
-- **Float** (`box-shadow: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%)`): defined for floating layers; no shipped surface uses it yet.
+- **Float** (`box-shadow: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%)`; dark: `0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%)`): floating layers only: the budget meter's per-role breakdown and the notification settings popover.
 
 ### Named Rules
 **The Lift Means Selected Rule.** Shadow marks the current selection on a panel track, never a resting card. Containers use a hairline border instead.
@@ -314,6 +330,38 @@ A 176×44 thumbnail of a session's map on Home project rows: 3px main line, up t
 
 ### Permission actions
 Allow (primary) and Deny (secondary) inline on waiting rows, beneath a mono line of what is asked. Sessions running in the user's terminal show a terminal-icon pointer ("Answer it in the terminal where this session runs") instead of buttons.
+
+### Squad Map (signature)
+The squad as one transit system, in the Line Map's grammar. Integration is the trunk: a 5px ink line across the top, named in the gutter with an ink line-code disc, the planner's 26px orb at its origin and "Planner · status" signage under the name. Each role is a line in its hue in its own lane below, leaving the trunk before its first task on a 45° knee; each task is a station on it, one column per task in plan order; each merge is a 3.5px spur in the role's hue rising back into the trunk to an interchange capsule with a role-hue pip. Work begun is solid, the route ahead is the same line at 30% opacity, and the trunk ends at an ink terminus bar, faint until Deliver. Dotted hairline-strong rules (2 4 dash) split the line into Foundation · Build · Verify · Deliver, named along the top in 11px ink-3; a foundation stretch too short to hold its name stays unnamed. Role names sit in the left gutter beside their lanes rather than above them.
+- **Stations:** quiet (pending, ready, skipped) are 4px with a 1.6px ink-3 ring, skipped adds an ink-3 slash; begun are 4.6px with a 2px ink ring, ink-filled while running, with a centre dot in review; selection adds a 9.5px ink ring; the hit area is 12px. List rows reuse the same marks at small size.
+- **Stuck marks, shape plus word:** a blocked task is a 6.5px station with a 2.6px orange ring and a pulsing halo, signed "waiting for you" in waiting-ink; a failed task is the same size with a red ring and an × inside, signed "failed" in error-ink; a conflicted or reverted merge turns its capsule's ring red (2.6px) with an × in its tail and names it ("conflict", "reverted") above the trunk. The word is left out only when an orb's signage already speaks for that role.
+- **Station titles:** every station carries its title in 11px signage on a ground halo, wrapped to at most two lines 72-120px wide (cut only on a third), placed on the first clear tier of four: under the station, above it, further down past signage, one row lower again. Signage and orbs are hard obstacles a title never lands on; spawn drops and merge spurs are soft, crossed on the halo only when nothing else fits.
+- **Orbs:** ride the head of each working role just past its current station, signage under them; a stuck station keeps its own ring visible and no orb sits on it. A merge landing after first paint rises into the trunk with the line-grow draw, the map's one authored move.
+
+**The Title Gap Rule.** Two station titles on the same tier keep at least 12px of air between them; a title wraps narrower, or moves tier, before it ever reads as one string with its neighbour.
+
+### Phase Track
+The squad's phases as its own short metro line in the header, never a progress bar: six stops (Brief · Plan · Foundation · Build · Verify · Deliver) 66px apart on a 4px hairline-strong track. The travelled stretch is ink; passed stops are 4.6px ink dots, stops ahead 4px hollow with ink-3 rings, the current stop a 7.5px station with a 2.4px ring and a 3px centre pip, named in 700 ink. A failed squad rings its last stop red and names it in error-ink; a stopped one rings it ink-3; done fills the whole line. Its accessible name says the stop and "n of 6".
+- **Compact (below 1280px):** stops 24px apart and only the current stop named (the terminus too once done); the dots still carry the whole route.
+
+### Budget Meter
+Spent / total in tabular DM Mono at 0.8125rem (spent in ink 500, "/ total" in ink-3) over a 112×4px pill track in panel-2 with an ink fill. Figure and fill turn Hold Orange only when the budget has paused the squad; the 75% warning changes the breakdown's heading, not the colour. Hover or focus opens the per-role breakdown: a 288px ground popover, 12px radius, hairline, Float shadow; rows of 16px line badge, role name and spend / role budget (waiting-ink once a role's budget is spent).
+
+### Squad Status Band
+A full-width band under the header when the squad isn't simply running: panel with ink-2 text for a pause the user chose or a stop; waiting-bg with a 30% orange hairline and waiting-ink for a pause that waits on the user, the budget-raise field inline; error-bg with error-ink when the squad failed.
+
+### Board Role Strips
+Each role as the strip map over a train door: a 300px ground column, 12px radius, hairline. The header holds a 28px idle orb, an 18px line badge, the name (1rem 600), the role budget or "≈ estimate" tabular in ink-2, owned paths as 11px DM Mono panel tags, and the charter in ink-3 (two lines). Below, the role's 5px line runs down the column in its hue and each task is a stop: a 13px ground dot with a 2px ink ring (red when the plan check pinned an issue to it), then title, one-sentence summary, size and dependencies, paths in mono. Edit, move and remove are icon buttons beside the title, each opening an inline form in place.
+- **Foundation mark:** a foundation task carries a 5px pip in the role's hue inside its stop (an ink fill already means "running" on the map, so it is not reused), plus a "Foundation" panel pill in its meta line.
+
+### Deliver
+"Ready to deliver" over the plan summary and one meta line (done / total, roles, spent of total in tabular, the branch in mono). Then the finished map: the squad map in its 360px band, every line built, the trunk solid to its terminus.
+- **Choice list:** a three-option radiogroup on a panel track (12px radius, 2px inset); each tile an icon, a 0.8125rem 600 name and one ink-2 sentence; the chosen tile is a lifted ground tile (10px radius, panel lift). Choosing reveals a hairline confirmation row that names exactly what will happen, with Cancel (ghost) and the one primary action; nothing is delivered from a tile alone. An option that can't run (no `gh`) dims to 60% and says why.
+- **Final checks:** a hairline list; each row an 8px status dot (green passed, red failed, hollow ink-3 not run) paired with the word and its duration, the command in mono; a red check opens its output in error-bg mono.
+- **Delivered:** an ink check disc, the outcome, and the branch or pull request in mono with Copy.
+
+### Squad Decisions
+What a squad waits on the user for, one shape wherever it appears. On Home's Needs you it is a waiting-card row: the role's 22px line badge (the planner's when no role), "project › squad" in ink-2 at 0.75rem, what is needed in ink 500, the reason in waiting-ink, and a single primary action (Review plan, Deliver, Decide, Open). In the Run column, decisions sit first in an orange "N things need you" band: each stuck task shows its station mark (orange ring blocked, red ring failed) with the word, the role and the reason, then Retry (primary) and Retry with a stronger model (secondary); Reassign and Skip are ghost buttons that open inline confirmations, and reassignment offers only roles whose owned paths cover the task's writes.
 
 ### Motion
 - **Chrome:** palette of 120 / 240 / 480ms on the signature ease cubic-bezier(0.2, 0, 0, 1); no overshoot. Pupils glide 240ms; new lines draw in on the signature ease.

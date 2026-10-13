@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-13T01:01:03+00:00",
+  "generatedAt": "2026-10-13T12:00:00+00:00",
   "title": "Design System: Gravita",
   "extensions": {
     "colorMeta": {
@@ -517,7 +517,7 @@
         "name": "float",
         "value": "0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%)",
         "dark": "0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%)",
-        "purpose": "Defined for floating layers (--shadow-lg / shadow-float); no shipped consumer yet."
+        "purpose": "Floating layers only (--shadow-lg / shadow-float): the budget meter per-role breakdown and the notification settings popover."
       },
       {
         "name": "map-casing",
@@ -607,6 +607,16 @@
         "name": "content-max",
         "value": "1080px",
         "purpose": "Home and Project column max width."
+      },
+      {
+        "name": "phase-compact",
+        "value": "1279px",
+        "purpose": "At or below: the squad header's phase track switches to its compact form (stops 24px apart, only the current stop named)."
+      },
+      {
+        "name": "deliver-stack",
+        "value": "860px",
+        "purpose": "At or below: Deliver's three choices stack to one column."
       }
     ],
     "layout": {
@@ -621,6 +631,23 @@
         "padTop": "44px",
         "padLeft": "28px",
         "padBottom": "36px"
+      },
+      "squadMap": {
+        "gutter": "136px",
+        "columns": "18-120px",
+        "lanes": "58-104px",
+        "plannerOrb": "26px",
+        "spur": "3.5px",
+        "plannedOpacity": 0.3,
+        "titleWidth": "72-120px, max two lines",
+        "titleGap": "12px",
+        "titleTiers": "below, above, under signage, far"
+      },
+      "squad": {
+        "roleStrip": "300px",
+        "deliverMap": "360px band",
+        "deliverColumn": "max 1000px",
+        "breadcrumbMax": "380px"
       }
     }
   },
@@ -704,6 +731,28 @@
       "description": "Agent persona: line-coloured body, ink ring, eyes that look toward the work; breathes gently, pops in on spawn.",
       "html": "<svg class=\"ds-orb\" width=\"48\" height=\"48\" viewBox=\"0 0 40 40\"><g class=\"ds-orb-body\"><circle cx=\"20\" cy=\"20\" r=\"17\" fill=\"#7c6cf7\" stroke=\"#121417\" stroke-width=\"1.6\"/><ellipse cx=\"13.5\" cy=\"11.5\" rx=\"5.5\" ry=\"3\" fill=\"#fff\" opacity=\"0.32\"/><ellipse cx=\"14.5\" cy=\"19\" rx=\"4.3\" ry=\"5.1\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.8\"/><ellipse cx=\"25.5\" cy=\"19\" rx=\"4.3\" ry=\"5.1\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.8\"/><circle cx=\"16\" cy=\"19.8\" r=\"2.1\" fill=\"#121417\"/><circle cx=\"27\" cy=\"19.8\" r=\"2.1\" fill=\"#121417\"/></g></svg>",
       "css": ".ds-orb { overflow: visible; } @media (prefers-reduced-motion: no-preference) { .ds-orb-body { transform-origin: center; transform-box: fill-box; animation: ds-orb-breathe 3.2s ease-in-out infinite; } .ds-orb:hover .ds-orb-body { animation: ds-orb-pop 480ms cubic-bezier(0.34, 1.4, 0.64, 1) both; } } @keyframes ds-orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } } @keyframes ds-orb-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }"
+    },
+    {
+      "name": "Phase Track",
+      "kind": "custom",
+      "description": "The squad's phases as a short metro line in the header: travelled stretch ink, current stop ringed with a pip, stops ahead hollow ink-3.",
+      "html": "<svg class=\"ds-phase\" width=\"386\" height=\"34\" viewBox=\"0 0 386 34\"><path d=\"M28 9H358\" stroke=\"#cfd3da\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M28 9H226\" stroke=\"#121417\" stroke-width=\"4\" stroke-linecap=\"round\"/><circle cx=\"28\" cy=\"9\" r=\"4.6\" fill=\"#121417\" stroke=\"#121417\" stroke-width=\"2\"/><circle cx=\"94\" cy=\"9\" r=\"4.6\" fill=\"#121417\" stroke=\"#121417\" stroke-width=\"2\"/><circle cx=\"160\" cy=\"9\" r=\"4.6\" fill=\"#121417\" stroke=\"#121417\" stroke-width=\"2\"/><circle cx=\"226\" cy=\"9\" r=\"7.5\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"2.4\"/><circle cx=\"226\" cy=\"9\" r=\"3\" fill=\"#121417\"/><circle cx=\"292\" cy=\"9\" r=\"4\" fill=\"#fff\" stroke=\"#646b78\" stroke-width=\"1.6\"/><circle cx=\"358\" cy=\"9\" r=\"4\" fill=\"#fff\" stroke=\"#646b78\" stroke-width=\"1.6\"/><g font-size=\"11\" font-weight=\"600\" text-anchor=\"middle\"><text x=\"28\" y=\"30\" fill=\"#4a505c\">Brief</text><text x=\"94\" y=\"30\" fill=\"#4a505c\">Plan</text><text x=\"160\" y=\"30\" fill=\"#4a505c\">Foundation</text><text x=\"226\" y=\"30\" fill=\"#121417\" font-weight=\"700\">Build</text><text x=\"292\" y=\"30\" fill=\"#646b78\">Verify</text><text x=\"358\" y=\"30\" fill=\"#646b78\">Deliver</text></g></svg>",
+      "css": ".ds-phase { display: block; font-family: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Budget Meter",
+      "kind": "custom",
+      "description": "Spent / total in tabular mono over a 112x4px pill meter; orange only once the budget has paused the squad.",
+      "html": "<div class=\"ds-budget\" tabindex=\"0\"><span class=\"ds-budget-fig\"><b>$8.20</b><span> / $25.00</span></span><span class=\"ds-budget-track\"><span style=\"width:33%\"></span></span></div>",
+      "css": ".ds-budget { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 2px 6px; border-radius: 6px; } .ds-budget:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; } .ds-budget-fig { font-family: 'DM Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; font-size: 0.8125rem; color: #121417; } .ds-budget-fig b { font-weight: 500; } .ds-budget-fig span { color: #646b78; } .ds-budget-track { display: block; width: 112px; height: 4px; border-radius: 9999px; background: #eceef2; overflow: hidden; } .ds-budget-track span { display: block; height: 100%; border-radius: 9999px; background: #121417; }"
+    },
+    {
+      "name": "Squad Decision Row",
+      "kind": "card",
+      "refersTo": "squad-decision-row",
+      "description": "What a squad waits on you for on Home's Needs you: role badge, where, what, why, one primary action.",
+      "html": "<div class=\"ds-sqd\"><span class=\"ds-sqd-badge\">T</span><span class=\"ds-sqd-text\"><span class=\"ds-sqd-where\">todo-app &rsaquo; Build a small todo app</span><span class=\"ds-sqd-what\">API tests is blocked</span><span class=\"ds-sqd-why\">Merging into integration conflicted</span></span><button class=\"ds-sqd-btn\">Decide</button></div>",
+      "css": ".ds-sqd { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 12px; background: #fff1e8; border: 1px solid rgb(232 89 12 / 40%); font-family: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif; } .ds-sqd-badge { width: 22px; height: 22px; border-radius: 9999px; background: #0e8048; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; flex: none; } .ds-sqd-text { display: flex; flex-direction: column; flex: 1; min-width: 0; } .ds-sqd-where { font-size: 0.75rem; color: #4a505c; } .ds-sqd-what { font-size: 0.875rem; font-weight: 500; color: #121417; } .ds-sqd-why { font-size: 0.75rem; font-weight: 500; color: #b8430a; } .ds-sqd-btn { height: 32px; padding: 0 12px; border-radius: 8px; border: none; background: #121417; color: #fff; font: 500 0.8125rem 'DM Sans Variable', sans-serif; transition: background 120ms cubic-bezier(0.2,0,0,1); } .ds-sqd-btn:hover { background: color-mix(in srgb, #121417 85%, transparent); } .ds-sqd-btn:focus-visible { outline: 2px solid #2f5bea; outline-offset: 2px; }"
     }
   ],
   "narrative": {
@@ -711,6 +760,7 @@
     "overview": "Gravita draws parallel agent work as a modernist transit map. Each agent is a coloured line running left to right through time; tool calls are stations; a subagent is a branch that leaves its parent at an interchange, drops on a 45° knee into its own lane, and merges back when done. The agent itself rides at the head of its line as a small persona, an orb with eyes, and a line of plain-language signage under it says what that agent is doing right now. The map is the product; every other surface is quiet so the lines can carry the meaning.\n\nThe ground is white (dark: near-black), the chrome is a cool gray panel with hairlines, and the ink is near-black. Saturated colour enters only through the agents (lines, line badges, orbs) and through three reserved state hues: orange for \"waiting for you\", red for error, green for running. Type is DM Sans set like transit signage: short, sentence case, semibold to bold, on a tight ~1.125 product scale; numbers are tabular, and DM Mono carries commands, paths and raw payloads. Density is that of an operating tool (14px body, 32px controls), not a marketing page.\n\nMotion has two registers. Chrome is short and settled: a single signature ease (cubic-bezier(0.2, 0, 0, 1)) with no overshoot. The orbs are the one playful thing in the world: they breathe, bob while working, pop in with overshoot when spawned, bounce when they need you, and wobble on error. Every loop sits behind `prefers-reduced-motion`.",
     "keyCharacteristics": [
       "Transit-map signature: 5px lines, round caps, octolinear routing with 45° chamfered knees, white stations with ink rings, white interchange capsules, line-code badges.",
+      "Squads are the same map at team scale: integration is an ink trunk across the top, each role a line in its hue below it, each task a station, each merge a spur rising back into the trunk.",
       "Quiet neutral chrome; colour belongs to agents and to three reserved state hues.",
       "Signage typography: DM Sans, sentence case, 600-700 weight for names and labels, tabular numerals.",
       "Flat surfaces separated by hairlines; a soft lift only marks the selected item.",
@@ -762,6 +812,16 @@
         "name": "The Knockout Rule",
         "body": "Text on the map always sits on a ground halo: a 4px ground stroke painted under the glyphs, and line names on a 92% ground knockout tile, so any line crossing a label is masked as on printed maps.",
         "section": "shapes"
+      },
+      {
+        "name": "The Custom Role Hue Rule",
+        "body": "A custom squad role draws in a pool hue (rose, sky, orchid, mustard, green, handed out in that order), allocated per plan in plan order: first the hues no built-in role of that plan comes near, then those that only resemble one (sky beside backend's blue, rose beside frontend's coral). A built-in role's exact hue (mustard while design is in the plan, green while tests is) is never handed to a custom role; past the remaining hues the order repeats and the line-code letters tell the roles apart. The slot is stable for the plan and drawn everywhere the role appears: map, badge, orb, Board, Orbit, squad rows. This is One Line, One Hue at squad scope; built-in roles always keep their kind's hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Title Gap Rule",
+        "body": "Two station titles on the same tier keep at least 12px of air between them; a title wraps narrower, or moves tier, before it ever reads as one string with its neighbour.",
+        "section": "components"
       }
     ],
     "dos": [

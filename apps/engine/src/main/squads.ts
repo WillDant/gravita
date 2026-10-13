@@ -1,13 +1,16 @@
 import type { ChatRuntimeFactory } from "../application/ports/chat-runtime";
 import type { ClaudeEnvironmentSource } from "../application/ports/claude-environment";
 import type { Clock } from "../application/ports/clock";
+import type { EventStore } from "../application/ports/event-store";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { SessionRuntimeRegistry } from "../application/ports/session-runtime";
+import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import type { ProjectionService } from "../application/services/projection-service";
 import type { SessionSettingsRecorder } from "../application/services/session-settings";
 import { BudgetGuard } from "../application/squad/budget-guard";
+import { RunBriefing } from "../application/squad/run-briefing";
 import { RunPlanner } from "../application/squad/run-planner";
 import { SquadDesk } from "../application/squad/squad-desk";
 import { SquadEmitter } from "../application/squad/squad-emitter";
@@ -31,6 +34,9 @@ export interface SquadWiring {
   runtimes: SessionRuntimeRegistry;
   ingest: IngestEvents;
   projection: ProjectionService;
+  /** The briefing's words, for a planner that can't resume it. */
+  events: EventStore;
+  transcripts: TranscriptReader;
   projects: AnnounceProject;
   workspace: Workspace;
   ids: IdGenerator;
@@ -99,6 +105,15 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     emitter,
     scheduler,
     planner: new RunPlanner({ sessions, squads, emitter, budget }),
+    briefing: new RunBriefing({
+      sessions,
+      squads,
+      projection: squads,
+      budget,
+      transcripts: w.transcripts,
+      events: w.events,
+      clock,
+    }),
     git: kit.git,
     prepare: kit.prepare,
     deliver: kit.deliver,

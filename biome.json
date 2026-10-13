@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/fixtures", "!**/src-tauri", "!**/.impeccable", "!.agents", "!.claude"]
+    "includes": [
+      "**",
+      "!**/fixtures",
+      "!**/src-tauri",
+      "!**/.impeccable",
+      "!.agents",
+      "!.claude",
+      "!**/.vitest"
+    ]
   },
   "formatter": {
     "enabled": true,

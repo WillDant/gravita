@@ -10,15 +10,20 @@ export function LineBadge({
   agentType,
   size = 18,
   dim,
+  code,
+  title,
 }: {
   agentType: string;
   size?: number;
   dim?: boolean;
+  /** The disc's letters when they don't follow from the colour key (a custom squad role). */
+  code?: string;
+  title?: string;
 }) {
   const c = agentColor(agentType);
   return (
     <span
-      title={agentType === "main" ? t("agent.main") : agentType}
+      title={title ?? (agentType === "main" ? t("agent.main") : agentType)}
       className={cn(
         "inline-flex flex-none items-center justify-center rounded-full font-bold leading-none",
         dim && "opacity-40",
@@ -31,7 +36,7 @@ export function LineBadge({
         fontSize: size * 0.55,
       }}
     >
-      {lineCode(agentType)}
+      {code ?? lineCode(agentType)}
     </span>
   );
 }

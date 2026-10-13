@@ -2,6 +2,7 @@ import type { SquadState } from "@gravita/core";
 import { type SquadLayout, squadLayout } from "../../domain/squad-workspace";
 import type { MergeResult } from "../services/merge-queue";
 import type { RoleBinding } from "./role-tools";
+import type { Briefing } from "./run-briefing";
 import type { SquadSession } from "./squad-sessions";
 
 // What the orchestrator keeps in memory about a squad while the engine runs. Everything
@@ -35,6 +36,14 @@ export class SquadRun {
   /** Tasks in flight, by task id (reserved before their session starts). */
   readonly active = new Map<string, LiveAttempt>();
   planner?: SquadSession;
+  /** The briefing conversation, from creation until the plan is asked for. */
+  briefing?: Briefing;
+  /**
+   * The planner role's session (the briefing, then each planning run), which the next
+   * planning run resumes so it keeps what it learned. In memory only: after a restart the
+   * planner starts a fresh session with a summary of the briefing instead.
+   */
+  plannerSessionId?: string;
   /** The planner should stop (a pause came while its session was starting). */
   plannerStopRequested = false;
   /** Automatic re-runs per task since the user last decided; capped by MAX_AUTO_ATTEMPTS. */
@@ -74,7 +83,9 @@ export class SquadRun {
   /** Every session the squad has open. */
   sessions(): SquadSession[] {
     const all = [...this.active.values()].flatMap((a) => (a.session ? [a.session] : []));
-    return this.planner ? [this.planner, ...all] : all;
+    if (this.planner) all.unshift(this.planner);
+    if (this.briefing) all.unshift(this.briefing.session);
+    return all;
   }
 }
 

@@ -19,6 +19,7 @@ export const Methods = {
   claudeModels: "claude.models",
   stopAll: "engine.stopAll",
   squadCreate: "squad.create",
+  squadPlan: "squad.plan",
   squadReplan: "squad.replan",
   squadApprovePlan: "squad.approvePlan",
   squadPause: "squad.pause",
