@@ -43,6 +43,8 @@ export class DemoRuntime {
     this.o.ingest.execute([e]);
     if (!e.sessionId) return;
     if (e.type === "session.started") {
+      // Gravita only observes Codex sessions so far: the demo's can't be steered either.
+      if (e.provider === "codex") return;
       this.o.runtimes.register(new DemoSession(e.sessionId, e.projectId, e.provider, this.o));
     } else if (e.type === "session.ended") {
       this.o.runtimes.unregister(e.sessionId);

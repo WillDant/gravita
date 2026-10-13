@@ -90,6 +90,8 @@ describe("runtime file and Deep Observe hooks", () => {
         devOrigins: [],
         token: "engine-token",
         detectClaude: async () => ({ found: false }),
+        detectCodex: async () => ({ found: false }),
+        codexHome: join(dir, "codex"),
       });
       const path = join(dataDir, "runtime.json");
       const runtime = (await Bun.file(path).json()) as RuntimeFile;

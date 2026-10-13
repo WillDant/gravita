@@ -20,4 +20,23 @@ What it does:
 - Has a kill switch (tray, or `engine.stopAll`) that stops every session Gravita started. Sessions you run in a terminal are never touched.
 - For OpenAI (planned), uses the official "Sign in with ChatGPT" program for open-source apps, or the Codex CLI's own login.
 
+## Codex
+
+Gravita observes Codex the same way it observes Claude Code: from the files Codex writes for itself, read-only.
+
+It never:
+
+- **Reads Codex credentials or secrets.** It doesn't open `~/.codex/auth.json`, `config.toml` (which can hold MCP server tokens), the SQLite state (`state_*.sqlite`, `thread_history_*.sqlite`, `sqlite/`), `history.jsonl` (your past prompts), logs, or anything else in the Codex home outside `sessions/`.
+- **Reads archived sessions** (`archived_sessions/`), or follows a symbolic link out of `sessions/`.
+- **Writes anything under `~/.codex`.** Observing is read-only.
+- **Runs a Codex login.** It runs `codex --version` to show whether Codex is installed and recent enough (0.160.0 or later), and nothing else.
+
+What it does:
+
+- Lists the date folders under `~/.codex/sessions` (or the `--codex-home` you pass) and reads the `rollout-*.jsonl` files there, read-only, to show your Codex sessions and their subagents live. Recent folders are checked every few seconds and older ones every few minutes (a resumed session keeps writing to its old file). Compressed rollouts (`.jsonl.zst`) are read when the runtime can decompress them, and skipped otherwise.
+- Keeps only previews of what it reads (240 characters at most) in its own database; the Conversation lens reads full message text from the rollout when you open a session, and stores none of it.
+- Leaves out the threads Codex runs for itself, such as the guardian that reviews approvals: they repeat their parent's context and aren't agents you started.
+
+Tests enforce this: a Codex home with decoy `auth.json`, `config.toml`, `state_5.sqlite`, `history.jsonl`, an archived rollout and a link to the credentials is observed through an audited file system, and every path touched must be under `sessions/`; the home must be byte-for-byte and mtime-for-mtime unchanged afterwards, including after a real engine ran on it (`apps/engine/test/infrastructure/codex-compliance.test.ts`).
+
 If you find Gravita doing anything on the first list, it's a bug: please report it as a security issue (see `SECURITY.md`).

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { claudeToolCall } from "@gravita/adapter-claude";
+import { codexToolCall } from "@gravita/adapter-codex";
 import type { GuardedCall } from "@gravita/protocol/tools";
 import { rolePermission } from "../../src/domain/autonomy-policy";
 import { guardToolCall } from "../../src/domain/ownership-guard";
@@ -92,5 +93,48 @@ describe("guarded calls: Claude Code's adapter satisfies the table", () => {
       agentId: "a1",
       cwd: WT,
     });
+  });
+});
+
+const patch = (op: "Add" | "Update", path: string) =>
+  `*** Begin Patch\n*** ${op} File: ${path}\n+x\n*** End Patch\n`;
+
+/** Codex's call for each intent of the table: arguments, or a custom tool's raw input. */
+const CODEX_CALLS: Record<string, [string, Record<string, unknown> | string]> = {
+  "write a file it owns": ["apply_patch", patch("Add", `${WT}/apps/web/App.tsx`)],
+  "edit a file another role owns": ["apply_patch", patch("Update", `${WT}/apps/api/index.ts`)],
+  "edit a shared file": ["apply_patch", { input: patch("Update", "package.json") }],
+  "edit a file outside the worktree": ["apply_patch", patch("Update", "/etc/hosts")],
+  "read a file anywhere": ["read_file", { file_path: "/etc/hosts" }],
+  "run a local command": ["exec_command", { cmd: "pnpm test", workdir: WT }],
+  "install a package": ["exec_command", { cmd: "pnpm add zod" }],
+  "commit with git": ["exec_command", { cmd: "git commit -m x" }],
+  "leave the worktree": ["shell", { command: ["bash", "-lc", "cd /tmp"] }],
+  "fetch a web page": ["web_search", { query: "x" }],
+  "ask the user a question": ["request_user_input", { questions: [] }],
+  "call one of Gravita's role tools": ["mcp__gravita__complete_task", { summary: "done" }],
+  "call another server's tool": ["mcp__other__tool", {}],
+};
+
+describe("guarded calls: Codex's adapter satisfies the table", () => {
+  test("every intent has a Codex call", () => {
+    expect(Object.keys(CODEX_CALLS).sort()).toEqual(GUARD_TABLE.map((c) => c.intent).sort());
+  });
+
+  for (const c of GUARD_TABLE)
+    test(c.intent, () => {
+      const [tool, input] = CODEX_CALLS[c.intent] ?? ["", {}];
+      const call = codexToolCall(tool, input);
+      expect(call).toEqual({ ...c.call, tool });
+      expectCase(c, call);
+    });
+
+  test("a patch is judged file by file; a script that can't be read is asked about", () => {
+    const both = `*** Begin Patch\n*** Update File: ${WT}/apps/web/a.ts\n*** Add File: ${WT}/apps/api/b.ts\n*** End Patch`;
+    expect(guardToolCall(SCOPE, codexToolCall("apply_patch", both))).toContain(
+      "backend owns apps/api/",
+    );
+    const script = codexToolCall("exec", "await tools.exec_command({ cmd: 'git push' })");
+    expect(judge(script).permission).toEqual({ auto: "allow", guarded: "ask", ask: "ask" });
   });
 });
