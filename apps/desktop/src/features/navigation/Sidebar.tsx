@@ -1,15 +1,19 @@
-import { sessionCounts } from "@gravita/core";
-import { Bell, House, Languages, MoonStar, Sun } from "lucide-react";
+import { type GravitaState, sessionCounts } from "@gravita/core";
+import { Bell, House, Languages, MoonStar, Sun, UsersRound } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
+import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
-  needsYou,
-  projectSummaries,
-  sessionStatus,
-  sessionTitle,
-} from "@/shared/presenters/selectors";
+  needsYouCount,
+  type ProjectItem,
+  projectItems,
+  squadActive,
+  squadCounts,
+  squadDecisions,
+  squadTitle,
+} from "@/shared/presenters/squad";
 import { cn } from "@/shared/utils";
 import { useNow, useProjection, useRoute } from "@/state/hooks";
 
@@ -21,9 +25,17 @@ export function Sidebar() {
   const navigate = useNavigate();
   const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
-  const waiting = needsYou(state, now).length;
+  const waiting = needsYouCount(state, now);
   const currentProject =
-    route.level === "project" || route.level === "session" ? route.projectId : undefined;
+    route.level === "project" || route.level === "session" || route.level === "squad"
+      ? route.projectId
+      : undefined;
+  const currentSquad =
+    route.level === "squad"
+      ? route.squadId
+      : route.level === "session"
+        ? state.sessions[route.sessionId]?.squadId
+        : undefined;
 
   return (
     <nav
@@ -65,10 +77,12 @@ export function Sidebar() {
         {summaries.length === 0 && (
           <p className="px-2 text-sm text-ink-3 max-[1100px]:sr-only">{t("nav.noProjects")}</p>
         )}
-        {summaries.map(({ project, sessions, counts }) => {
+        {summaries.map(({ project, counts }) => {
           const open = currentProject === project.id;
-          const liveSessions = sessions.filter((s) => {
-            const st = sessionStatus(s, now);
+          const items = projectItems(state, project);
+          const live = items.filter((item) => {
+            if (item.kind === "squad") return squadActive(item.squad);
+            const st = sessionStatus(item.session, now);
             return st === "running" || st === "waiting" || st === "idle";
           });
           return (
@@ -94,44 +108,27 @@ export function Sidebar() {
                   </span>
                 )}
               </NavItem>
-              {(open || liveSessions.length > 0) &&
-                (open ? sessions.slice(0, 6) : liveSessions.slice(0, 3)).map((s) => {
-                  const c = sessionCounts(s, now);
-                  const st = sessionStatus(s, now);
-                  const active = route.level === "session" && route.sessionId === s.id;
-                  return (
-                    <button
-                      type="button"
-                      key={s.id}
-                      aria-current={active ? "page" : undefined}
-                      onClick={() =>
-                        navigate({ level: "session", projectId: project.id, sessionId: s.id })
-                      }
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm text-ink-2 hover:text-ink max-[1100px]:hidden",
-                        active ? "bg-ground text-ink shadow-panel" : "hover:bg-panel-2",
-                      )}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "size-2 flex-none rounded-full",
-                          st === "waiting" && "bg-waiting",
-                          st === "running" && "bg-ok",
-                          st === "idle" && "bg-ink-3",
-                          (st === "done" || st === "detached") && "border border-ink-3",
-                          st === "error" && "bg-error",
-                        )}
-                      />
-                      <span className="truncate">{sessionTitle(s) ?? t("session.untitled")}</span>
-                      <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
-                        {c.running + c.waiting > 0
-                          ? c.running + c.waiting
-                          : ago(s.lastEventTs, now)}
-                      </span>
-                    </button>
-                  );
-                })}
+              {(open || live.length > 0) &&
+                (open ? items.slice(0, 6) : live.slice(0, 3)).map((item) => (
+                  <SubItem
+                    key={item.kind === "squad" ? `q:${item.squad.id}` : item.session.id}
+                    item={item}
+                    now={now}
+                    state={state}
+                    active={
+                      item.kind === "squad"
+                        ? currentSquad === item.squad.id
+                        : route.level === "session" && route.sessionId === item.session.id
+                    }
+                    onOpen={() =>
+                      navigate(
+                        item.kind === "squad"
+                          ? { level: "squad", projectId: project.id, squadId: item.squad.id }
+                          : { level: "session", projectId: project.id, sessionId: item.session.id },
+                      )
+                    }
+                  />
+                ))}
             </div>
           );
         })}
@@ -158,6 +155,78 @@ export function Sidebar() {
         <NotificationSettings />
       </div>
     </nav>
+  );
+}
+
+/** A session or a squad under its project: status dot, name, live count or age. */
+function SubItem({
+  item,
+  state,
+  now,
+  active,
+  onOpen,
+}: {
+  item: ProjectItem;
+  state: GravitaState;
+  now: number;
+  active: boolean;
+  onOpen: () => void;
+}) {
+  let dot: string;
+  let title: string;
+  let count: number;
+  if (item.kind === "squad") {
+    const q = item.squad;
+    const c = squadCounts(state, q, now);
+    const waiting = c.waiting > 0 || squadDecisions(q).length > 0;
+    dot = waiting
+      ? "bg-waiting"
+      : q.phase === "failed"
+        ? "bg-error"
+        : squadActive(q)
+          ? c.running > 0
+            ? "bg-ok"
+            : "bg-ink-3"
+          : "border border-ink-3";
+    title = squadTitle(q);
+    count = c.running + c.waiting;
+  } else {
+    const s = item.session;
+    const c = sessionCounts(s, now);
+    const st = sessionStatus(s, now);
+    dot = cn(
+      st === "waiting" && "bg-waiting",
+      st === "running" && "bg-ok",
+      st === "idle" && "bg-ink-3",
+      (st === "done" || st === "detached") && "border border-ink-3",
+      st === "error" && "bg-error",
+    );
+    title = sessionTitle(s) ?? t("session.untitled");
+    count = c.running + c.waiting;
+  }
+  return (
+    <button
+      type="button"
+      aria-current={active ? "page" : undefined}
+      onClick={onOpen}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm text-ink-2 hover:text-ink max-[1100px]:hidden",
+        active ? "bg-ground text-ink shadow-panel" : "hover:bg-panel-2",
+      )}
+    >
+      {item.kind === "squad" ? (
+        <UsersRound size={12} aria-hidden="true" className="flex-none text-ink-3" />
+      ) : (
+        <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
+      )}
+      <span className="truncate">{title}</span>
+      {item.kind === "squad" && (
+        <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
+      )}
+      <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
+        {count > 0 ? count : ago(item.lastEventTs, now)}
+      </span>
+    </button>
   );
 }
 

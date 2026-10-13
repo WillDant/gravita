@@ -4,6 +4,7 @@ import { setLocale } from "@/shared/i18n/i18n";
 import { ago, ev, started, stateOf } from "@/test/events";
 import { flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
+import { PROJECT, SQ, squadFixture } from "@/test/squadFixtures";
 import { Home } from "./Home";
 
 afterEach(cleanup);
@@ -77,5 +78,19 @@ describe("Home: needs you", () => {
       }),
     );
     expect(screen.queryByRole("heading", { name: "Connect Claude Code" })).toBeNull();
+  });
+
+  it("lists what a squad waits on you for, and opens the task", async () => {
+    const { navigate } = renderWithApp(<Home />, { state: squadFixture("run").state });
+    await act(flush);
+    const section = screen.getByRole("region", { name: "Needs you" });
+    expect(within(section).getByText("API tests is waiting for you")).toBeTruthy();
+    fireEvent.click(within(section).getByRole("button", { name: "Decide" }));
+    expect(navigate).toHaveBeenCalledWith({
+      level: "squad",
+      projectId: PROJECT,
+      squadId: SQ,
+      taskId: "tests-api",
+    });
   });
 });

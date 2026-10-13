@@ -6,11 +6,14 @@ import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
 import { ConnectClaude } from "@/features/connect/ConnectClaude";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
+import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
 import { firstQuestion } from "@/features/questions/questions";
+import { SquadDecisionRow } from "@/features/squad-row/SquadDecisionRow";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/presenters/selectors";
+import { squadNeedsYou } from "@/shared/presenters/squad";
 import { Button, CountChips } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
 import { useClaudeProblem, useNow, useProjection } from "@/state/hooks";
@@ -22,7 +25,8 @@ export function Home() {
   const navigate = useNavigate();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const problem = useClaudeProblem();
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"session" | "squad">();
+  const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
   const recent = useMemo(
     () =>
       [...summaries]
@@ -32,6 +36,7 @@ export function Home() {
     [summaries],
   );
   const waiting = needsYou(state, now);
+  const decisions = squadNeedsYou(state);
   const all = totals(summaries);
   const running = summaries.flatMap(({ project, live }) =>
     live
@@ -44,31 +49,49 @@ export function Home() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.02em]">{t("home.title")}</h1>
-          {all.running + all.waiting === 0 && (
+          {all.running + all.waiting + decisions.length === 0 && (
             <p className="mt-1.5 text-ink-2">{t("home.allQuiet")}</p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={all} />
+          <NewSquadButton
+            open={creating === "squad"}
+            onToggle={() => toggle("squad")}
+            controls="home-new-squad"
+          />
           <NewSessionButton
-            open={creating}
-            onToggle={() => setCreating((v) => !v)}
+            open={creating === "session"}
+            onToggle={() => toggle("session")}
             controls="home-new-session"
           />
         </div>
       </header>
 
-      {creating && (
-        <NewSessionPanel id="home-new-session" recent={recent} onClose={() => setCreating(false)} />
+      {creating === "session" && (
+        <NewSessionPanel
+          id="home-new-session"
+          recent={recent}
+          onClose={() => setCreating(undefined)}
+        />
+      )}
+      {creating === "squad" && (
+        <NewSquadPanel id="home-new-squad" onClose={() => setCreating(undefined)} />
       )}
       {problem && !creating && <ConnectClaude problem={problem} />}
 
-      {waiting.length > 0 && (
+      {waiting.length + decisions.length > 0 && (
         <section aria-labelledby="needs-you">
           <h2 id="needs-you" className="mb-3 text-md font-semibold">
             {t("home.needsYou")}
           </h2>
           <ul className="flex flex-col gap-2">
+            {decisions.map((item) => (
+              <SquadDecisionRow
+                key={`${item.squad.id}:${item.decision.kind}:${item.decision.kind === "task" ? item.decision.taskId : ""}`}
+                item={item}
+              />
+            ))}
             {waiting.map(({ project, session, agent }) => {
               const persona = toPersona(agent, session, now);
               const question = firstQuestion(agent);

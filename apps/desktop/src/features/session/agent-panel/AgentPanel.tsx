@@ -21,7 +21,8 @@ interface AgentPanelProps {
   agent: AgentNode;
   events: GravitaEvent[];
   now: number;
-  onClose: () => void;
+  /** Omitted where the panel sits inside another panel that has its own close. */
+  onClose?: () => void;
   onSelect: (agentId: string) => void;
 }
 
@@ -67,14 +68,16 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("agent.close")}
-          className="rounded-md p-1.5 text-ink-3 hover:bg-panel hover:text-ink"
-        >
-          <X size={16} />
-        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("agent.close")}
+            className="rounded-md p-1.5 text-ink-3 hover:bg-panel hover:text-ink"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {question && (

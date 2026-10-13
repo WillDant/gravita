@@ -5,6 +5,7 @@ import {
   MIN_FRAME,
   type OrbitBody,
   type OrbitFrame,
+  type OrbitInput,
   OrbitScene,
 } from "@gravita/orbs";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +38,31 @@ export default function OrbitLens({
   onSelect,
 }: OrbitLensProps) {
   useLocale();
+  const orbit = useMemo(() => orbitInput(session, project, now), [session, project, now]);
+  return (
+    <OrbitPane
+      orbit={orbit}
+      projectName={project.name}
+      {...(selectedAgentId ? { selectedAgentId } : {})}
+      onSelect={onSelect}
+    />
+  );
+}
+
+export interface OrbitPaneProps {
+  /** The scene's input with each body's display name and accessible label. */
+  orbit: { input: OrbitInput; labels: Map<string, string>; names: Map<string, string> };
+  projectName: string;
+  selectedAgentId?: string;
+  onSelect: (agentId: string) => void;
+}
+
+/**
+ * The canvas and its accessible buttons, for any orbit input: one session (the lens
+ * above) or a squad, whose roles are the planets.
+ */
+export function OrbitPane({ orbit, projectName, selectedAgentId, onSelect }: OrbitPaneProps) {
+  useLocale();
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<OrbitScene | null>(null);
@@ -47,10 +73,7 @@ export default function OrbitLens({
   const dark = useDarkTheme();
   const reduced = useReducedMotion();
   const dpr = useDevicePixelRatio();
-  const { input, labels, names } = useMemo(
-    () => orbitInput(session, project, now),
-    [session, project, now],
-  );
+  const { input, labels, names } = orbit;
 
   // Declared first so it runs first: the effects below talk to the scene it creates.
   useLayoutEffect(() => {
@@ -122,7 +145,7 @@ export default function OrbitLens({
         </div>
         <div
           role="group"
-          aria-label={t("orbit.label", { project: project.name })}
+          aria-label={t("orbit.label", { project: projectName })}
           className="absolute inset-0"
         >
           {bodies.map((b) => {
