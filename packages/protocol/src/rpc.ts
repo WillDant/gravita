@@ -149,6 +149,8 @@ export const RpcContract = {
   "claude.models": { params: z.object({}).optional(), result: ModelsResult },
   "engine.stopAll": { params: z.object({}).optional(), result: StopAllResult },
   "squad.create": { params: SquadCreateParams, result: SquadCreateResult },
+  /** Ends the brief conversation: the planner turns what it learned into a SquadPlan. */
+  "squad.plan": { params: SquadRef, result: OkResult },
   "squad.replan": { params: SquadReplanParams, result: OkResult },
   "squad.approvePlan": { params: SquadApproveParams, result: OkResult },
   "squad.pause": { params: SquadRef, result: OkResult },
