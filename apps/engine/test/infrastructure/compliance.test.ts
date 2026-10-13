@@ -15,7 +15,7 @@ import {
   parseEnv0,
 } from "../../src/infrastructure/system/login-shell-env";
 import { NodeWorkspace } from "../../src/infrastructure/system/node-workspace";
-import { CLIENT_APP, createCore } from "../../src/main/container";
+import { CLIENT_APP, createCore, startEngine } from "../../src/main/container";
 import { FakeClock, SilentLogger } from "../fakes";
 import { withTempDir } from "../helpers";
 import { type ScriptedQuery, scriptedQueryFn, sdkFixture, settle } from "../sdk-fakes";
@@ -224,6 +224,44 @@ describe("a Gravita-run session end to end (scripted SDK)", () => {
       expect(core.runtimes.all()).toEqual([]);
       core.close();
       expect(await treeState(home)).toEqual(before);
+    });
+  });
+});
+
+describe("Deep Observe never writes under the Claude home", () => {
+  test("the plugin's hook script and the engine keep to Gravita's own folder", async () => {
+    await withTempDir(async (home) => {
+      const claudeHome = join(home, ".claude");
+      await mkdir(join(claudeHome, "plugins", "cache"), { recursive: true });
+      await Bun.write(join(claudeHome, "settings.json"), "{}");
+      const before = await treeState(claudeHome);
+      const script = join(import.meta.dir, "../../../../plugins/deep-observe/hooks/forward.sh");
+      const hook = JSON.stringify({ session_id: SID, hook_event_name: "Stop", cwd: home });
+      const run = () =>
+        Bun.spawn(["/bin/sh", script], {
+          stdin: new Blob([hook]),
+          stdout: "ignore",
+          stderr: "ignore",
+          env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: home },
+        }).exited;
+
+      // Engine down: the hook is spooled under ~/.gravita.
+      expect(await run()).toBe(0);
+      // Engine up (demo): the hook is delivered; runtime file and spool stay under its data dir.
+      const engine = startEngine({
+        port: 0,
+        demo: true,
+        claudeHome,
+        lookbackDays: 1,
+        dataDir: join(home, ".gravita"),
+        devOrigins: [],
+        token: "t",
+      });
+      expect(await run()).toBe(0);
+      await engine.stop();
+
+      expect(await treeState(claudeHome)).toEqual(before);
+      expect((await readdir(home)).sort()).toEqual([".claude", ".gravita"]);
     });
   });
 });

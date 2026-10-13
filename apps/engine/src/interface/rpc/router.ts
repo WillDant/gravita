@@ -14,6 +14,7 @@ import type { SetModel } from "../../application/usecases/set-model";
 import type { SetPermissionMode } from "../../application/usecases/set-permission-mode";
 import type { StartChat } from "../../application/usecases/start-chat";
 import type { StopAgent } from "../../application/usecases/stop-agent";
+import type { StopAllSessions } from "../../application/usecases/stop-all-sessions";
 import {
   BypassLockedError,
   ClaudeUnavailableError,
@@ -63,6 +64,7 @@ export interface RouterDeps {
   answerQuestion: AnswerQuestion;
   getConversation: GetConversation;
   listModels: ListModels;
+  stopAll: StopAllSessions;
 }
 
 export function rpcHandlers(d: RouterDeps): RpcHandlers {
@@ -83,6 +85,7 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "question.answer": (p) => d.answerQuestion.execute(p),
     "session.conversation": (p) => d.getConversation.execute(p),
     "claude.models": () => d.listModels.execute(),
+    "engine.stopAll": () => d.stopAll.execute(),
   };
 }
 

@@ -182,3 +182,112 @@ describe("permission.respond", () => {
     client.ws.close();
   });
 });
+
+describe("plain HTTP routes (tray kill switch, Deep Observe hooks)", () => {
+  const HOOK_TOKEN = "h".repeat(64);
+  let hooked: RunningServer;
+  let base: string;
+  const received: unknown[] = [];
+
+  beforeAll(() => {
+    hooked = startTransport(
+      {
+        router: core.router,
+        feed: core.broadcaster,
+        status: () => core.broadcaster.status(),
+        hooks: { submit: (p) => received.push(p) },
+      },
+      { port: 0, token: TOKEN, hookToken: HOOK_TOKEN, engineVersion: "test" },
+    );
+    base = `http://127.0.0.1:${hooked.port}`;
+  });
+
+  afterAll(() => hooked.stop());
+
+  const post = (path: string, init: { token?: string; body?: string; origin?: string } = {}) =>
+    fetch(`${base}${path}`, {
+      method: "POST",
+      headers: {
+        ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}),
+        ...(init.origin ? { Origin: init.origin } : {}),
+        "Content-Type": "application/json",
+      },
+      ...(init.body !== undefined ? { body: init.body } : {}),
+    });
+
+  test("stop-all needs the engine token, refuses browsers, and stops Gravita's sessions", async () => {
+    expect((await post("/control/stop-all")).status).toBe(401);
+    expect((await post("/control/stop-all", { token: HOOK_TOKEN })).status).toBe(401);
+    expect((await post("/control/stop-all", { token: TOKEN, origin: ORIGIN })).status).toBe(403);
+    expect((await fetch(`${base}/control/stop-all`)).status).toBe(405);
+
+    const a = new FakeRuntime("s-stop-a");
+    const b = new FakeRuntime("s-stop-b");
+    core.runtimes.register(a);
+    core.runtimes.register(b);
+    const res = await post("/control/stop-all", { token: TOKEN });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ stopped: 2 });
+    expect([a.disposed, b.disposed]).toEqual([true, true]);
+    core.runtimes.unregister("s-stop-a");
+    core.runtimes.unregister("s-stop-b");
+  });
+
+  test("stop-all takes the tray's raw request: Host 127.0.0.1, empty body", async () => {
+    const res = await new Promise<string>((resolve, reject) => {
+      const socket = connect(hooked.port, "127.0.0.1", () =>
+        socket.write(
+          [
+            "POST /control/stop-all HTTP/1.1",
+            `Host: 127.0.0.1:${hooked.port}`,
+            `Authorization: Bearer ${TOKEN}`,
+            "Content-Length: 0",
+            "Connection: close",
+            "",
+            "",
+          ].join("\r\n"),
+        ),
+      );
+      let data = "";
+      socket.on("data", (d) => {
+        data += d.toString();
+      });
+      socket.on("end", () => resolve(data));
+      socket.on("error", reject);
+    });
+    expect(res.startsWith("HTTP/1.1 200")).toBe(true);
+    expect(res).toContain('{"stopped":0}');
+  });
+
+  test("hooks: token, no Origin, size and JSON are checked; a good hook is 204 at once", async () => {
+    const body = JSON.stringify({ session_id: "s", hook_event_name: "Stop" });
+    expect((await post("/hooks", { body })).status).toBe(401);
+    expect((await post("/hooks", { body, token: "wrong" })).status).toBe(401);
+    // The engine token is not the hook token.
+    expect((await post("/hooks", { body, token: TOKEN })).status).toBe(401);
+    expect((await post("/hooks", { body, token: HOOK_TOKEN, origin: ORIGIN })).status).toBe(403);
+    expect((await post("/hooks", { body: "x".repeat(300 * 1024), token: HOOK_TOKEN })).status).toBe(
+      413,
+    );
+    expect((await post("/hooks", { body: "{nope", token: HOOK_TOKEN })).status).toBe(400);
+    expect(received).toEqual([]);
+
+    const ok = await post("/hooks", { body, token: HOOK_TOKEN });
+    expect(ok.status).toBe(204);
+    // Unknown events are accepted too (and ignored later, by the ingest).
+    const unknown = JSON.stringify({ session_id: "s", hook_event_name: "PreCompact" });
+    expect((await post("/hooks", { body: unknown, token: HOOK_TOKEN })).status).toBe(204);
+    await Bun.sleep(10);
+    expect(received).toEqual([JSON.parse(body), JSON.parse(unknown)]);
+  });
+
+  test("without a hook token there is no hooks route", async () => {
+    const body = JSON.stringify({ session_id: "s", hook_event_name: "Stop" });
+    const res = await fetch(`http://127.0.0.1:${server.port}/hooks`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body,
+    });
+    expect(res.status).toBe(404);
+  });
+});

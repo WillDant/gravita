@@ -9,6 +9,7 @@ import {
   type RpcNotification,
   type RpcResponse,
 } from "@gravita/protocol";
+import { HttpPaths } from "@gravita/protocol/constants";
 import type { ServerWebSocket } from "bun";
 import { z } from "zod";
 import type { EngineFeed, EngineListener } from "../../application/ports/event-publisher";
@@ -17,6 +18,11 @@ import { INTERNAL_ERROR, type RpcError, type RpcRouter } from "./router";
 // JSON-RPC over one WebSocket on 127.0.0.1. Defenses, in order: Host allowlist (DNS
 // rebinding), Origin allowlist on upgrade, then a token as the first message. Once
 // authenticated, every request goes to the router.
+//
+// Two plain HTTP routes serve callers that aren't the UI: the tray's kill switch
+// (`POST /control/stop-all`, engine token) and Deep Observe hooks (`POST /hooks`, hook
+// token). Neither is for browsers: any request with an Origin header is refused, so a web
+// page can't reach them even with a token, and the token travels as a Bearer header.
 
 export const TAURI_ORIGINS = ["tauri://localhost", "http://tauri.localhost"];
 export const WS_PATH = "/ws";
@@ -25,15 +31,23 @@ export const MAX_PAYLOAD_BYTES = 256 * 1024;
 export interface TransportOptions {
   port: number;
   token: string;
+  /** The token Deep Observe hooks present (from the runtime file); no hooks route without it. */
+  hookToken?: string;
   devOrigins?: string[];
   engineVersion: string;
   authTimeoutMs?: number;
+}
+
+/** Takes a hook payload; must return at once (the hook is answered before it is ingested). */
+export interface HookSink {
+  submit(payload: unknown): void;
 }
 
 export interface TransportDeps {
   router: RpcRouter;
   feed: EngineFeed;
   status: () => EngineStatus;
+  hooks?: HookSink;
 }
 
 export interface RunningServer {
@@ -61,6 +75,22 @@ function sameToken(given: string, expected: string): boolean {
   const a = createHash("sha256").update(given).digest();
   const b = createHash("sha256").update(expected).digest();
   return timingSafeEqual(a, b);
+}
+
+/** Checks `Authorization: Bearer <token>` in constant time. */
+function bearerMatches(req: Request, expected: string): boolean {
+  const m = /^Bearer\s+(\S+)\s*$/i.exec(req.headers.get("authorization") ?? "");
+  return sameToken(m?.[1] ?? "", expected);
+}
+
+const plain = (status: number, text: string) => new Response(text, { status });
+
+/** Gate of the non-browser routes: POST only, no Origin, the right Bearer token. */
+function refuse(req: Request, token: string): Response | undefined {
+  if (req.method !== "POST") return plain(405, "Method not allowed");
+  if (req.headers.has("origin")) return plain(403, "Forbidden");
+  if (!bearerMatches(req, token)) return plain(401, "Unauthorized");
+  return undefined;
 }
 
 export function startTransport(deps: TransportDeps, opts: TransportOptions): RunningServer {
@@ -114,9 +144,42 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
     }
   };
 
+  const stopAll = async (req: Request): Promise<Response> => {
+    const refused = refuse(req, opts.token);
+    if (refused) return refused;
+    const outcome = await deps.router.dispatch(Methods.stopAll, undefined);
+    if ("error" in outcome) return Response.json({ error: outcome.error }, { status: 500 });
+    return Response.json(outcome.result);
+  };
+
+  const hooks = async (req: Request, sink: HookSink, hookToken: string): Promise<Response> => {
+    const refused = refuse(req, hookToken);
+    if (refused) return refused;
+    const length = Number(req.headers.get("content-length") ?? 0);
+    if (length > MAX_PAYLOAD_BYTES) return plain(413, "Payload too large");
+    let body: ArrayBuffer;
+    try {
+      body = await req.arrayBuffer();
+    } catch {
+      return plain(413, "Payload too large");
+    }
+    if (body.byteLength > MAX_PAYLOAD_BYTES) return plain(413, "Payload too large");
+    let payload: unknown;
+    try {
+      payload = JSON.parse(new TextDecoder().decode(body));
+    } catch {
+      return plain(400, "Invalid JSON");
+    }
+    // Answer first: the hook (and Claude Code behind it) never waits on the database.
+    setImmediate(() => sink.submit(payload));
+    return new Response(null, { status: 204 });
+  };
+
   const server = Bun.serve<Conn>({
     hostname: "127.0.0.1",
     port: opts.port,
+    // Hooks are the largest bodies; nothing else posts one.
+    maxRequestBodySize: MAX_PAYLOAD_BYTES + 1024,
     fetch(req, srv) {
       const host = req.headers.get("host");
       if (host !== `127.0.0.1:${srv.port}` && host !== `localhost:${srv.port}`) {
@@ -124,6 +187,9 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
       }
       const url = new URL(req.url);
       if (url.pathname === "/health" && req.method === "GET") return Response.json({ ok: true });
+      if (url.pathname === HttpPaths.stopAll) return stopAll(req);
+      if (url.pathname === HttpPaths.hooks && deps.hooks && opts.hookToken)
+        return hooks(req, deps.hooks, opts.hookToken);
       if (url.pathname === WS_PATH) {
         const origin = req.headers.get("origin");
         if (!origin || !origins.has(origin)) return new Response("Forbidden", { status: 403 });

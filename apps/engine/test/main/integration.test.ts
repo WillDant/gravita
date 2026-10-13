@@ -1,4 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GravitaState } from "@gravita/core";
 import { EngineStatus, EventsNotification, GravitaEvent, RPC_VERSION } from "@gravita/protocol";
@@ -7,6 +9,9 @@ import { TestClient } from "../helpers";
 
 const MAIN = join(import.meta.dir, "../../src/main.ts");
 const DEV_ORIGIN = "http://localhost:5173";
+// Never the real ~/.gravita: the engine writes its runtime file there.
+const DATA_DIR = mkdtempSync(join(tmpdir(), "gravita-integration-"));
+afterAll(() => rmSync(DATA_DIR, { recursive: true, force: true }));
 
 interface Ready {
   event: string;
@@ -41,6 +46,8 @@ describe("engine (demo mode, real process)", () => {
         "--token-stdin",
         "--dev-origin",
         DEV_ORIGIN,
+        "--data-dir",
+        DATA_DIR,
       ],
       { stdin: "pipe", stdout: "pipe", stderr: "inherit" },
     );
@@ -97,12 +104,15 @@ describe("engine (demo mode, real process)", () => {
   }, 20_000);
 
   test("without --token-stdin, GRAVITA_TOKEN is used and printed on the ready line", async () => {
-    const proc = Bun.spawn([process.execPath, "run", MAIN, "--demo", "--port", "0"], {
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "inherit",
-      env: { ...process.env, GRAVITA_TOKEN: "dev-token" },
-    });
+    const proc = Bun.spawn(
+      [process.execPath, "run", MAIN, "--demo", "--port", "0", "--data-dir", DATA_DIR],
+      {
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "inherit",
+        env: { ...process.env, GRAVITA_TOKEN: "dev-token" },
+      },
+    );
     const ready = await readyLine(proc);
     expect(ready).toEqual({ event: "ready", port: ready.port, token: "dev-token", pid: proc.pid });
     proc.kill("SIGTERM");
