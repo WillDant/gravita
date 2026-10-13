@@ -6,8 +6,12 @@ import { isWithin, overlaps } from "./paths";
 // proposal (issues go back to the planner on a retry) and the Board runs it on every
 // edit, so both judge a plan the same way. Messages are plain English and stable.
 
+/** Role ids Gravita uses for its own branches and worktrees. */
+export const RESERVED_ROLE_IDS: ReadonlySet<string> = new Set(["integration"]);
+
 export type PlanIssueCode =
   | "duplicate_role"
+  | "reserved_role"
   | "duplicate_task"
   | "duplicate_check"
   | "unknown_role"
@@ -143,6 +147,15 @@ export function validatePlan(plan: SquadPlan): PlanIssue[] {
 
   for (const id of duplicates(plan.roles.map((r) => r.id)))
     issues.push({ code: "duplicate_role", message: `Role id "${id}" is used more than once.` });
+  plan.roles.forEach((r, i) => {
+    // The integration branch is gravita/<squad>/integration; a role can't take that name.
+    if (RESERVED_ROLE_IDS.has(r.id))
+      issues.push({
+        code: "reserved_role",
+        message: `Role id "${r.id}" is reserved by Gravita; choose another.`,
+        path: `roles[${i}].id`,
+      });
+  });
   for (const id of duplicates(plan.tasks.map((t) => t.id)))
     issues.push({ code: "duplicate_task", message: `Task id "${id}" is used more than once.` });
   for (const id of duplicates(plan.checks.map((c) => c.id)))
