@@ -14,6 +14,21 @@ export const CLAUDE_MODES = ["default", "acceptEdits", "plan", "bypassPermission
 /** Codex's session modes: ask before acting, write in the workspace, or full access. */
 export const CODEX_MODES = ["ask", "workspace", "fullAccess"] as const;
 
+/**
+ * The plan usage windows a provider reports: the 5-hour and weekly limits, a weekly limit
+ * of one model family (`model` names it), or anything else the provider counts.
+ */
+export const USAGE_WINDOWS = ["five_hour", "seven_day", "seven_day_model", "other"] as const;
+export type UsageWindow = (typeof USAGE_WINDOWS)[number];
+
+/** The windows a squad's budget can be a share of. */
+export const PLAN_WINDOWS = ["five_hour", "seven_day"] as const;
+export type PlanWindow = (typeof PLAN_WINDOWS)[number];
+
+/** Whether plan limits apply to an account (`limited`) or it pays per token (`api`). */
+export const ACCOUNT_PLANS = ["limited", "api"] as const;
+export type AccountPlan = (typeof ACCOUNT_PLANS)[number];
+
 export const Methods = {
   auth: "auth",
   snapshot: "state.snapshot",
@@ -43,6 +58,7 @@ export const Methods = {
   squadTaskSkip: "squad.task.skip",
   squadTaskReassign: "squad.task.reassign",
   squadDeliver: "squad.deliver",
+  usageRefresh: "usage.refresh",
 } as const;
 
 /**
@@ -110,4 +126,12 @@ export const RpcErrors = {
   dirtyWorktree: { code: 4012, message: "Commit or stash your changes first" },
   /** Opening a pull request needs the GitHub CLI (gh), installed and logged in. */
   ghUnavailable: { code: 4013, message: "The GitHub CLI is not available" },
+  /**
+   * A squad's budget is a share of the plan, but the account has no plan limits (an API
+   * key): there is nothing to take a share of, so the budget must be in dollars.
+   */
+  planUsageUnavailable: {
+    code: 4014,
+    message: "This account has no plan usage limits; use a dollar budget",
+  },
 } as const;

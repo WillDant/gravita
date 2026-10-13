@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PLAN_WINDOWS } from "./constants";
 
 // The Squad contract: a team of role agents, each in its own git worktree, working one
 // validated plan. The planner proposes a SquadPlan, the user approves it on the Board,
@@ -148,6 +149,29 @@ export type SquadModels = z.infer<typeof SquadModels>;
 
 export const BudgetScope = z.enum(["task", "role", "squad"]);
 export type BudgetScope = z.infer<typeof BudgetScope>;
+
+/** A plan window a squad's budget can be a share of: the 5-hour window or the weekly limit. */
+export const PlanWindowSchema = z.enum(PLAN_WINDOWS);
+
+/**
+ * What a squad may use. Most people run on a subscription with usage limits, so the budget
+ * is a share of a plan window: `maxPercent` percentage points of it, counted from when the
+ * squad starts building. Accounts without plan limits (an API key) pay per token, so their
+ * budget is in dollars.
+ */
+export const SquadBudget = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("plan"),
+    maxPercent: z.number().min(1).max(100),
+    window: PlanWindowSchema,
+  }),
+  z.object({ mode: z.literal("usd"), amount: z.number().positive().max(1_000) }),
+]);
+export type SquadBudget = z.infer<typeof SquadBudget>;
+
+/** What a budget level is counted in: dollars, or percentage points of a plan window. */
+export const BudgetUnit = z.enum(["usd", "points"]);
+export type BudgetUnit = z.infer<typeof BudgetUnit>;
 
 export const DeliverMode = z.enum(["merge", "pr", "branch"]);
 export type DeliverMode = z.infer<typeof DeliverMode>;

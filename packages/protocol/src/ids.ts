@@ -65,6 +65,12 @@ export const keys = {
   /** The n-th pause (and resume) of a squad. */
   squadPaused: (sq: string, n: number) => `squad:${sq}:paused:${n}`,
   squadResumed: (sq: string, n: number) => `squad:${sq}:resumed:${n}`,
+  /** Where a plan squad's count of a provider's window starts, per round (resets add one). */
+  budgetBaseline: (sq: string, provider: string, window: string, round: number) =>
+    `squad:${sq}:baseline:${provider}:${window}:${round}`,
+  /** A plan usage reading (ephemeral, never stored; keyed like a fact all the same). */
+  usageLimits: (provider: string, window: string, model: string | undefined, tag: string) =>
+    `usage:${provider}:${window}${model ? `:${model}` : ""}:${tag}`,
   /** The n-th budget change of a squad. */
   budgetChanged: (sq: string, n: number) => `squad:${sq}:budget-changed:${n}`,
   taskAdded: (sq: string, taskId: string) => `squad:${sq}:task:${taskId}:added`,
