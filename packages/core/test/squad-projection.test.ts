@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { GravitaEvent } from "@gravita/protocol";
 import { keys } from "@gravita/protocol/ids";
-import { apply, applyAll, emptyState, type GravitaState, squadOfSession } from "../src";
+import {
+  apply,
+  applyAll,
+  emptyState,
+  type GravitaState,
+  roleBudget,
+  squadOfSession,
+  squadPlan,
+} from "../src";
 import { samplePlan } from "./squad-fixture";
 
 const Q = "q1";
@@ -326,5 +334,115 @@ describe("squad projection", () => {
     const old = { projects: {}, sessions: {}, seq: 0 } as unknown as GravitaState;
     apply(old, created);
     expect(old.squads[Q]!.brief).toBe("Todo app");
+  });
+
+  test("pause and resume: the latest wins, and each is counted for its key", () => {
+    const state = applyAll(emptyState(), [created]);
+    const pause = (n: number, i: number, reason: string) =>
+      sq(n, keys.squadPaused(Q, i), { type: "squad.paused", data: { squadId: Q, reason } });
+    const resume = (n: number, i: number) =>
+      sq(n, keys.squadResumed(Q, i), { type: "squad.resumed", data: { squadId: Q } });
+    apply(state, pause(10, 1, "Budget used up"));
+    expect(state.squads[Q]!.paused).toEqual({ reason: "Budget used up", ts: t(10) });
+    apply(state, resume(11, 1));
+    expect(state.squads[Q]!.paused).toBeUndefined();
+    apply(state, pause(13, 2, "Gravita restarted"));
+    // A resume older than the pause (out of order) doesn't lift it.
+    apply(state, resume(12, 2));
+    expect(state.squads[Q]!.paused?.reason).toBe("Gravita restarted");
+    expect([state.squads[Q]!.pauseCount, state.squads[Q]!.resumeCount]).toEqual([2, 2]);
+  });
+
+  test("tasks added after approval join the plan the squad runs, once", () => {
+    const state = applyAll(emptyState(), [
+      created,
+      sq(8, keys.planApproved(Q), {
+        type: "plan.approved",
+        data: { squadId: Q, plan, answers: { "Dark mode?": "Yes" } },
+      }),
+    ]);
+    const task = {
+      id: "cr-1",
+      role: "backend",
+      title: "Change request from Frontend",
+      plainSummary: "Add a due date to todos.",
+      dependsOn: [],
+      writes: ["apps/api/"],
+      acceptance: ["Todos carry a due date"],
+      size: "s" as const,
+    };
+    const added = sq(20, keys.taskAdded(Q, "cr-1"), {
+      type: "task.added",
+      data: { squadId: Q, task, origin: "change_request", fromRole: "frontend" },
+    });
+    apply(state, added);
+    apply(state, { ...added, ts: t(21) });
+    const q = state.squads[Q]!;
+    expect(q.answers).toEqual({ "Dark mode?": "Yes" });
+    expect(q.addedTasks).toHaveLength(1);
+    expect(q.tasks["cr-1"]).toMatchObject({ status: "pending", attempt: 1, role: "backend" });
+    expect(squadPlan(q)!.tasks.map((x) => x.id)).toEqual([...plan.tasks.map((x) => x.id), "cr-1"]);
+  });
+
+  test("several bounces within one attempt are each recorded", () => {
+    const state = applyAll(emptyState(), [created]);
+    const v = (n: number, bounce?: number) =>
+      sq(n, keys.ownershipViolation(Q, "web-list", 1, bounce), {
+        type: "ownership.violation",
+        data: {
+          squadId: Q,
+          role: "frontend",
+          taskId: "web-list",
+          attempt: 1,
+          paths: ["apps/api/x.ts"],
+          ...(bounce ? { bounce } : {}),
+        },
+      });
+    applyAll(state, [v(10), v(11, 2), v(12, 2)]);
+    expect(state.squads[Q]!.violations.map((x) => x.bounce ?? 1)).toEqual([1, 2]);
+  });
+
+  test("a session's cost never goes down: a crash result reporting 0 doesn't undo spend", () => {
+    const state = applyAll(emptyState(), [created, ...roleSession(1, "s-x", "backend")]);
+    applyAll(state, [cost(2, "s-x", 2.5), cost(3, "s-x", 0)]);
+    expect(state.sessions["s-x"]?.costUsd).toBe(2.5);
+    expect(state.squads[Q]!.budget.spentUsd).toBe(2.5);
+  });
+
+  test("a raised budget applies and re-arms the levels of the scopes it changed", () => {
+    const state = applyAll(emptyState(), [
+      created,
+      sq(8, keys.planApproved(Q), { type: "plan.approved", data: { squadId: Q, plan } }),
+    ]);
+    const level = (
+      n: number,
+      type: "budget.warned" | "budget.exhausted",
+      scope: "squad" | "role",
+      id: string,
+    ) =>
+      sq(n, keys.budget(Q, scope, id, type === "budget.warned" ? "warned" : "exhausted"), {
+        type,
+        data: { squadId: Q, scope, scopeId: id, usedUsd: 20, limitUsd: 20 },
+      });
+    applyAll(state, [
+      level(10, "budget.warned", "squad", Q),
+      level(11, "budget.exhausted", "squad", Q),
+      level(12, "budget.exhausted", "role", "backend"),
+      level(13, "budget.exhausted", "role", "frontend"),
+    ]);
+    apply(
+      state,
+      sq(14, keys.budgetChanged(Q, 1), {
+        type: "squad.budget_changed",
+        data: { squadId: Q, budgetUsd: 35, previousUsd: 20, roleBudgets: { backend: 8 } },
+      }),
+    );
+    const q = state.squads[Q]!;
+    expect(q.budgetUsd).toBe(35);
+    expect(q.budgetChanges).toBe(1);
+    expect(q.budget.warned).toEqual([]);
+    expect(q.budget.exhausted).toEqual(["role:frontend"]);
+    expect(roleBudget(q, "backend")).toBe(8);
+    expect(roleBudget(q, "frontend")).toBeUndefined();
   });
 });

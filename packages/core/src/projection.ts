@@ -209,7 +209,8 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       return;
     }
     case "cost.snapshot":
-      s.costUsd = e.data.totalCostUsd;
+      // Cumulative per session; a crash result may report 0, which must not undo spend.
+      s.costUsd = Math.max(s.costUsd ?? 0, e.data.totalCostUsd);
       squadSpend(state, s);
       return;
   }

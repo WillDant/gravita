@@ -113,6 +113,14 @@ export const SquadApproveParams = SquadRef.extend({
 export const SquadTaskRef = SquadRef.extend({ taskId: z.string() });
 export const SquadRetryParams = SquadTaskRef.extend({ model: z.string().optional() });
 export const SquadReassignParams = SquadTaskRef.extend({ role: z.string() });
+/**
+ * Resuming may raise the budget (the new total, which the engine checks is above what was
+ * spent) and the budget of some roles: how a squad that ran out goes on.
+ */
+export const SquadResumeParams = SquadRef.extend({
+  budgetUsd: z.number().positive().max(1_000).optional(),
+  roleBudgets: z.record(z.string(), z.number().positive().max(500)).optional(),
+});
 export const SquadDeliverParams = SquadRef.extend({ mode: DeliverMode });
 export const SquadDeliverResult = z.object({ ref: z.string() });
 
@@ -144,7 +152,7 @@ export const RpcContract = {
   "squad.replan": { params: SquadReplanParams, result: OkResult },
   "squad.approvePlan": { params: SquadApproveParams, result: OkResult },
   "squad.pause": { params: SquadRef, result: OkResult },
-  "squad.resume": { params: SquadRef, result: OkResult },
+  "squad.resume": { params: SquadResumeParams, result: OkResult },
   "squad.stop": { params: SquadRef, result: OkResult },
   "squad.task.retry": { params: SquadRetryParams, result: OkResult },
   "squad.task.skip": { params: SquadTaskRef, result: OkResult },

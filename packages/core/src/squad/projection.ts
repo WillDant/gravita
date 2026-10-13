@@ -1,6 +1,12 @@
-import type { GravitaEvent } from "@gravita/protocol";
+import type { GravitaEvent, SquadPlan } from "@gravita/protocol";
 import type { GravitaState } from "../state";
-import type { BudgetKey, MergeState, SquadState, SquadTaskState } from "./state";
+import type {
+  BudgetKey,
+  MergeState,
+  OwnershipViolationState,
+  SquadState,
+  SquadTaskState,
+} from "./state";
 
 // Squad events carry their squad in the data and no session. Like the session reducer,
 // this is mutating, deterministic and order-tolerant: a role session can start before
@@ -127,6 +133,10 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
     case "check.ran":
     case "budget.warned":
     case "budget.exhausted":
+    case "squad.budget_changed":
+    case "squad.paused":
+    case "squad.resumed":
+    case "task.added":
     case "squad.delivered":
       break;
     default:
@@ -193,6 +203,7 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
       q.plan = e.data.plan;
       q.planStatus = "approved";
       q.approvedTs = e.ts;
+      if (e.data.answers && Object.keys(e.data.answers).length) q.answers = e.data.answers;
       for (const r of e.data.plan.roles) ensureRole(q, r.id);
       // Status events may have landed first; never reset a task that already moved.
       for (const t of e.data.plan.tasks)
@@ -282,16 +293,21 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
         });
       return true;
 
-    case "ownership.violation":
-      if (!q.violations.some((v) => v.taskId === e.data.taskId && v.attempt === e.data.attempt))
+    case "ownership.violation": {
+      const bounce = e.data.bounce ?? 1;
+      const same = (v: OwnershipViolationState) =>
+        v.taskId === e.data.taskId && v.attempt === e.data.attempt && (v.bounce ?? 1) === bounce;
+      if (!q.violations.some(same))
         q.violations.push({
           role: e.data.role,
           taskId: e.data.taskId,
           attempt: e.data.attempt,
+          ...(e.data.bounce !== undefined ? { bounce: e.data.bounce } : {}),
           paths: e.data.paths,
           ts: e.ts,
         });
       return true;
+    }
 
     case "merge.started":
     case "merge.succeeded":
@@ -341,11 +357,75 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
       return true;
     }
 
+    case "squad.budget_changed": {
+      q.budgetChanges = (q.budgetChanges ?? 0) + 1;
+      // Re-arm the levels of each changed scope for its new limit.
+      const rearm = (key: BudgetKey) => {
+        q.budget.warned = q.budget.warned.filter((k) => k !== key);
+        q.budget.exhausted = q.budget.exhausted.filter((k) => k !== key);
+      };
+      if (e.data.budgetUsd !== q.budgetUsd) rearm(`squad:${q.id}`);
+      q.budgetUsd = e.data.budgetUsd;
+      for (const [roleId, usd] of Object.entries(e.data.roleBudgets ?? {})) {
+        q.roleBudgets = { ...q.roleBudgets, [roleId]: usd };
+        rearm(`role:${roleId}`);
+      }
+      return true;
+    }
+
+    case "squad.paused":
+      q.pauseCount = (q.pauseCount ?? 0) + 1;
+      q.paused = { reason: e.data.reason, ts: e.ts };
+      return true;
+
+    case "squad.resumed":
+      q.resumeCount = (q.resumeCount ?? 0) + 1;
+      // A late resume must not lift a newer pause.
+      if (q.paused && q.paused.ts <= e.ts) delete q.paused;
+      return true;
+
+    case "task.added": {
+      q.addedTasks ??= [];
+      const added = q.addedTasks;
+      if (!added.some((a) => a.task.id === e.data.task.id)) {
+        added.push({
+          task: e.data.task,
+          origin: e.data.origin,
+          ...(e.data.fromRole ? { fromRole: e.data.fromRole } : {}),
+          ts: e.ts,
+        });
+        q.tasks[e.data.task.id] ??= {
+          status: "pending",
+          attempt: 1,
+          role: e.data.task.role,
+          updatedTs: e.ts,
+        };
+      }
+      return true;
+    }
+
     case "squad.delivered":
       q.delivered = { mode: e.data.mode, ref: e.data.ref, ts: e.ts };
       return true;
   }
   return true;
+}
+
+/**
+ * The plan the squad runs: the approved (or proposed) plan plus the tasks added since, in
+ * the order they came. Undefined before there is a plan.
+ */
+export function squadPlan(q: SquadState): SquadPlan | undefined {
+  if (!q.plan) return undefined;
+  const added = (q.addedTasks ?? [])
+    .map((a) => a.task)
+    .filter((t) => !q.plan?.tasks.some((p) => p.id === t.id));
+  return added.length ? { ...q.plan, tasks: [...q.plan.tasks, ...added] } : q.plan;
+}
+
+/** A role's budget: what the user set after approval, else the plan's (none when neither). */
+export function roleBudget(q: SquadState, roleId: string): number | undefined {
+  return q.roleBudgets?.[roleId] ?? q.plan?.roles.find((r) => r.id === roleId)?.budgetUsd;
 }
 
 /** The squad a session works for, if any. */

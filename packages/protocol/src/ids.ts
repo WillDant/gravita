@@ -54,12 +54,21 @@ export const keys = {
   contractFrozen: (sq: string, path: string, version: number) =>
     `squad:${sq}:contract:${path}:${version}`,
   commit: (sq: string, sha: string) => `squad:${sq}:commit:${sha}`,
-  ownershipViolation: (sq: string, taskId: string, attempt: number) =>
-    `squad:${sq}:violation:${taskId}:${attempt}`,
+  ownershipViolation: (sq: string, taskId: string, attempt: number, bounce = 1) =>
+    `squad:${sq}:violation:${taskId}:${attempt}${bounce > 1 ? `:${bounce}` : ""}`,
   merge: (sq: string, taskId: string, attempt: number, state: string) =>
     `squad:${sq}:merge:${taskId}:${attempt}:${state}`,
   checkRan: (sq: string, checkId: string, runId: string) => `squad:${sq}:check:${checkId}:${runId}`,
   budget: (sq: string, scope: string, scopeId: string, level: "warned" | "exhausted") =>
     `squad:${sq}:budget:${scope}:${scopeId}:${level}`,
   squadDelivered: (sq: string) => `squad:${sq}:delivered`,
+  /** The n-th pause (and resume) of a squad. */
+  squadPaused: (sq: string, n: number) => `squad:${sq}:paused:${n}`,
+  squadResumed: (sq: string, n: number) => `squad:${sq}:resumed:${n}`,
+  /** The n-th budget change of a squad. */
+  budgetChanged: (sq: string, n: number) => `squad:${sq}:budget-changed:${n}`,
+  taskAdded: (sq: string, taskId: string) => `squad:${sq}:task:${taskId}:added`,
+  /** A role's n-th report_progress within one attempt of a task. */
+  roleProgress: (sq: string, taskId: string, attempt: number, n: number) =>
+    `squad:${sq}:progress:${taskId}:${attempt}:${n}`,
 } as const;
