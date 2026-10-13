@@ -86,6 +86,7 @@ function AgentRow({
         <Orb
           color={agentColor(agent.agentType)}
           persona={persona}
+          seed={agent.id}
           size={quiet ? 26 : 32}
           glyph={!quiet}
         />

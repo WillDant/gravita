@@ -34,7 +34,13 @@ export function TreeLens({
           )}
           style={{ paddingLeft: 12 + depth * 28 }}
         >
-          <Orb color={agentColor(a.agentType)} persona={persona} size={28} glyph={false} />
+          <Orb
+            color={agentColor(a.agentType)}
+            persona={persona}
+            size={28}
+            glyph={false}
+            seed={a.id}
+          />
           <span className="min-w-0 flex-1 truncate text-sm">
             <span className="font-semibold">{agentName(a)}</span>{" "}
             <span className={lc === "active" || lc === "waiting_user" ? "text-ink" : "text-ink-3"}>

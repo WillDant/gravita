@@ -9,12 +9,15 @@ export function Heads({
   personaOf,
   ariaLabelOf,
   fresh,
+  primary,
   onSelect,
 }: {
   items: HeadPrimitive[];
   personaOf: (agentId: string) => Persona | undefined;
   ariaLabelOf: (agentId: string) => string;
   fresh: ReadonlySet<string>;
+  /** Heads the motion budget lets bounce or pop; the rest only breathe. */
+  primary: ReadonlySet<string>;
   onSelect: (agentId: string) => void;
 }) {
   return (
@@ -37,7 +40,9 @@ export function Heads({
               color={agentColor(h.agentType)}
               persona={persona}
               size={ORB}
+              seed={h.agentId}
               pop={fresh.has(h.agentId)}
+              motion={primary.has(h.agentId) ? "primary" : "ambient"}
             />
           </g>
         );

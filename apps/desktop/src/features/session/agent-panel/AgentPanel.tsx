@@ -47,7 +47,7 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-none items-start gap-3 border-b border-hairline px-5 pt-4 pb-4">
-        <Orb color={color} persona={persona} size={48} label={agentName(agent)} />
+        <Orb color={color} persona={persona} size={48} label={agentName(agent)} seed={agent.id} />
         <div className="min-w-0 flex-1 pt-0.5">
           <h2 className="truncate text-md font-bold tracking-[-0.01em]">{agentName(agent)}</h2>
           <p className={cn("text-sm leading-snug", waiting ? "text-waiting-ink" : "text-ink-2")}>
@@ -138,7 +138,13 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
                       onClick={() => onSelect(c.id)}
                       className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-panel"
                     >
-                      <Orb color={agentColor(c.agentType)} persona={p} size={24} glyph={false} />
+                      <Orb
+                        color={agentColor(c.agentType)}
+                        persona={p}
+                        size={24}
+                        glyph={false}
+                        seed={c.id}
+                      />
                       <span className="min-w-0 flex-1 truncate text-sm">
                         <span className="font-semibold">{c.agentType}</span>{" "}
                         <span className="text-ink-2">{t(p.label.key, p.label.params)}</span>

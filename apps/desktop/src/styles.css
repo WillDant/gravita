@@ -151,6 +151,7 @@ input {
 @media (prefers-reduced-motion: no-preference) {
   .orb-breathe {
     animation: orb-breathe var(--orb-breath, 3.2s) ease-in-out infinite;
+    animation-delay: calc(var(--orb-phase, 0) * -1 * var(--orb-breath, 3.2s));
     transform-origin: center;
     transform-box: fill-box;
   }
@@ -171,6 +172,7 @@ input {
   }
   .orb-blink {
     animation: orb-blink var(--orb-blink, 4.2s) infinite;
+    animation-delay: calc(var(--orb-phase, 0) * -4.2s);
     transform-origin: center;
     transform-box: fill-box;
   }
@@ -184,6 +186,7 @@ input {
   }
   .ring-pulse {
     animation: ring-pulse 1.6s ease-out infinite;
+    animation-delay: calc(var(--orb-phase, 0) * -1.6s);
     transform-origin: center;
     transform-box: fill-box;
   }

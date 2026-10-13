@@ -90,7 +90,12 @@ export function Home() {
                     onClick={open}
                     className="flex min-w-[280px] flex-1 items-center gap-3 text-left"
                   >
-                    <Orb color={agentColor(agent.agentType)} persona={persona} size={34} />
+                    <Orb
+                      color={agentColor(agent.agentType)}
+                      persona={persona}
+                      size={34}
+                      seed={agent.id}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs text-ink-2">
                         {project.name} › {sessionTitle(session) ?? t("session.untitled")}
@@ -149,6 +154,7 @@ export function Home() {
                     <Orb
                       color={agentColor(agent.agentType)}
                       persona={persona}
+                      seed={agent.id}
                       size={30}
                       glyph={false}
                     />

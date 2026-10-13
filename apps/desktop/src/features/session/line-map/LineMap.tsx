@@ -17,6 +17,7 @@ import { Labels } from "./Labels";
 import { Lines, NowMarker } from "./Lines";
 import { Signage } from "./Signage";
 import { Stations } from "./Stations";
+import { changedAt, useMotionBudget } from "./useMotionBudget";
 
 interface LineMapProps {
   session: SessionState;
@@ -81,6 +82,25 @@ export function LineMap({ session, events, now, selectedAgentId, onSelectAgent }
     texts: { main: t("agent.main"), hold: t("map.hold") },
   });
 
+  // The 1/3 rule over the orbs riding the map: who may bounce or pop right now.
+  const primary = useMotionBudget(
+    layout.heads.flatMap((h) => {
+      const persona = personas.get(h.agentId);
+      const node = session.agents[h.agentId];
+      if (!persona || !node) return [];
+      const changed = changedAt(node);
+      return [
+        {
+          id: h.agentId,
+          mood: persona.mood,
+          ...(fresh.has(h.agentId) ? { spawnedAt: now } : {}),
+          ...(changed !== undefined ? { changedAt: changed } : {}),
+        },
+      ];
+    }),
+    now,
+  );
+
   // Follow "now" like a departures board, unless the user scrolled back in time.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run whenever the map grows wider.
   useLayoutEffect(() => {
@@ -111,7 +131,7 @@ export function LineMap({ session, events, now, selectedAgentId, onSelectAgent }
       >
         {layout.now && <NowMarker rule={layout.now} label={t("session.now")} />}
         <Lines paths={layout.paths} fresh={fresh} nameOf={lineName} onSelect={onSelectAgent} />
-        <Interchanges items={layout.interchanges} />
+        <Interchanges items={layout.interchanges} links={layout.links} />
         <Stations items={layout.stations} />
         <Signage items={layout.signage} />
         <Labels items={layout.labels} onSelect={onSelectAgent} />
@@ -123,6 +143,7 @@ export function LineMap({ session, events, now, selectedAgentId, onSelectAgent }
             return `${lineName(id)} ${p ? t(p.label.key, p.label.params) : ""}`;
           }}
           fresh={fresh}
+          primary={primary}
           onSelect={onSelectAgent}
         />
       </svg>

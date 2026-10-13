@@ -6,6 +6,7 @@ import {
   glyphPath,
   type MotionAllowance,
   pupilOffset,
+  seedPhase,
 } from "@gravita/orbs";
 import { memo } from "react";
 
@@ -33,6 +34,8 @@ interface OrbProps {
    * of bouncing or wobbling, and skips the spawn pop. Lone orbs keep `primary`.
    */
   motion?: MotionAllowance;
+  /** Phase seed (the agent id), so a list of orbs doesn't breathe and blink in lockstep. */
+  seed?: string;
 }
 
 /** The agent persona: a coloured orb with expressive eyes. Pure SVG, CSS-animated. */
@@ -44,6 +47,7 @@ export const Orb = memo(function Orb({
   pop,
   label,
   motion = "primary",
+  seed,
 }: OrbProps) {
   const { dx, dy, r } = pupilOffset(persona);
   const closed = persona.gaze.kind === "closed";
@@ -51,6 +55,7 @@ export const Orb = memo(function Orb({
   const dim = persona.mood === "stopped" || persona.mood === "away";
   const glyphD = glyphPath(persona.glyph);
   const breath = `${breathPeriod(persona.mood) / 1000}s`;
+  const phase = seedPhase(seed);
 
   return (
     // biome-ignore lint/a11y/noSvgWithoutTitle: labelled orbs carry a <title>; unlabelled ones are aria-hidden decoration.
@@ -61,7 +66,7 @@ export const Orb = memo(function Orb({
       role={label ? "img" : "presentation"}
       aria-hidden={label ? undefined : true}
       className={pop && motion === "primary" ? "orb-pop" : undefined}
-      style={{ overflow: "visible", flex: "none" }}
+      style={{ overflow: "visible", flex: "none", ["--orb-phase" as string]: phase }}
     >
       {label && <title>{label}</title>}
       {persona.mood === "waiting" && (

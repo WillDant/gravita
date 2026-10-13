@@ -262,6 +262,58 @@ describe("layoutLineMap: interchanges", () => {
     ]);
   });
 
+  it("links parallel spawns at consecutive columns into one connector", () => {
+    const map: LineMap = {
+      lines: [
+        mainLine(8),
+        line("a", 1, { startCol: 2 }),
+        line("b", 2, { startCol: 3 }),
+        line("c", 3, { startCol: 4 }),
+      ],
+      cols: 8,
+      lanes: 4,
+    };
+    const layout = layoutLineMap(map, { w: 900, h: 400 }, opts());
+    expect(layout.interchanges.map((i) => i.kind)).toEqual(["spawn", "spawn", "spawn"]);
+    expect(layout.links).toEqual([
+      { key: "a:start", x0: layout.x(2), x1: layout.x(4), cy: layout.y(0) },
+    ]);
+  });
+
+  it("links merges in a row, but never a merge to a neighbouring spawn", () => {
+    const map: LineMap = {
+      lines: [
+        mainLine(10),
+        line("a", 1, { startCol: 1, endCol: 5, ended: true }),
+        line("b", 2, { startCol: 3, endCol: 6, ended: true }),
+        line("c", 1, { startCol: 7 }),
+      ],
+      cols: 10,
+      lanes: 3,
+    };
+    const layout = layoutLineMap(map, { w: 900, h: 400 }, opts());
+    // b merges at 6 and c spawns at 7: adjacent, but different events.
+    expect(layout.links).toEqual([
+      { key: "a:end", x0: layout.x(5), x1: layout.x(6), cy: layout.y(0) },
+    ]);
+  });
+
+  it("keeps spawns apart when a column separates them, or when the parents differ", () => {
+    const map: LineMap = {
+      lines: [
+        mainLine(10),
+        line("a", 1, { startCol: 2 }),
+        line("b", 2, { startCol: 4 }),
+        line("n", 3, { startCol: 5, parentId: "b", depth: 2 }),
+      ],
+      cols: 10,
+      lanes: 4,
+    };
+    const layout = layoutLineMap(map, { w: 900, h: 400 }, opts());
+    expect(layout.interchanges).toHaveLength(3);
+    expect(layout.links).toEqual([]);
+  });
+
   it("routes branches octolinearly from the parent lane", () => {
     const map: LineMap = {
       lines: [mainLine(8), line("back", 1, { startCol: 2, endCol: 5, ended: true })],
