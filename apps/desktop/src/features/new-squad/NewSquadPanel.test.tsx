@@ -34,14 +34,30 @@ const start = async () => {
 };
 
 describe("NewSquadPanel", () => {
-  it("prefills the project folder, a $25 budget, guarded autonomy and Opus", async () => {
+  const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
+
+  it("prefills the project folder, a $25 budget, guarded autonomy and Automatic models", async () => {
     renderPanel();
     await act(flush);
     expect(field("Folder").value).toBe("/work/p1");
     expect(field("Budget").value).toBe("25");
-    expect((screen.getByRole("radio", { name: /Guarded/ }) as HTMLInputElement).checked).toBe(true);
-    expect(field("Planner model").value).toBe("opus");
-    expect(field("Roles model").value).toBe("opus");
+    expect(radio(/Guarded/).checked).toBe(true);
+    expect(radio(/Automatic/).checked).toBe(true);
+    expect(radio(/Automatic/).closest("label")?.textContent).toContain(
+      "Sonnet for most work, Opus where it matters, Haiku for helpers; steps up only when a task struggles.",
+    );
+    expect(radio(/Opus everywhere/).checked).toBe(false);
+    expect(radio(/Sonnet everywhere/).checked).toBe(false);
+  });
+
+  it("starts on the Automatic policy unless told otherwise", async () => {
+    const gateway = new FakeGateway();
+    renderPanel(gateway);
+    fireEvent.change(field("What should the squad build?"), { target: { value: "A todo app" } });
+    await start();
+    expect(gateway.callsOf("createSquad")).toMatchObject([
+      { models: { mode: "auto", briefing: "sonnet", planner: "opus", roles: "sonnet" } },
+    ]);
   });
 
   it("asks for the goal and a budget in range before starting", async () => {
@@ -62,7 +78,7 @@ describe("NewSquadPanel", () => {
     fireEvent.change(field("What should the squad build?"), { target: { value: " A todo app " } });
     fireEvent.change(field("Budget"), { target: { value: "$40.50" } });
     fireEvent.click(screen.getByRole("radio", { name: /Autonomous/ }));
-    fireEvent.change(field("Roles model"), { target: { value: "sonnet" } });
+    fireEvent.click(radio(/Sonnet everywhere/));
     await start();
     expect(gateway.callsOf("createSquad")).toEqual([
       {
@@ -70,7 +86,7 @@ describe("NewSquadPanel", () => {
         brief: "A todo app",
         budgetUsd: 40.5,
         autonomy: "auto",
-        models: { planner: "opus", roles: "sonnet" },
+        models: { mode: "fixed", planner: "sonnet", roles: "sonnet" },
       },
     ]);
     expect(navigate).toHaveBeenCalledWith({ level: "squad", projectId: "p1", squadId: "sq-9" });

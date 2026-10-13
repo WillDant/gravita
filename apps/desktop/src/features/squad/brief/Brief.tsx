@@ -1,5 +1,6 @@
-import type { SquadState } from "@gravita/core";
+import { modelChoice, type SquadState } from "@gravita/core";
 import { agentColor } from "@gravita/orbs";
+import type { SquadModels } from "@gravita/protocol";
 import { lazy, Suspense, useId, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { Orb } from "@/features/agents/Orb";
@@ -150,15 +151,21 @@ export function Brief({
             <dt className="text-ink-3">{t("squad.brief.autonomy")}</dt>
             <dd className="text-ink-2">{t(`newSquad.autonomy.${q.autonomy}`)}</dd>
             <dt className="text-ink-3">{t("squad.brief.models")}</dt>
-            <dd className="text-ink-2">
-              {t("squad.brief.modelsValue", { planner: q.models.planner, roles: q.models.roles })}
-            </dd>
+            <dd className="text-ink-2">{modelsLabel(q.models)}</dd>
           </dl>
           <p className="text-xs text-ink-3">{t("squad.brief.readOnly")}</p>
         </section>
       </aside>
     </div>
   );
+}
+
+/** The squad's model choice by name; an older squad's mix as "x plans, y builds". */
+function modelsLabel(models: SquadModels): string {
+  const choice = modelChoice(models);
+  return choice
+    ? t(`newSquad.models.${choice}`)
+    : t("squad.brief.modelsValue", { planner: models.planner, roles: models.roles });
 }
 
 /** The planner's line arriving at its first station: the plan this button asks for. */

@@ -1,16 +1,19 @@
+import type { ModelChoice } from "@gravita/core";
 import type { SquadAutonomy } from "@gravita/protocol";
 import { FolderOpen, UsersRound, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { usePickFolder } from "@/app/providers";
 import { ConnectClaude } from "@/features/connect/ConnectClaude";
 import { t } from "@/shared/i18n/i18n";
-import { AutoTextarea, fieldFrame, Select } from "@/shared/ui/form";
+import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
-import { type ModelOption, useClaudeProblem, useModels } from "@/state/hooks";
-import { DEFAULT_SQUAD_MODEL, useNewSquad } from "./useNewSquad";
+import { useClaudeProblem } from "@/state/hooks";
+import { useNewSquad } from "./useNewSquad";
 
 const AUTONOMY: readonly SquadAutonomy[] = ["ask", "guarded", "auto"];
+/** The policy first (recommended), then one model for everything. */
+const MODEL_OPTIONS: readonly ModelChoice[] = ["auto", "opus", "sonnet"];
 
 /** The header button that opens the inline new-squad panel. */
 export function NewSquadButton({
@@ -36,19 +39,9 @@ export function NewSquadButton({
   );
 }
 
-/** Claude Code's models, with Opus and Sonnet always offered (squads default to Opus). */
-function squadModels(models: ModelOption[]): ModelOption[] {
-  const out = models.filter((m) => m.value !== "" && m.value !== "default");
-  for (const value of ["sonnet", DEFAULT_SQUAD_MODEL]) {
-    if (!out.some((m) => m.value === value))
-      out.unshift({ value, displayName: t(`newSquad.model.${value}`) });
-  }
-  return out;
-}
-
 /**
  * Starts a squad inline, under the page header: the folder, the goal in the user's own
- * words, a budget, how much the squad may do without asking, and the models. On
+ * words, a budget, how much the squad may do without asking, and how it picks models. On
  * success it opens the squad, where the planner picks up the conversation.
  */
 export function NewSquadPanel({
@@ -61,7 +54,6 @@ export function NewSquadPanel({
   onClose: () => void;
 }) {
   const form = useNewSquad(defaultFolder);
-  const models = squadModels(useModels());
   const statusProblem = useClaudeProblem();
   const pickFolder = usePickFolder();
   const fid = useId();
@@ -252,44 +244,42 @@ export function NewSquadPanel({
               {form.invalid === "budget" ? t("newSquad.needBudget") : t("newSquad.budgetHint")}
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${fid}-planner`} className="text-xs font-semibold text-ink-2">
-              {t("newSquad.plannerModel")}
-            </label>
-            <Select
-              id={`${fid}-planner`}
-              value={form.plannerModel}
-              onChange={(e) => form.setPlannerModel(e.target.value)}
-              className="w-44"
-            >
-              {models.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.displayName}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${fid}-roles`} className="text-xs font-semibold text-ink-2">
-              {t("newSquad.rolesModel")}
-            </label>
-            <Select
-              id={`${fid}-roles`}
-              value={form.rolesModel}
-              onChange={(e) => form.setRolesModel(e.target.value)}
-              className="w-44"
-            >
-              {models.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.displayName}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <p className="max-w-[34ch] self-center pt-5 text-xs text-ink-3">
-            {t("newSquad.modelsNote")}
-          </p>
         </div>
+
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="mb-1.5 text-xs font-semibold text-ink-2">
+            {t("newSquad.models")}
+          </legend>
+          <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-panel p-0.5 max-[760px]:grid-cols-1">
+            {MODEL_OPTIONS.map((m) => (
+              <label
+                key={m}
+                className={cn(
+                  "flex cursor-pointer flex-col gap-0.5 rounded-[10px] px-3 py-2 transition-colors has-focus-visible:outline-2 has-focus-visible:outline-focus",
+                  form.models === m ? "bg-ground shadow-panel" : "hover:bg-panel-2",
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`${fid}-models`}
+                  value={m}
+                  checked={form.models === m}
+                  onChange={() => form.setModels(m)}
+                  className="sr-only"
+                />
+                <span className="text-sm font-semibold text-ink">
+                  {t(`newSquad.models.${m}`)}
+                  {m === "auto" && (
+                    <span className="ml-1.5 text-xs font-medium text-ink-3">
+                      {t("newSquad.recommended")}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-ink-2">{t(`newSquad.models.${m}.hint`)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-hairline pt-4">
           {form.error && (

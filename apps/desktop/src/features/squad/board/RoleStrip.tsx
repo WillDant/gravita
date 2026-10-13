@@ -31,6 +31,7 @@ export function RoleStrip({
   estimateUsd,
   issues,
   taskIssues,
+  onOpus,
   notes,
   edits,
 }: {
@@ -40,6 +41,8 @@ export function RoleStrip({
   estimateUsd?: number;
   issues: PlanIssue[];
   taskIssues: Map<string, PlanIssue[]>;
+  /** Tasks the squad's model policy runs on Opus (marked on their cards). */
+  onOpus?: ReadonlySet<string>;
   notes: Map<string, string[]>;
   edits: TaskEdits;
 }) {
@@ -104,6 +107,7 @@ export function RoleStrip({
             task={task}
             color={color}
             issues={taskIssues.get(task.id) ?? []}
+            opus={onOpus?.has(task.id) ?? false}
             notes={notes.get(task.id) ?? []}
             edits={edits}
           />
@@ -120,6 +124,7 @@ function TaskStop({
   task,
   color,
   issues,
+  opus,
   notes,
   edits,
 }: {
@@ -127,6 +132,7 @@ function TaskStop({
   task: PlanTask;
   color: AgentColor;
   issues: PlanIssue[];
+  opus: boolean;
   notes: string[];
   edits: TaskEdits;
 }) {
@@ -238,6 +244,16 @@ function TaskStop({
             {task.foundation && (
               <span className="rounded-full bg-panel px-1.5 font-medium text-ink-2">
                 {t("squad.board.foundation")}
+              </span>
+            )}
+            {opus && (
+              // Signage, not a status: hairline ring, ink text, no colour of its own.
+              <span
+                title={t("squad.board.onOpus")}
+                className="rounded-full border border-hairline px-1.5 font-semibold text-ink-2"
+              >
+                {t("newSquad.model.opus")}
+                <span className="sr-only">{`. ${t("squad.board.onOpus")}`}</span>
               </span>
             )}
             {task.dependsOn.length > 0 && (
