@@ -121,7 +121,7 @@ describe("budgets", () => {
         ["frontend", 3.7],
       ]);
     });
-  });
+  }, 20_000); // waits out the 5 s grace before a stuck session is disposed
 
   test("sessions running side by side share what is left of the squad budget", async () => {
     await withTempDir(async (tmp) => {
