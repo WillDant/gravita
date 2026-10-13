@@ -1,0 +1,22 @@
+{
+  "name": "@gravita/adapter-codex",
+  "version": "0.2.0-beta",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@gravita/core": "workspace:*",
+    "@gravita/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "fast-check": "4.10.2"
+  }
+}
