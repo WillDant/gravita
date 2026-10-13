@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Home } from "@/features/home/Home";
 import { Sidebar } from "@/features/navigation/Sidebar";
+import { NoticeLine } from "@/features/notice/NoticeLine";
 import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
 import { t, useLocale } from "@/shared/i18n/i18n";
@@ -36,6 +37,7 @@ export function App() {
             {t("engine.offline")}
           </div>
         )}
+        <NoticeLine />
         {demo && (
           <div className="pointer-events-none absolute right-4 bottom-3 z-10 rounded-full bg-panel px-2.5 py-1 text-2xs font-medium text-ink-3">
             {t("engine.demo")}

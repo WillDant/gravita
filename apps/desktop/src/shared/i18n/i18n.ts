@@ -5,7 +5,7 @@ import { ptBR } from "./locales/pt-BR";
 // A deliberately tiny i18n: two catalogs, {param} interpolation and plural keys.
 // Keeps the bundle light; swap for a full library only if we outgrow it.
 
-type Locale = "en" | "pt-BR";
+export type Locale = "en" | "pt-BR";
 const catalogs: Record<Locale, Partial<Record<MessageKey, string>>> = { en, "pt-BR": ptBR };
 
 function detect(): Locale {
@@ -52,14 +52,14 @@ export function t(key: string, params: Record<string, string | number> = {}): st
   return template.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? `{${name}}`));
 }
 
+/** Calls `listener` after every locale change; returns the unsubscribe. */
+export function subscribeLocale(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 export function useLocale(): Locale {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => locale,
-  );
+  return useSyncExternalStore(subscribeLocale, () => locale);
 }
 
 const rtf: Record<Locale, Intl.RelativeTimeFormat> = {

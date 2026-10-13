@@ -17,6 +17,15 @@ export function permissionSummary(agent: AgentNode): string | undefined {
   return req ? `${req.toolName} · ${req.inputPreview}` : undefined;
 }
 
+/**
+ * What a waiting agent wants from the user, in one line: its oldest open question, else
+ * its permission request ("Bash · pnpm add jose"). Same line as Home's "Needs you" row.
+ */
+export function pendingAsk(agent: AgentNode): string | undefined {
+  const question = Object.values(agent.questions ?? {}).sort((a, b) => a.ts.localeCompare(b.ts))[0];
+  return question?.questions[0]?.question ?? permissionSummary(agent);
+}
+
 /** The last tool's target in a few characters: a file name, a command, a query or a URL. */
 export function toolShort(tool: NonNullable<AgentNode["lastTool"]>): string {
   const target = tool.target;

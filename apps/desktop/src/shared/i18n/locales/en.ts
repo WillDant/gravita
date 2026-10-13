@@ -228,6 +228,21 @@ export const en = {
   "gallery.budget": "Motion budget",
   "gallery.budgetNote": "Nine agents wait for you: three bounce, every one keeps its halo.",
 
+  "notify.settings": "Notifications",
+  "notify.settingsHint": "While Gravita is in the background, tell me when:",
+  "notify.pref.waiting": "An agent is waiting for you",
+  "notify.pref.finished": "A chat Gravita runs finishes its turn",
+  "notify.pref.failures": "An agent stops with an error",
+  "notify.more.one": "+{count} more",
+  "notify.more.other": "+{count} more",
+
+  "notice.stopped.one": "Stopped {count} Gravita session.",
+  "notice.stopped.other": "Stopped {count} Gravita sessions.",
+  "notice.stoppedNone": "No Gravita session was running.",
+  "notice.stopFailed":
+    "Couldn't reach the engine to stop the sessions. Try again from the menu bar.",
+  "notice.dismiss": "Dismiss",
+
   "error.notControllable": "This session runs in your terminal. Answer it there.",
   "error.claudeUnavailable": "Claude Code isn't available on this Mac.",
   "error.invalidCwd": "That folder doesn't exist. Check the path.",

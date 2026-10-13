@@ -110,3 +110,22 @@ export function tokensOf(s: SessionState): number {
     n += a.tokens.input + a.tokens.output + a.tokens.cacheWrite;
   return n;
 }
+
+/** What the menu-bar tray shows: agents working, agents waiting on you, kill-switch reach. */
+export interface TrayCounts {
+  running: number;
+  waiting: number;
+  /** Sessions Gravita runs that are working or waiting now (what "Stop all" would stop). */
+  controllable: number;
+}
+
+export function trayCounts(state: GravitaState, now: number): TrayCounts {
+  const all = totals(projectSummaries(state, now));
+  let controllable = 0;
+  for (const s of Object.values(state.sessions)) {
+    if (!s.controllable) continue;
+    const status = sessionStatus(s, now);
+    if (status === "running" || status === "waiting") controllable++;
+  }
+  return { running: all.running, waiting: needsYou(state, now).length, controllable };
+}

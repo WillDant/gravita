@@ -133,6 +133,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.claudeModels, {});
   }
 
+  stopAll(): Promise<RpcResult<"engine.stopAll">> {
+    return this.call(Methods.stopAll, {});
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }
