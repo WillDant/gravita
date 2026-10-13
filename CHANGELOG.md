@@ -2,7 +2,7 @@
 
 All notable changes to Gravita. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [SemVer](https://semver.org/).
 
-## [0.2.0-beta] - unreleased
+## [0.2.0-beta] - 2026-10-13
 
 Squads: a team of role agents that builds from a goal you describe, with clear ownership, a budget and you in control.
 
@@ -44,4 +44,5 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.2.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.2.0-beta
 [0.1.0-alpha]: https://github.com/WillDant/gravita/releases/tag/v0.1.0-alpha
