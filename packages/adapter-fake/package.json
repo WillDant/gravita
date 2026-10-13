@@ -1,0 +1,22 @@
+{
+  "name": "@gravita/adapter-fake",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@gravita/adapter-claude": "workspace:*",
+    "@gravita/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@gravita/core": "workspace:*",
+    "@types/bun": "1.4.3"
+  }
+}

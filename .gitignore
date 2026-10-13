@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.DS_Store
+coverage/
+.env
+.env.*
+!.env.example
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/*
+!apps/desktop/src-tauri/binaries/.gitkeep
+# Impeccable local state
+**/.impeccable/config.local.json
+**/.impeccable/hook.*.json
+.impeccable/questions/
+.impeccable/review/
+.impeccable/build/
+.playwright-mcp/
+*.bun-build

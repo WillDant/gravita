@@ -1,0 +1,787 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T01:01:03+00:00",
+  "title": "Design System: Gravita",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ],
+        "dark": "#0f1115"
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Cool Panel",
+        "canonical": "oklch(97.3% 0.003 264.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232425",
+          "#3f4041",
+          "#5d5e5f",
+          "#7c7d7f",
+          "#9d9ea0",
+          "#c3c4c6",
+          "#edeef0"
+        ],
+        "dark": "#151820"
+      },
+      "panel-2": {
+        "role": "neutral",
+        "displayName": "Cool Panel Hover",
+        "canonical": "oklch(94.9% 0.006 264.5)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232427",
+          "#3e4043",
+          "#5c5e61",
+          "#7b7d81",
+          "#9c9ea2",
+          "#c2c4c8",
+          "#eceef2"
+        ],
+        "dark": "#1c2029"
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(92.4% 0.008 260.7)",
+        "tonalRamp": [
+          "#090b0e",
+          "#222428",
+          "#3d4044",
+          "#5b5e62",
+          "#7b7d82",
+          "#9c9ea3",
+          "#c1c4c9",
+          "#eceff4"
+        ],
+        "dark": "#262b35"
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "oklch(86.6% 0.011 261.8)",
+        "tonalRamp": [
+          "#090b10",
+          "#212429",
+          "#3d4045",
+          "#5a5e64",
+          "#7a7d84",
+          "#9b9fa5",
+          "#c0c4cb",
+          "#ebeff6"
+        ],
+        "dark": "#353b47"
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Signal Ink",
+        "canonical": "oklch(19.0% 0.007 258.4)",
+        "tonalRamp": [
+          "#090b0e",
+          "#222427",
+          "#3d4043",
+          "#5b5e62",
+          "#7b7d81",
+          "#9c9fa3",
+          "#c1c4c9",
+          "#eceff3"
+        ],
+        "dark": "#eceef2"
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "oklch(43.0% 0.021 264.3)",
+        "tonalRamp": [
+          "#080b11",
+          "#20242c",
+          "#3b404a",
+          "#585e69",
+          "#787d87",
+          "#9a9ea7",
+          "#c1c4cb",
+          "#eceef2"
+        ],
+        "dark": "#b2b8c3"
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "oklch(52.6% 0.022 262.9)",
+        "tonalRamp": [
+          "#090b10",
+          "#20242b",
+          "#3b4049",
+          "#575e6a",
+          "#777d8a",
+          "#999fa9",
+          "#c0c4cd",
+          "#ebeff5"
+        ],
+        "dark": "#9098a6"
+      },
+      "focus": {
+        "role": "tertiary",
+        "displayName": "Focus Blue",
+        "canonical": "oklch(53.3% 0.221 265.8)",
+        "tonalRamp": [
+          "#010035",
+          "#061664",
+          "#153198",
+          "#264dce",
+          "#4371f4",
+          "#6c98ff",
+          "#9bc2ff",
+          "#d1eeff"
+        ],
+        "dark": "#7f9cff"
+      },
+      "select": {
+        "role": "tertiary",
+        "displayName": "Selection Tint",
+        "canonical": "oklch(53.3% 0.221 265.8)",
+        "tonalRamp": [
+          "#010035",
+          "#061664",
+          "#153198",
+          "#264dce",
+          "#4371f4",
+          "#6c98ff",
+          "#9bc2ff",
+          "#d1eeff"
+        ],
+        "dark": "#7f9cff26"
+      },
+      "waiting": {
+        "role": "secondary",
+        "displayName": "Hold Orange",
+        "canonical": "oklch(64.4% 0.192 41.7)",
+        "tonalRamp": [
+          "#1e0100",
+          "#450f00",
+          "#702200",
+          "#9e3700",
+          "#cf4e05",
+          "#f6713a",
+          "#ffa277",
+          "#ffd6b5"
+        ],
+        "dark": "#ff8a3d"
+      },
+      "waiting-ink": {
+        "role": "secondary",
+        "displayName": "Hold Orange Ink",
+        "canonical": "oklch(53.9% 0.162 40.6)",
+        "tonalRamp": [
+          "#220000",
+          "#480900",
+          "#721f00",
+          "#9f3600",
+          "#c5582d",
+          "#e0825f",
+          "#fcaf93",
+          "#ffe0cc"
+        ],
+        "dark": "#ffa76b"
+      },
+      "waiting-bg": {
+        "role": "secondary",
+        "displayName": "Hold Orange Wash",
+        "canonical": "oklch(96.7% 0.019 55.2)",
+        "tonalRamp": [
+          "#120904",
+          "#2c221b",
+          "#483d36",
+          "#675b53",
+          "#877b73",
+          "#a89c93",
+          "#cfc1b9",
+          "#f9ebe2"
+        ],
+        "dark": "#2a1a10"
+      },
+      "error": {
+        "role": "tertiary",
+        "displayName": "Error Red",
+        "canonical": "oklch(57.6% 0.209 29.5)",
+        "tonalRamp": [
+          "#250000",
+          "#4e0000",
+          "#7c0401",
+          "#ac1b11",
+          "#dd3628",
+          "#f76d5c",
+          "#ffa08f",
+          "#ffd6c8"
+        ],
+        "dark": "#ff6b5e"
+      },
+      "error-ink": {
+        "role": "tertiary",
+        "displayName": "Error Red Ink",
+        "canonical": "oklch(50.0% 0.182 29.5)",
+        "tonalRamp": [
+          "#270000",
+          "#500000",
+          "#7c0401",
+          "#ab1f14",
+          "#ca5041",
+          "#e47d6d",
+          "#ffab9e",
+          "#ffded4"
+        ],
+        "dark": "#ff8b80"
+      },
+      "error-bg": {
+        "role": "tertiary",
+        "displayName": "Error Red Wash",
+        "canonical": "oklch(96.6% 0.015 27.3)",
+        "tonalRamp": [
+          "#110908",
+          "#2b2120",
+          "#483d3b",
+          "#665a59",
+          "#867a78",
+          "#a89b99",
+          "#cec1bf",
+          "#f9ebe9"
+        ],
+        "dark": "#2b1513"
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Running Green",
+        "canonical": "oklch(62.5% 0.149 155.5)",
+        "tonalRamp": [
+          "#001103",
+          "#002e14",
+          "#004e29",
+          "#00703f",
+          "#0c9557",
+          "#4cb77a",
+          "#88d9a6",
+          "#c3ffd8"
+        ],
+        "dark": "#3ccb86"
+      },
+      "ok-ink": {
+        "role": "tertiary",
+        "displayName": "Running Green Ink",
+        "canonical": "oklch(51.1% 0.120 155.9)",
+        "tonalRamp": [
+          "#001202",
+          "#002e13",
+          "#004e29",
+          "#067041",
+          "#3f9062",
+          "#6faf87",
+          "#a1d2b2",
+          "#d7f8e2"
+        ],
+        "dark": "#5fd99d"
+      },
+      "line-main": {
+        "role": "tertiary",
+        "displayName": "Main Violet",
+        "canonical": "oklch(53.1% 0.240 279.7)",
+        "tonalRamp": [
+          "#0a0038",
+          "#1e0668",
+          "#35219d",
+          "#4f3bd5",
+          "#6a62fa",
+          "#8a8dff",
+          "#b2b9ff",
+          "#e0e8ff"
+        ],
+        "orbFill": "#7c6cf7",
+        "badge": "#4c3bd9",
+        "badgeText": "#ffffff",
+        "agentTypes": "main, planner"
+      },
+      "line-explore": {
+        "role": "tertiary",
+        "displayName": "Explore Teal",
+        "canonical": "oklch(63.5% 0.107 190.8)",
+        "tonalRamp": [
+          "#000f0f",
+          "#002c2a",
+          "#004b48",
+          "#006c69",
+          "#06908b",
+          "#46b2ad",
+          "#84d5d0",
+          "#c0fcf8"
+        ],
+        "orbFill": "#2ec4be",
+        "badge": "#0b7f7b",
+        "badgeText": "#ffffff",
+        "agentTypes": "Explore"
+      },
+      "line-plan": {
+        "role": "tertiary",
+        "displayName": "Plan Coral",
+        "canonical": "oklch(65.4% 0.198 34.8)",
+        "tonalRamp": [
+          "#1e0100",
+          "#450d01",
+          "#711f0a",
+          "#a03318",
+          "#d24826",
+          "#fb6a48",
+          "#ff9d7f",
+          "#ffd3ba"
+        ],
+        "orbFill": "#ff7a59",
+        "badge": "#c63d1d",
+        "badgeText": "#ffffff",
+        "agentTypes": "Plan, frontend"
+      },
+      "line-general": {
+        "role": "tertiary",
+        "displayName": "General Blue",
+        "canonical": "oklch(60.9% 0.197 259.3)",
+        "tonalRamp": [
+          "#000828",
+          "#012053",
+          "#0b3b83",
+          "#1b59b6",
+          "#2c77ec",
+          "#599cff",
+          "#8dc5ff",
+          "#c5f1ff"
+        ],
+        "orbFill": "#5b9bff",
+        "badge": "#1f66d1",
+        "badgeText": "#ffffff",
+        "agentTypes": "general-purpose, backend"
+      },
+      "line-design": {
+        "role": "tertiary",
+        "displayName": "Design Mustard",
+        "canonical": "oklch(67.9% 0.142 76.5)",
+        "tonalRamp": [
+          "#140800",
+          "#341f00",
+          "#573900",
+          "#7e5400",
+          "#a77100",
+          "#ce9120",
+          "#eeba6b",
+          "#ffe7ab"
+        ],
+        "orbFill": "#ffc83d",
+        "badge": "#ffc83d",
+        "badgeText": "#3b2a00",
+        "agentTypes": "design, pool"
+      },
+      "line-tests": {
+        "role": "tertiary",
+        "displayName": "Tests Green",
+        "canonical": "oklch(62.5% 0.149 155.5)",
+        "tonalRamp": [
+          "#001103",
+          "#002e14",
+          "#004e29",
+          "#00703f",
+          "#0c9557",
+          "#4cb77a",
+          "#88d9a6",
+          "#c3ffd8"
+        ],
+        "orbFill": "#3ccb86",
+        "badge": "#0e8048",
+        "badgeText": "#ffffff",
+        "agentTypes": "tests, pool"
+      },
+      "line-rose": {
+        "role": "tertiary",
+        "displayName": "Pool Rose",
+        "canonical": "oklch(62.5% 0.195 3.5)",
+        "tonalRamp": [
+          "#1f0008",
+          "#46061f",
+          "#711739",
+          "#9f2a54",
+          "#d03e71",
+          "#f36893",
+          "#ff9bba",
+          "#ffd1e7"
+        ],
+        "orbFill": "#f06c97",
+        "badge": "#c2366a",
+        "badgeText": "#ffffff",
+        "agentTypes": "pool"
+      },
+      "line-sky": {
+        "role": "tertiary",
+        "displayName": "Pool Sky",
+        "canonical": "oklch(61.5% 0.151 246.6)",
+        "tonalRamp": [
+          "#000c20",
+          "#002646",
+          "#004270",
+          "#07619e",
+          "#1882ce",
+          "#51a5ec",
+          "#89cbff",
+          "#c3f5ff"
+        ],
+        "orbFill": "#4fb0f0",
+        "badge": "#1570b8",
+        "badgeText": "#ffffff",
+        "agentTypes": "pool"
+      },
+      "line-orchid": {
+        "role": "tertiary",
+        "displayName": "Pool Orchid",
+        "canonical": "oklch(60.5% 0.222 317.4)",
+        "tonalRamp": [
+          "#180020",
+          "#390647",
+          "#5e1a72",
+          "#852e9f",
+          "#af44cf",
+          "#ce71eb",
+          "#eda2ff",
+          "#ffd7ff"
+        ],
+        "orbFill": "#cc72e6",
+        "badge": "#9a36b8",
+        "badgeText": "#ffffff",
+        "agentTypes": "pool"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The single page title on Home and Project."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings; agent panel title at 700 / -0.01em."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel headings, breadcrumb current item, agent names in rows."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text, line-height 1.45."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Happening rows, lists, sidebar rows."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Chips, metadata, descriptions."
+      },
+      "map-name": {
+        "displayName": "Map Name",
+        "purpose": "Line names on the map, on a ground knockout."
+      },
+      "map-signage": {
+        "displayName": "Map Signage",
+        "purpose": "Plain-language status under each head orb; 700 in waiting-ink when held."
+      },
+      "count": {
+        "displayName": "Count",
+        "purpose": "Numeric pills in the sidebar."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Commands, paths, permission asks, raw payloads (11px in Raw)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-lift",
+        "value": "0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%)",
+        "dark": "0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%)",
+        "purpose": "Selected tile on a panel track (active nav item, active session row, selected lens tab). CSS var --shadow / utility shadow-panel."
+      },
+      {
+        "name": "float",
+        "value": "0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%)",
+        "dark": "0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%)",
+        "purpose": "Defined for floating layers (--shadow-lg / shadow-float); no shipped consumer yet."
+      },
+      {
+        "name": "map-casing",
+        "value": "stroke var(--ground) at line width + 5 (10px), round caps",
+        "purpose": "White casing under every map line so crossings read over/under."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-signature",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "All chrome transitions, pupil glides, line draw-in. No overshoot."
+      },
+      {
+        "name": "ease-pop",
+        "value": "cubic-bezier(0.34, 1.4, 0.64, 1)",
+        "purpose": "Orbs only: spawn pop and waiting bounce (Playful archetype)."
+      },
+      {
+        "name": "duration-short",
+        "value": "120ms",
+        "purpose": "Chrome hover/colour changes."
+      },
+      {
+        "name": "duration-medium",
+        "value": "240ms",
+        "purpose": "State glides (orb pupils)."
+      },
+      {
+        "name": "duration-long",
+        "value": "480ms",
+        "purpose": "Entrances (orb pop)."
+      },
+      {
+        "name": "line-grow",
+        "value": "520ms ease-signature, stroke-dashoffset",
+        "purpose": "A newly spawned line draws itself in."
+      },
+      {
+        "name": "orb-breathe",
+        "value": "scale 1 to 1.045, ease-in-out; 2.4s thinking / 3.2s working / 4.2s idle",
+        "purpose": "Ambient life for every live orb."
+      },
+      {
+        "name": "orb-bob",
+        "value": "translateY -1.5px, 0.7s ease-in-out",
+        "purpose": "Busy / delegating."
+      },
+      {
+        "name": "orb-pop",
+        "value": "scale 0.2 to 1 with fade, 480ms ease-pop",
+        "purpose": "Spawn."
+      },
+      {
+        "name": "orb-bounce",
+        "value": "squash-and-stretch hop -4px, 1.3s ease-pop",
+        "purpose": "Waiting for you, with ring-pulse halo (1.6s ease-out, scale 0.85 to 1.6)."
+      },
+      {
+        "name": "orb-wobble",
+        "value": "rotate ±6deg, 0.9s ease-in-out",
+        "purpose": "Error."
+      },
+      {
+        "name": "orb-blink",
+        "value": "scaleY 0.1 at 96.5%, every ~4.2s",
+        "purpose": "Eyes blink."
+      },
+      {
+        "name": "orb-budget",
+        "value": "<= ~1/3 of visible orbs in primary motion (pop, bounce, wobble)",
+        "purpose": "Keeps the map calm; the rest only breathe."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: no-preference) gate",
+        "purpose": "Every loop and entrance is opt-in."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "rail",
+        "value": "1100px",
+        "purpose": "At or below: sidebar collapses from 232px to a 56px icon rail."
+      },
+      {
+        "name": "content-max",
+        "value": "1080px",
+        "purpose": "Home and Project column max width."
+      }
+    ],
+    "layout": {
+      "sidebar": "232px (rail 56px)",
+      "rightColumn": "340px",
+      "map": {
+        "lineWidth": "5px",
+        "knee": "12px",
+        "orb": "30px",
+        "columns": "16-96px",
+        "lanes": "56-104px",
+        "padTop": "44px",
+        "padLeft": "28px",
+        "padBottom": "36px"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink button for the one affirmative action in a row (Allow).",
+      "html": "<button class=\"ds-btn-primary\">Allow</button>",
+      "css": ".ds-btn-primary { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--ink, #121417); color: var(--ground, #ffffff); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: color-mix(in srgb, var(--ink, #121417) 85%, transparent); } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Bordered ground button for the alternative (Deny).",
+      "html": "<button class=\"ds-btn-secondary\">Deny</button>",
+      "css": ".ds-btn-secondary { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px; border: 1px solid var(--hairline-strong, #cfd3da); border-radius: 8px; background: var(--ground, #ffffff); color: var(--ink, #121417); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-secondary:hover { background: var(--panel, #f5f6f8); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Borderless quiet action.",
+      "html": "<button class=\"ds-btn-ghost\">Open session</button>",
+      "css": ".ds-btn-ghost { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2, #4a505c); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1), color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-ghost:hover { background: var(--panel, #f5f6f8); color: var(--ink, #121417); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; }"
+    },
+    {
+      "name": "Count Chips",
+      "kind": "chip",
+      "refersTo": "chip-live",
+      "description": "The same three counts on every screen: running, subagents, waiting. Dot plus words, never colour alone.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip ds-chip-live\"><i class=\"ds-dot ds-dot-ok\"></i>4 running</span><span class=\"ds-chip ds-chip-quiet\">3 subagents · 3 active</span><span class=\"ds-chip ds-chip-waiting\"><i class=\"ds-dot ds-dot-wait\"></i>1 waiting for you</span></div>",
+      "css": ".ds-chips { display: flex; flex-wrap: wrap; gap: 6px; } .ds-chip { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; font-variant-numeric: tabular-nums; } .ds-chip-live { background: var(--ink, #121417); color: var(--ground, #ffffff); } .ds-chip-quiet { background: var(--panel, #f5f6f8); color: var(--ink-2, #4a505c); } .ds-chip-waiting { background: var(--waiting-bg, #fff1e8); color: var(--waiting-ink, #b8430a); } .ds-dot { width: 6px; height: 6px; border-radius: 9999px; } .ds-dot-ok { background: var(--ok, #12a15f); } .ds-dot-wait { background: var(--waiting, #e8590c); }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar row on the cool panel; active is a lifted ground tile.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-nav-active\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/></svg>Home</button><button class=\"ds-nav-item\"><span class=\"ds-mark\">G</span>gravita-demo<span class=\"ds-count\">4</span></button></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 216px; padding: 8px; background: var(--panel, #f5f6f8); } .ds-nav-item { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-2, #4a505c); font-size: 0.8125rem; font-weight: 500; text-align: left; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1), color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-nav-item svg { color: var(--ink-3, #646b78); flex: none; } .ds-nav-item:hover { background: var(--panel-2, #eceef2); color: var(--ink, #121417); } .ds-nav-active, .ds-nav-active:hover { background: var(--ground, #ffffff); color: var(--ink, #121417); box-shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; } .ds-mark { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 4px; background: rgb(100 107 120 / 20%); font-size: 10px; font-weight: 700; color: var(--ink-2, #4a505c); } .ds-count { margin-left: auto; padding: 0 6px; border-radius: 9999px; background: var(--ground, #ffffff); color: var(--ink-2, #4a505c); font-size: 0.6875rem; font-weight: 700; line-height: 20px; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Lens Tabs",
+      "kind": "nav",
+      "refersTo": "lens-tab",
+      "description": "Segmented control on a panel track; the selected tab lifts as a ground tile.",
+      "html": "<div class=\"ds-seg\" role=\"tablist\"><button class=\"ds-seg-tab\" aria-selected=\"true\">Lines</button><button class=\"ds-seg-tab\" aria-selected=\"false\">Tree</button></div>",
+      "css": ".ds-seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--panel, #f5f6f8); } .ds-seg-tab { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-2, #4a505c); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-seg-tab:hover { color: var(--ink, #121417); } .ds-seg-tab[aria-selected=\"true\"] { background: var(--ground, #ffffff); color: var(--ink, #121417); box-shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%); } .ds-seg-tab:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; }"
+    },
+    {
+      "name": "Line Badges",
+      "kind": "chip",
+      "refersTo": "line-badge",
+      "description": "Metro line codes: a coloured disc in the agent's badge cut with one or two bold letters.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge\" style=\"background:#4c3bd9\">M</span><span class=\"ds-badge\" style=\"background:#0b7f7b\">E</span><span class=\"ds-badge\" style=\"background:#c63d1d\">P</span><span class=\"ds-badge\" style=\"background:#1f66d1\">G</span><span class=\"ds-badge\" style=\"background:#ffc83d;color:#3b2a00\">D</span><span class=\"ds-badge\" style=\"background:#0e8048\">T</span></div>",
+      "css": ".ds-badges { display: flex; gap: 8px; } .ds-badge { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 9999px; color: #ffffff; font-size: 10px; font-weight: 700; line-height: 1; }"
+    },
+    {
+      "name": "Line Map",
+      "kind": "custom",
+      "refersTo": "line-badge",
+      "description": "Signature: a parent line with one branch: white casing, 45° knees, ink-ring stations, interchange capsule, knocked-out name, orb at the head.",
+      "html": "<svg class=\"ds-map\" width=\"420\" height=\"150\" viewBox=\"0 0 420 150\"><line x1=\"370\" x2=\"370\" y1=\"10\" y2=\"145\" stroke=\"#cfd3da\" stroke-dasharray=\"2 4\"/><path d=\"M 20 50 H 370 M 140 50 V 108 L 152 120 H 370\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M 20 50 H 370\" fill=\"none\" stroke=\"#5b47f0\" stroke-width=\"5\" stroke-linecap=\"round\"/><path d=\"M 140 50 V 108 L 152 120 H 370\" fill=\"none\" stroke=\"#0e9f9a\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"60\" cy=\"50\" r=\"4.6\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"2\"/><circle cx=\"100\" cy=\"50\" r=\"4.6\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"2\"/><rect x=\"133.5\" y=\"43.5\" width=\"13\" height=\"25\" rx=\"6.5\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"2.2\"/><circle cx=\"140\" cy=\"50\" r=\"2.6\" fill=\"#0e9f9a\"/><circle cx=\"230\" cy=\"120\" r=\"4.6\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"2\"/><circle cx=\"300\" cy=\"120\" r=\"4.6\" fill=\"#121417\" stroke=\"#121417\" stroke-width=\"2\"/><g><rect x=\"156\" y=\"93\" width=\"150\" height=\"20\" rx=\"6\" fill=\"#fff\" opacity=\"0.92\"/><circle cx=\"166\" cy=\"103\" r=\"8\" fill=\"#0b7f7b\"/><text x=\"166\" y=\"106.5\" text-anchor=\"middle\" class=\"ds-map-code\">E</text><text x=\"179\" y=\"107\" class=\"ds-map-name\">Explore · Map auth code</text></g><g transform=\"translate(370 120)\"><circle r=\"13\" fill=\"#2ec4be\" stroke=\"#121417\" stroke-width=\"1.4\"/><ellipse cx=\"-4.6\" cy=\"-0.6\" rx=\"3.6\" ry=\"4.3\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.7\"/><ellipse cx=\"4.6\" cy=\"-0.6\" rx=\"3.6\" ry=\"4.3\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.7\"/><circle cx=\"-3.4\" cy=\"-1.6\" r=\"1.8\" fill=\"#121417\"/><circle cx=\"5.8\" cy=\"-1.6\" r=\"1.8\" fill=\"#121417\"/></g><text x=\"385\" y=\"147\" text-anchor=\"end\" class=\"ds-map-sign\">is thinking</text></svg>",
+      "css": ".ds-map { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: block; background: #ffffff; } .ds-map-code { font-size: 10px; font-weight: 700; fill: #ffffff; } .ds-map-name { font-size: 12px; font-weight: 600; fill: #121417; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; paint-order: stroke; } .ds-map-sign { font-size: 11px; font-weight: 600; fill: #4a505c; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; paint-order: stroke; }"
+    },
+    {
+      "name": "Waiting Row",
+      "kind": "card",
+      "refersTo": "waiting-card",
+      "description": "An agent held on the user: orange-washed row, mono ask, inline Allow / Deny.",
+      "html": "<div class=\"ds-wait\"><div class=\"ds-wait-text\"><span class=\"ds-wait-crumb\">gravita-demo › Add OAuth login</span><span class=\"ds-wait-title\">Plan is waiting for your approval</span><span class=\"ds-wait-ask\">Bash · pnpm add jose</span></div><div class=\"ds-wait-actions\"><button class=\"ds-w-allow\">Allow</button><button class=\"ds-w-deny\">Deny</button></div></div>",
+      "css": ".ds-wait { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--waiting, #e8590c) 40%, transparent); border-radius: 12px; background: var(--waiting-bg, #fff1e8); } .ds-wait-text { display: flex; flex-direction: column; flex: 1; min-width: 220px; } .ds-wait-crumb { font-size: 0.75rem; color: var(--ink-2, #4a505c); } .ds-wait-title { font-size: 0.875rem; font-weight: 500; color: var(--ink, #121417); } .ds-wait-ask { font-family: 'DM Mono', ui-monospace, Menlo, monospace; font-size: 0.75rem; color: var(--waiting-ink, #b8430a); } .ds-wait-actions { display: flex; gap: 8px; } .ds-w-allow, .ds-w-deny { font-family: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, sans-serif; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-w-allow { border: 0; background: var(--ink, #121417); color: var(--ground, #ffffff); } .ds-w-allow:hover { background: color-mix(in srgb, var(--ink, #121417) 85%, transparent); } .ds-w-deny { border: 1px solid var(--hairline-strong, #cfd3da); background: var(--ground, #ffffff); color: var(--ink, #121417); } .ds-w-deny:hover { background: var(--panel, #f5f6f8); } .ds-w-allow:focus-visible, .ds-w-deny:focus-visible { outline: 2px solid var(--focus, #2f5bea); outline-offset: 2px; }"
+    },
+    {
+      "name": "Orb",
+      "kind": "custom",
+      "refersTo": "line-badge",
+      "description": "Agent persona: line-coloured body, ink ring, eyes that look toward the work; breathes gently, pops in on spawn.",
+      "html": "<svg class=\"ds-orb\" width=\"48\" height=\"48\" viewBox=\"0 0 40 40\"><g class=\"ds-orb-body\"><circle cx=\"20\" cy=\"20\" r=\"17\" fill=\"#7c6cf7\" stroke=\"#121417\" stroke-width=\"1.6\"/><ellipse cx=\"13.5\" cy=\"11.5\" rx=\"5.5\" ry=\"3\" fill=\"#fff\" opacity=\"0.32\"/><ellipse cx=\"14.5\" cy=\"19\" rx=\"4.3\" ry=\"5.1\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.8\"/><ellipse cx=\"25.5\" cy=\"19\" rx=\"4.3\" ry=\"5.1\" fill=\"#fff\" stroke=\"#121417\" stroke-width=\"0.8\"/><circle cx=\"16\" cy=\"19.8\" r=\"2.1\" fill=\"#121417\"/><circle cx=\"27\" cy=\"19.8\" r=\"2.1\" fill=\"#121417\"/></g></svg>",
+      "css": ".ds-orb { overflow: visible; } @media (prefers-reduced-motion: no-preference) { .ds-orb-body { transform-origin: center; transform-box: fill-box; animation: ds-orb-breathe 3.2s ease-in-out infinite; } .ds-orb:hover .ds-orb-body { animation: ds-orb-pop 480ms cubic-bezier(0.34, 1.4, 0.64, 1) both; } } @keyframes ds-orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } } @keyframes ds-orb-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Live Metro Diagram",
+    "overview": "Gravita draws parallel agent work as a modernist transit map. Each agent is a coloured line running left to right through time; tool calls are stations; a subagent is a branch that leaves its parent at an interchange, drops on a 45° knee into its own lane, and merges back when done. The agent itself rides at the head of its line as a small persona, an orb with eyes, and a line of plain-language signage under it says what that agent is doing right now. The map is the product; every other surface is quiet so the lines can carry the meaning.\n\nThe ground is white (dark: near-black), the chrome is a cool gray panel with hairlines, and the ink is near-black. Saturated colour enters only through the agents (lines, line badges, orbs) and through three reserved state hues: orange for \"waiting for you\", red for error, green for running. Type is DM Sans set like transit signage: short, sentence case, semibold to bold, on a tight ~1.125 product scale; numbers are tabular, and DM Mono carries commands, paths and raw payloads. Density is that of an operating tool (14px body, 32px controls), not a marketing page.\n\nMotion has two registers. Chrome is short and settled: a single signature ease (cubic-bezier(0.2, 0, 0, 1)) with no overshoot. The orbs are the one playful thing in the world: they breathe, bob while working, pop in with overshoot when spawned, bounce when they need you, and wobble on error. Every loop sits behind `prefers-reduced-motion`.",
+    "keyCharacteristics": [
+      "Transit-map signature: 5px lines, round caps, octolinear routing with 45° chamfered knees, white stations with ink rings, white interchange capsules, line-code badges.",
+      "Quiet neutral chrome; colour belongs to agents and to three reserved state hues.",
+      "Signage typography: DM Sans, sentence case, 600-700 weight for names and labels, tabular numerals.",
+      "Flat surfaces separated by hairlines; a soft lift only marks the selected item.",
+      "Playful persona motion on orbs only; chrome motion is brief and non-bouncy.",
+      "Light theme default, full dark theme by token swap; state is never carried by colour alone (dot plus word, ring plus label)."
+    ],
+    "rules": [
+      {
+        "name": "The Lines Carry the Colour Rule",
+        "body": "Ground, panels and chrome stay neutral. Saturated hue comes from agents (lines, badges, orbs) and the three state colours. The wordmark is the one chrome exception, because it is itself three line colours orbiting a centre.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Line, One Hue Rule",
+        "body": "An agent type owns its colour everywhere: map line, badge disc, orb body, mini-map on Home. Never recolour an agent per screen or per theme.",
+        "section": "colors"
+      },
+      {
+        "name": "The Orange Means You Rule",
+        "body": "Hold Orange marks only things waiting on the user. If nothing is waiting, no orange is on screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signage Rule",
+        "body": "Labels are short, sentence case and bold enough to read at a glance over a busy map. No uppercase-tracked labels; uppercase appears only inside line-code discs and project initial tiles.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Numbers Rule",
+        "body": "Every count, token total and tool count uses tabular figures so numbers don't jitter as they tick.",
+        "section": "typography"
+      },
+      {
+        "name": "The Lift Means Selected Rule",
+        "body": "Shadow marks the current selection on a panel track, never a resting card. Containers use a hairline border instead.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Octolinear Rule",
+        "body": "Lines move only horizontally, vertically, or on a 45° knee. No free curves, no other angles.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Ink Ring Rule",
+        "body": "Every map object the eye should land on (station, interchange, orb, glyph badge) carries an ink outline, so it reads on any line colour and in both themes.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Knockout Rule",
+        "body": "Text on the map always sits on a ground halo: a 4px ground stroke painted under the glyphs, and line names on a 92% ground knockout tile, so any line crossing a label is masked as on printed maps.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** give every agent type one fixed hue from the palette and use it for its line, badge, orb and mini-map alike.",
+      "**Do** route lines octolinearly: 5px, round caps, vertical drop, 45° knee (12px), horizontal run, white casing underneath.",
+      "**Do** put an ink ring on every station, interchange, orb and glyph badge.",
+      "**Do** set map text on a ground halo (4px stroke, paint-order stroke) or a 92% ground knockout.",
+      "**Do** pair every state colour with a word or shape: dot plus label, ring plus \"waiting for you\".",
+      "**Do** use tabular figures for all counts, and DM Mono for commands, paths and raw payloads.",
+      "**Do** keep chrome motion on the signature ease cubic-bezier(0.2, 0, 0, 1) within 120 / 240 / 480ms, and put every animation behind prefers-reduced-motion.",
+      "**Do** mark selection on a panel track with the lifted ground tile (panel lift shadow)."
+    ],
+    "donts": [
+      "**Don't** tint the ground, panels or chrome with agent hues (the three-line wordmark is the only exception).",
+      "**Don't** use Hold Orange for anything that isn't waiting on the user.",
+      "**Don't** draw lines with free curves or angles other than 0°, 90° and 45°.",
+      "**Don't** give resting cards or containers a shadow; use a hairline.",
+      "**Don't** use overshoot, bounce or wobble in chrome; those belong to the orbs.",
+      "**Don't** set uppercase tracked labels or eyebrow text above headings; signage is sentence case.",
+      "**Don't** fall back to terminal tabs, log feeds or a gray card grid as the primary view of a session."
+    ]
+  }
+}

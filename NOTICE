@@ -1,0 +1,10 @@
+Gravita
+Copyright 2026 The Gravita authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Gravita works with Claude Code but does not include it. Claude Code is installed
+and logged in by each user under Anthropic's own terms; Gravita runs the user's
+unmodified installation and never handles Claude credentials.
+"Claude" and "Claude Code" are trademarks of Anthropic, PBC. Gravita is not
+affiliated with or endorsed by Anthropic or OpenAI.

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "engine-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gravita/engine", "dev:demo"],
+      "port": 4319
+    },
+    {
+      "name": "ui",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gravita/desktop", "dev"],
+      "port": 5173,
+      "url": "http://127.0.0.1:5173"
+    }
+  ]
+}
