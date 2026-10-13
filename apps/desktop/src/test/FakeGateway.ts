@@ -26,7 +26,7 @@ export class FakeGateway implements EngineGateway {
   reconnects = 0;
   snapshotResult: EngineSnapshot | Error = {
     seq: 0,
-    state: { projects: {}, sessions: {}, seq: 0 },
+    state: { projects: {}, sessions: {}, squads: {}, seq: 0 },
   };
   sessionEventsResult: RpcResult<"session.events"> | Error = { events: [] };
   readonly responded: RpcParams<"permission.respond">[] = [];

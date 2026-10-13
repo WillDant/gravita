@@ -56,3 +56,14 @@ export class InvalidAnswerError extends Error {
     this.name = "InvalidAnswerError";
   }
 }
+
+/**
+ * M2c: squads are in the protocol but not yet run by the engine. Every squad method
+ * answers this until the orchestration lands; then this error goes away.
+ */
+export class SquadsUnavailableError extends Error {
+  constructor() {
+    super("Squads arrive in a later version");
+    this.name = "SquadsUnavailableError";
+  }
+}

@@ -1,5 +1,6 @@
 import type { GravitaEvent } from "@gravita/protocol";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
+import { applySquad, linkSquadSession, recomputeSpend } from "./squad/projection";
 import {
   type AgentNode,
   type GravitaState,
@@ -118,17 +119,31 @@ function addUsage(s: SessionState, a: AgentNode, messageId: string, t: Tokens) {
   perAgent[messageId] = t;
 }
 
+/** A squad session's cost changed: refresh its role's and squad's spend. */
+function squadSpend(state: GravitaState, s: SessionState) {
+  const q = s.squadId ? state.squads[s.squadId] : undefined;
+  if (q) recomputeSpend(state, q);
+}
+
 /**
  * Applies one event to the state (mutating, for speed). Deterministic and
  * order-tolerant: applying the same set of events in source order always yields the
  * same projection, and duplicates are filtered upstream by idempotency keys.
  */
 export function apply(state: GravitaState, e: GravitaEvent): void {
+  // Snapshots from before squads lack the map.
+  state.squads ??= {};
   if (e.type === "project.discovered") {
     const p = ensureProject(state, e.projectId, e.data.root, e.ts);
     p.name = e.data.name;
     p.root = e.data.root;
     p.lastEventTs = later(p.lastEventTs, e.ts);
+    return;
+  }
+
+  if (applySquad(state, e)) {
+    const p = state.projects[e.projectId];
+    if (p) p.lastEventTs = later(p.lastEventTs, e.ts);
     return;
   }
 
@@ -149,6 +164,12 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       if (project && project.root === project.id) {
         project.root = e.data.cwd;
         project.name = basename(e.data.cwd);
+      }
+      if (e.data.squadId) {
+        s.squadId = e.data.squadId;
+        if (e.data.roleId) s.roleId = e.data.roleId;
+        if (e.data.taskId) s.taskId = e.data.taskId;
+        linkSquadSession(state, e.data.squadId, s.id, e.data.roleId, s.projectId, e.ts);
       }
       return;
     }
@@ -184,10 +205,12 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       setLifecycle(main, "idle");
       main.lastEventTs = later(main.lastEventTs, e.ts);
       if (e.data.costUsd !== undefined) s.costUsd = (s.costUsd ?? 0) + e.data.costUsd;
+      squadSpend(state, s);
       return;
     }
     case "cost.snapshot":
       s.costUsd = e.data.totalCostUsd;
+      squadSpend(state, s);
       return;
   }
 

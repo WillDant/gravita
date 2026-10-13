@@ -19,7 +19,7 @@ export interface Timed {
   event: GravitaEvent;
 }
 
-type DataOf<T extends GravitaEventType> = EventOf<T>["data"];
+export type DataOf<T extends GravitaEventType> = EventOf<T>["data"];
 
 export type ProjectInfo = ProjectIdentity;
 
@@ -71,7 +71,13 @@ export class SessionScript {
   start(
     at: number,
     kind: SessionKind,
-    opts: { title: string; branch: string; entrypoint: string },
+    opts: {
+      title: string;
+      branch: string;
+      entrypoint: string;
+      /** A squad role's session: which squad, role and task it works for. */
+      squad?: { squadId: string; roleId: string; taskId?: string };
+    },
   ) {
     this.push(at, "session.started", keys.sessionStarted(this.sessionId), {
       kind,
@@ -81,6 +87,7 @@ export class SessionScript {
       permissionMode: "default",
       entrypoint: opts.entrypoint,
       cliVersion: "2.1.296",
+      ...opts.squad,
     });
     this.push(at, "session.titled", `session:${this.sessionId}:title:${this.n()}`, {
       title: opts.title,
@@ -94,13 +101,13 @@ export class SessionScript {
     });
   }
 
-  userPrompt(at: number, text: string): string {
+  userPrompt(at: number, text: string, origin: "human" | "gravita" = "human"): string {
     const uuid = this.rng.uuid();
     this.push(
       at,
       "message.user",
       keys.userMessage(uuid),
-      { uuid, textPreview: text, origin: "human" },
+      { uuid, textPreview: text, origin },
       MAIN_AGENT,
     );
     return uuid;

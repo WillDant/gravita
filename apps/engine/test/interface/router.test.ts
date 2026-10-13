@@ -324,3 +324,65 @@ describe("rpc router: kill switch", () => {
     });
   });
 });
+
+describe("rpc router: squads (M2c)", () => {
+  const plan = {
+    goal: "A todo app",
+    summary: "An API for todos.",
+    stack: ["hono"],
+    roles: [{ id: "backend", name: "Backend", kind: "backend", owns: ["apps/api/"], charter: "" }],
+    shared: { paths: [], strategy: "regenerate" },
+    contracts: [],
+    tasks: [
+      {
+        id: "api",
+        role: "backend",
+        title: "Todos API",
+        plainSummary: "Lets the app save todos.",
+        dependsOn: [],
+        writes: ["apps/api/src/"],
+        acceptance: ["GET /todos lists todos"],
+        size: "s",
+      },
+    ],
+    checks: [],
+    assumptions: [],
+    questions: [],
+  };
+  const sq = { squadId: "q1" };
+  const calls: [string, Record<string, unknown>][] = [
+    [
+      "squad.create",
+      { cwd: "/work/todo", brief: "A todo app", budgetUsd: 20, autonomy: "guarded" },
+    ],
+    ["squad.replan", { ...sq, feedback: "Split the API" }],
+    ["squad.approvePlan", { ...sq, plan }],
+    ["squad.pause", sq],
+    ["squad.resume", sq],
+    ["squad.stop", sq],
+    ["squad.task.retry", { ...sq, taskId: "api", model: "opus" }],
+    ["squad.task.skip", { ...sq, taskId: "api" }],
+    ["squad.task.reassign", { ...sq, taskId: "api", role: "backend" }],
+    ["squad.deliver", { ...sq, mode: "pr" }],
+  ];
+
+  test("every squad method answers that squads arrive later, until the engine runs them", async () => {
+    const { router } = setup();
+    for (const [method, params] of calls) {
+      expect({ method, out: await router.dispatch(method, params) }).toEqual({
+        method,
+        out: {
+          error: { code: RpcErrors.squadPhase.code, message: "Squads arrive in a later version" },
+        },
+      });
+    }
+  });
+
+  test("their params are still validated first", async () => {
+    const { router } = setup();
+    expect(await router.dispatch("squad.pause", {})).toEqual({ error: RpcErrors.badRequest });
+    expect(await router.dispatch("squad.deliver", { ...sq, mode: "push" })).toEqual({
+      error: RpcErrors.badRequest,
+    });
+  });
+});

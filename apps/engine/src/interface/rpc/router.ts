@@ -22,6 +22,7 @@ import {
   InvalidCwdError,
   NotControllableError,
   NotLoggedInError,
+  SquadsUnavailableError,
   TooManySessionsError,
 } from "../../domain/errors";
 
@@ -67,6 +68,12 @@ export interface RouterDeps {
   stopAll: StopAllSessions;
 }
 
+// M2c: the squad methods are in the contract before the engine runs squads. Until the
+// orchestration lands, each one answers SquadsUnavailableError (RpcErrors.squadPhase).
+const squadsLater = (): never => {
+  throw new SquadsUnavailableError();
+};
+
 export function rpcHandlers(d: RouterDeps): RpcHandlers {
   return {
     "state.snapshot": () => d.getSnapshot.execute(),
@@ -86,6 +93,16 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "session.conversation": (p) => d.getConversation.execute(p),
     "claude.models": () => d.listModels.execute(),
     "engine.stopAll": () => d.stopAll.execute(),
+    "squad.create": squadsLater,
+    "squad.replan": squadsLater,
+    "squad.approvePlan": squadsLater,
+    "squad.pause": squadsLater,
+    "squad.resume": squadsLater,
+    "squad.stop": squadsLater,
+    "squad.task.retry": squadsLater,
+    "squad.task.skip": squadsLater,
+    "squad.task.reassign": squadsLater,
+    "squad.deliver": squadsLater,
   };
 }
 
@@ -100,6 +117,8 @@ function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
   if (err instanceof TooManySessionsError) return RpcErrors.tooManySessions;
   if (err instanceof NotLoggedInError) return RpcErrors.notLoggedIn;
   if (err instanceof InvalidAnswerError) return RpcErrors.badRequest;
+  if (err instanceof SquadsUnavailableError)
+    return { code: RpcErrors.squadPhase.code, message: err.message };
   if (err instanceof BypassLockedError)
     return { code: RpcErrors.badRequest.code, message: err.message };
   logger.log(`${method} failed`, err);
