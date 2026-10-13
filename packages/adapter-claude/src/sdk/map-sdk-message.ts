@@ -11,9 +11,11 @@ import {
 import type {
   SdkConversationMessage,
   SdkMessageLike,
+  SdkRateLimitMessage,
   SdkResultMessage,
   SdkSystemMessage,
 } from "./messages";
+import { rateLimitUsage } from "./usage";
 
 // Maps the Agent SDK's stream of one session to Gravita events. Conversation messages are
 // wrapped as transcript records and go through `normalizeRecords`, so a fact read from the
@@ -47,6 +49,8 @@ export class SdkSessionMapper {
   private readonly calls = new Map<string, string>();
   /** Task ids that are subagents (not background shells or workflows). */
   private readonly agentTasks = new Set<string>();
+  /** This session's rate limit events gave a utilization above 1: they are percents. */
+  private utilizationInPercent = false;
 
   constructor(private readonly o: SdkMapperOptions) {}
 
@@ -61,9 +65,36 @@ export class SdkSessionMapper {
         return this.system(m);
       case "result":
         return this.result(m);
+      case "rate_limit_event":
+        return this.rateLimit(m);
       default:
         return [];
     }
+  }
+
+  /**
+   * The plan window the event reports, as `usage.limits`: account-wide, so it carries no
+   * session (the projection keeps it per provider and window).
+   */
+  private rateLimit(m: SdkRateLimitMessage): GravitaEvent[] {
+    const info = m.rate_limit_info;
+    if (!info) return [];
+    if (typeof info.utilization === "number" && info.utilization > 1)
+      this.utilizationInPercent = true;
+    const limit = rateLimitUsage(info, this.utilizationInPercent);
+    if (!limit) return [];
+    const ts = this.o.now();
+    return [
+      {
+        key: keys.usageLimits("claude", limit.window, limit.model, m.uuid ?? ts),
+        ts,
+        source: "sdk",
+        provider: "claude",
+        projectId: this.o.projectId,
+        type: "usage.limits",
+        data: { provider: "claude", ...limit },
+      },
+    ];
   }
 
   /** The agent that wrote a message: its agent_id, else the task its parent tool call started. */

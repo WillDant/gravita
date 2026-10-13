@@ -14,9 +14,17 @@ export { type SdkMapperOptions, SdkSessionMapper } from "./sdk/map-sdk-message";
 export type {
   SdkConversationMessage,
   SdkMessageLike,
+  SdkRateLimitMessage,
   SdkResultMessage,
   SdkSystemMessage,
 } from "./sdk/messages";
+export {
+  type ClaudePlanUsage,
+  claudePlanUsage,
+  claudeWindow,
+  rateLimitUsage,
+  toPercent,
+} from "./sdk/usage";
 export {
   ASK_USER_QUESTION,
   claudeToolCall,

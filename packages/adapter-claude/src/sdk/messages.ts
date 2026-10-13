@@ -67,4 +67,25 @@ export interface SdkResultMessage {
   num_turns?: number;
 }
 
-export type SdkMessageLike = SdkConversationMessage | SdkSystemMessage | SdkResultMessage;
+/**
+ * `rate_limit_event`: the claude.ai plan's rate limit info, sent when it changes (only to
+ * subscription accounts). `utilization`'s unit isn't documented: see `toPercent`.
+ */
+export interface SdkRateLimitMessage {
+  type: "rate_limit_event";
+  uuid?: string;
+  session_id?: string;
+  rate_limit_info?: {
+    status?: string;
+    /** Epoch seconds. */
+    resetsAt?: number;
+    rateLimitType?: string;
+    utilization?: number;
+  };
+}
+
+export type SdkMessageLike =
+  | SdkConversationMessage
+  | SdkSystemMessage
+  | SdkResultMessage
+  | SdkRateLimitMessage;
