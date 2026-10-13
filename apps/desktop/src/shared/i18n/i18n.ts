@@ -92,6 +92,27 @@ const clockFormat: Record<Locale, Intl.DateTimeFormat> = {
   "pt-BR": new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }),
 };
 
+const dayClockFormat: Record<Locale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat("en", { weekday: "short", hour: "numeric", minute: "2-digit" }),
+  "pt-BR": new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+};
+
+/**
+ * When a moment comes, as a wall clock: the time alone within the next 24 hours ("2:00 PM"),
+ * else the weekday and time ("Fri 9:00 AM" / "sex. 09:00").
+ */
+export function when(ts: string, now: number): string {
+  const ms = Date.parse(ts);
+  if (Number.isNaN(ms)) return "";
+  return ms - now < 24 * 3_600_000
+    ? clockFormat[locale].format(ms)
+    : dayClockFormat[locale].format(ms);
+}
+
 /** Wall-clock time of a timestamp ("3:42 PM" / "15:42"); empty when it can't be read. */
 export function clock(ts: string): string {
   const ms = Date.parse(ts);

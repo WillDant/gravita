@@ -1,19 +1,23 @@
 import type { ModelChoice } from "@gravita/core";
-import type { SquadAutonomy } from "@gravita/protocol";
+import { usageKey } from "@gravita/core";
+import type { PlanWindow, SquadAutonomy } from "@gravita/protocol";
 import { FolderOpen, UsersRound, X } from "lucide-react";
-import { useEffect, useId, useRef } from "react";
+import { type RefObject, useEffect, useId, useRef } from "react";
 import { usePickFolder } from "@/app/providers";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import { t } from "@/shared/i18n/i18n";
+import { windowLine } from "@/shared/presenters/planUsage";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
-import { useProviderProblem } from "@/state/hooks";
-import { useNewSquad } from "./useNewSquad";
+import { useNow, useProviderProblem, useUsage, useUsageRefresh } from "@/state/hooks";
+import { type NewSquadForm, useNewSquad } from "./useNewSquad";
 
 const AUTONOMY: readonly SquadAutonomy[] = ["ask", "guarded", "auto"];
 /** The policy first (recommended), then one model for everything. */
 const MODEL_OPTIONS: readonly ModelChoice[] = ["auto", "opus", "sonnet"];
+/** The weekly limit first: it is what most people mean by "my plan". */
+const WINDOW_OPTIONS: readonly PlanWindow[] = ["seven_day", "five_hour"];
 
 /** The header button that opens the inline new-squad panel. */
 export function NewSquadButton({
@@ -60,6 +64,9 @@ export function NewSquadPanel({
   const folderRef = useRef<HTMLInputElement>(null);
   const goalRef = useRef<HTMLTextAreaElement>(null);
   const budgetRef = useRef<HTMLInputElement>(null);
+  const shareRef = useRef<HTMLInputElement>(null);
+  // The panel shows the plan's usage next to the share: ask for a fresh reading.
+  useUsageRefresh("claude");
   // An error names its provider; otherwise Claude Code's status (the provider these start).
   const connect =
     form.error?.connect ??
@@ -74,6 +81,7 @@ export function NewSquadPanel({
     if (form.invalid === "folder") folderRef.current?.focus();
     if (form.invalid === "goal") goalRef.current?.focus();
     if (form.invalid === "budget") budgetRef.current?.focus();
+    if (form.invalid === "share") shareRef.current?.focus();
   }, [form.invalid]);
 
   const choose = () => {
@@ -217,37 +225,41 @@ export function NewSquadPanel({
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${fid}-budget`} className="text-xs font-semibold text-ink-2">
-              {t("newSquad.budget")}
-            </label>
-            <div className={cn(fieldFrame, "flex w-36 items-center pl-2.5")}>
-              <span aria-hidden="true" className="tabular text-sm text-ink-3">
-                $
-              </span>
-              <input
-                ref={budgetRef}
-                id={`${fid}-budget`}
-                inputMode="decimal"
-                value={form.budget}
-                onChange={(e) => form.setBudget(e.target.value)}
-                aria-invalid={form.invalid === "budget"}
-                aria-describedby={`${fid}-budget-hint`}
-                className="tabular h-8 w-full bg-transparent pr-2.5 pl-1 text-sm text-ink outline-none focus-visible:outline-none"
-              />
+        {form.budgetMode === "plan" ? (
+          <PlanShareField form={form} id={fid} inputRef={shareRef} />
+        ) : (
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${fid}-budget`} className="text-xs font-semibold text-ink-2">
+                {t("newSquad.budget")}
+              </label>
+              <div className={cn(fieldFrame, "flex w-36 items-center pl-2.5")}>
+                <span aria-hidden="true" className="tabular text-sm text-ink-3">
+                  $
+                </span>
+                <input
+                  ref={budgetRef}
+                  id={`${fid}-budget`}
+                  inputMode="decimal"
+                  value={form.budget}
+                  onChange={(e) => form.setBudget(e.target.value)}
+                  aria-invalid={form.invalid === "budget"}
+                  aria-describedby={`${fid}-budget-hint`}
+                  className="tabular h-8 w-full bg-transparent pr-2.5 pl-1 text-sm text-ink outline-none focus-visible:outline-none"
+                />
+              </div>
+              <p
+                id={`${fid}-budget-hint`}
+                className={cn(
+                  "max-w-[26ch] text-xs",
+                  form.invalid === "budget" ? "text-error-ink" : "text-ink-3",
+                )}
+              >
+                {form.invalid === "budget" ? t("newSquad.needBudget") : t("newSquad.budgetHint")}
+              </p>
             </div>
-            <p
-              id={`${fid}-budget-hint`}
-              className={cn(
-                "max-w-[26ch] text-xs",
-                form.invalid === "budget" ? "text-error-ink" : "text-ink-3",
-              )}
-            >
-              {form.invalid === "budget" ? t("newSquad.needBudget") : t("newSquad.budgetHint")}
-            </p>
           </div>
-        </div>
+        )}
 
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-xs font-semibold text-ink-2">
@@ -300,5 +312,69 @@ export function NewSquadPanel({
         </div>
       </form>
     </section>
+  );
+}
+
+/**
+ * The budget as a share of the plan: "Use at most [20]% of my [weekly limit]", with what
+ * the account has used of that window and when it resets. Usage is account-wide, and the
+ * hint says so: other use of the same account eats into the share too.
+ */
+function PlanShareField({
+  form,
+  id,
+  inputRef,
+}: {
+  form: NewSquadForm;
+  id: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
+  const usage = useUsage();
+  const now = useNow();
+  const reading = usage[usageKey("claude", form.window)];
+  const invalid = form.invalid === "share";
+  return (
+    <fieldset className="flex flex-col gap-1.5" aria-describedby={`${id}-share-hint`}>
+      <legend className="mb-1.5 text-xs font-semibold text-ink-2">{t("newSquad.budget")}</legend>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-ink">
+        <span>{t("newSquad.budget.useAtMost")}</span>
+        <div className={cn(fieldFrame, "flex w-16 items-center")}>
+          <input
+            ref={inputRef}
+            id={`${id}-share`}
+            inputMode="decimal"
+            value={form.share}
+            onChange={(e) => form.setShare(e.target.value)}
+            aria-label={t("newSquad.budget.share")}
+            aria-invalid={invalid}
+            className="tabular h-8 w-full bg-transparent px-2 text-right text-sm text-ink outline-none focus-visible:outline-none"
+          />
+        </div>
+        <span>{t("newSquad.budget.percentOf")}</span>
+        <div className={cn(fieldFrame, "flex items-center")}>
+          <select
+            value={form.window}
+            onChange={(e) => form.setWindow(e.target.value as PlanWindow)}
+            aria-label={t("newSquad.budget.window")}
+            className="h-8 bg-transparent pr-2 pl-2 text-sm text-ink outline-none focus-visible:outline-none"
+          >
+            {WINDOW_OPTIONS.map((w) => (
+              <option key={w} value={w}>
+                {t(`newSquad.budget.window.${w}`)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <span className={cn("tabular text-xs", reading ? "text-ink-2" : "text-ink-3")}>
+          {reading ? windowLine(reading, now) : t("newSquad.budget.unknown")}
+        </span>
+      </div>
+      <p
+        id={`${id}-share-hint`}
+        className={cn("max-w-[60ch] text-xs", invalid ? "text-error-ink" : "text-ink-3")}
+      >
+        {invalid ? t("newSquad.needShare") : t("newSquad.budget.planHint")}
+      </p>
+    </fieldset>
   );
 }

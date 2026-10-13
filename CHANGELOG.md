@@ -4,6 +4,11 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Squad
+- **Budgets in plan usage:** a squad's budget is a share of your plan ("use at most 20% of my weekly limit", or of the 5-hour window), measured as the change since the squad started building, per provider. It warns at 75%, pauses at 100%, and goes on with a bigger share. A window that resets mid-squad carries what was used. Other use of the same account counts, and the screens say so.
+- Accounts without plan limits (an API key) keep dollar budgets; a plan share on such an account is refused with a clear error. Squads created with dollars keep working.
+- **Plan usage everywhere:** Home shows each provider's 5-hour and weekly usage with its reset time (orange only when the plan is close to its limit), the new-squad panel shows the window next to the share, and a session shows plan usage, or its cost for an API key.
+
 ### Engine protocol
 - Groundwork for Codex support; nothing changes for Claude Code users.
 - `engine.status` reports each provider under `providers`; `claude` stays as a deprecated copy of `providers.claude` for one version.
@@ -11,6 +16,9 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 - Errors 4005 (`providerUnavailable`, formerly `claudeUnavailable`) and 4008 (`notLoggedIn`) have provider-neutral messages and name the provider in `error.data`.
 - `session.start` takes an optional `provider` (Claude Code by default); session modes are in the provider's own terms.
 - The engine takes `--codex-home` (default `~/.codex`), not read yet.
+- `usage.limits` (ephemeral): a plan window's usage per provider, kept in `GravitaState.usage` and in snapshots. `budget.baseline` records where a plan squad's count starts (and restarts after a reset).
+- `squad.create` takes `budget` (`{mode: "plan", maxPercent, window}` or `{mode: "usd", amount}`); `budgetUsd` stays accepted. `squad.resume` takes `maxPercent`. Budget levels carry `unit: "points"` for plan squads.
+- `ProviderStatus.account.plan` (`limited` or `api`); `usage.refresh` asks for a fresh reading through a running session; error 4014 `planUsageUnavailable`.
 
 ## [0.2.0-beta] - 2026-10-13
 

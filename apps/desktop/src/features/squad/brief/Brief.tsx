@@ -9,6 +9,7 @@ import { firstQuestion } from "@/features/questions/questions";
 import { Composer } from "@/features/session/composer/Composer";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
+import { planShareText } from "@/shared/presenters/planUsage";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
@@ -147,7 +148,7 @@ export function Brief({
               </>
             )}
             <dt className="text-ink-3">{t("newSquad.budget")}</dt>
-            <dd className="tabular text-ink-2">{usd(q.budgetUsd)}</dd>
+            <dd className="tabular text-ink-2">{planShareText(q) ?? usd(q.budgetUsd)}</dd>
             <dt className="text-ink-3">{t("squad.brief.autonomy")}</dt>
             <dd className="text-ink-2">{t(`newSquad.autonomy.${q.autonomy}`)}</dd>
             <dt className="text-ink-3">{t("squad.brief.models")}</dt>

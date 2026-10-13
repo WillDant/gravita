@@ -11,6 +11,7 @@ import { RotateCcw } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
+import { points } from "@/shared/presenters/planUsage";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
@@ -247,7 +248,8 @@ function ApproveBox({
   onApprove: () => void;
 }) {
   const estimateUsd = estimate.totalUsd;
-  const over = estimateUsd > q.budgetUsd;
+  // A plan share can't be priced in dollars: the estimate is only API-equivalent there.
+  const over = !q.budgetPlan && estimateUsd > q.budgetUsd;
   const byModel = FAMILIES.flatMap((f) => {
     const usdOf = estimate.byModel[f];
     return usdOf ? [{ f, usd: usdOf }] : [];
@@ -272,9 +274,14 @@ function ApproveBox({
         </ul>
       )}
       <p className="-mt-2 text-xs text-ink-3">
-        {over
-          ? t("squad.board.overBudget", { budget: usd(q.budgetUsd) })
-          : t("squad.board.estimateHint", { budget: usd(q.budgetUsd) })}
+        {q.budgetPlan
+          ? t("squad.board.planHint", {
+              limit: points(q.budgetPlan.maxPercent),
+              window: t(`usage.window.${q.budgetPlan.window}`),
+            })
+          : over
+            ? t("squad.board.overBudget", { budget: usd(q.budgetUsd) })
+            : t("squad.board.estimateHint", { budget: usd(q.budgetUsd) })}
       </p>
       <Button
         variant="primary"

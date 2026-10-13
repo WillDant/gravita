@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { squadTitle } from "@/shared/presenters/squad";
-import { useAppStore, useNow, useProjection } from "@/state/hooks";
+import { useAppStore, useNow, useProjection, useUsageRefresh } from "@/state/hooks";
 import { Board } from "./board/Board";
 import { Brief } from "./brief/Brief";
 import { SquadBanner } from "./header/SquadBanner";
@@ -29,6 +29,8 @@ export default function SquadScreen({
   const squad = state.squads?.[squadId];
   const project = state.projects[projectId];
   const now = useNow();
+  // An open chat or squad keeps plan usage fresh (cheap: read through its running session).
+  useUsageRefresh();
   const navigate = useNavigate();
   const starting = useAppStore((s) => s.startingSquadId);
   const view = useMemo(() => (squad ? squadView(state, squad) : undefined), [state, squad]);

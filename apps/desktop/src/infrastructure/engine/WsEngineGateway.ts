@@ -183,6 +183,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.squadDeliver, params);
   }
 
+  refreshUsage(params: RpcParams<"usage.refresh">): Promise<RpcResult<"usage.refresh">> {
+    return this.call(Methods.usageRefresh, params);
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }

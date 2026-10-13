@@ -4,6 +4,7 @@ import { MAIN_AGENT } from "@gravita/protocol/ids";
 import { Orb } from "@/features/agents/Orb";
 import { ago, t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
+import { planUsed } from "@/shared/presenters/planUsage";
 import {
   roleCode,
   roleColorKey,
@@ -14,6 +15,7 @@ import {
 } from "@/shared/presenters/squad";
 import { LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
+import { useUsage } from "@/state/hooks";
 
 /** A squad in its project's list: one row for the whole team, opening the squad's screen. */
 export function SquadRow({
@@ -30,6 +32,7 @@ export function SquadRow({
   onOpen: () => void;
 }) {
   const plan = squadPlan(q);
+  const usage = useUsage();
   const roles = plan?.roles.filter((r) => r.kind !== "planner") ?? [];
   const { done, total } = squadDone(q);
   const waiting = squadDecisions(q).length > 0;
@@ -105,7 +108,7 @@ export function SquadRow({
         )}
       </td>
       <td className="border-b border-hairline py-3 text-right text-ink-2 tabular">
-        {usd(q.budget.spentUsd)}
+        {q.budgetPlan ? planUsed(q, usage) : usd(q.budget.spentUsd)}
       </td>
       <td className="border-b border-hairline py-3 pr-3 text-right text-xs text-ink-3">
         {ago(lastEventTs, now)}

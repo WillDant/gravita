@@ -289,6 +289,70 @@ describe("Run", () => {
     expect(gateway.callsOf("resumeSquad")).toEqual([{ squadId: SQ, budgetUsd: 40 }]);
   });
 
+  it("a plan squad's meter counts points of its share, measuring until its baseline", async () => {
+    const asPlan = (q: SquadState) => {
+      q.budgetUsd = 0;
+      q.budgetPlan = { maxPercent: 20, window: "seven_day" };
+    };
+    const { gateway } = await renderSquad("run", { edit: asPlan });
+    expect(screen.getAllByText("measuring…").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Measuring: the squad may use 20 points of your weekly limit/),
+    ).toBeTruthy();
+    // An open squad keeps plan usage fresh.
+    expect(gateway.callsOf("refreshUsage")).toEqual([{ provider: "claude" }]);
+    cleanup();
+    await renderSquad("run", {
+      edit: (q) => {
+        asPlan(q);
+        q.budget.meters = {
+          "claude:seven_day": {
+            provider: "claude",
+            window: "seven_day",
+            baseline: 30,
+            carried: 0,
+            last: 36,
+            round: 1,
+            savedRound: 1,
+          },
+        };
+      },
+    });
+    expect(screen.getByText("6 of 20 points of your weekly limit used")).toBeTruthy();
+    expect(screen.getByText("/ 20 pts")).toBeTruthy();
+    expect(screen.getByText("6 of 20 pts")).toBeTruthy();
+    expect(screen.getByText(/other use of the account counts too/)).toBeTruthy();
+  });
+
+  it("resumes a plan squad that used its share with a bigger share", async () => {
+    const { gateway } = await renderSquad("budget", {
+      edit: (q) => {
+        q.budgetUsd = 0;
+        q.budgetPlan = { maxPercent: 20, window: "seven_day" };
+        q.budget.meters = {
+          "claude:seven_day": {
+            provider: "claude",
+            window: "seven_day",
+            baseline: 30,
+            carried: 0,
+            last: 51,
+            round: 1,
+            savedRound: 1,
+          },
+        };
+      },
+    });
+    expect(screen.getByText("Paused: the squad used its share of your plan.")).toBeTruthy();
+    expect(screen.getByText(/21 of 20 points of your weekly limit used\./)).toBeTruthy();
+    const input = screen.getByLabelText("New share") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "15" } });
+    await click("Resume with a bigger share");
+    expect(screen.getByText(/must be above what's used \(21%\)/)).toBeTruthy();
+    fireEvent.change(input, { target: { value: "40" } });
+    await click("Resume with a bigger share");
+    expect(gateway.callsOf("resumeSquad")).toEqual([{ squadId: SQ, maxPercent: 40 }]);
+  });
+
   it("pauses, and stops only after a confirmation", async () => {
     const { gateway } = await renderSquad("run");
     await click("Pause");

@@ -5,10 +5,11 @@ import { Check, Copy, GitBranch, GitMerge, GitPullRequest } from "lucide-react";
 import { useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
+import { budgetFigure } from "@/shared/presenters/planUsage";
 import { squadDone } from "@/shared/presenters/squad";
 import { Button, LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
-import { useAppStore } from "@/state/hooks";
+import { useAppStore, useUsage } from "@/state/hooks";
 import { type SquadView, titleOf } from "../model";
 import { SquadMap } from "../run/squad-map/SquadMap";
 import { useSquadAction } from "../useSquadAction";
@@ -41,6 +42,7 @@ export function Deliver({
   onSelectRole: (roleId: string) => void;
 }) {
   const { done, total } = squadDone(q);
+  const usage = useUsage();
   const plan = view.plan;
   const finals = (plan?.checks ?? []).filter((c) => c.when === "final" || c.when === "integration");
   const branch = integrationBranch(q.id);
@@ -61,9 +63,7 @@ export function Deliver({
             <span aria-hidden="true" className="text-ink-3">
               ·
             </span>
-            <span className="tabular font-medium">
-              {t("squad.budget.label", { spent: usd(q.budget.spentUsd), total: usd(q.budgetUsd) })}
-            </span>
+            <span className="tabular font-medium">{budgetFigure(q, usage).label}</span>
             <span aria-hidden="true" className="text-ink-3">
               ·
             </span>

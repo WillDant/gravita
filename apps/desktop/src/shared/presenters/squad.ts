@@ -113,7 +113,11 @@ const BY_USER = /^Paused by you/;
 export function pauseKind(q: SquadState): PauseKind | undefined {
   if (!q.paused) return undefined;
   const reason = q.paused.reason;
-  if (q.budget.exhausted.some((k) => !k.startsWith("task:")) || /budget/i.test(reason))
+  // A plan squad pauses for its budget only when its share ran out (its reasons may name
+  // dollars, e.g. an API-key account, and that isn't a budget to raise).
+  if (q.budgetPlan) {
+    if (q.budget.exhausted.includes(`squad:${q.id}`)) return "budget";
+  } else if (q.budget.exhausted.some((k) => !k.startsWith("task:")) || /budget/i.test(reason))
     return "budget";
   if (RESTART.test(reason)) return "restart";
   if (KILL_SWITCH.test(reason)) return "killSwitch";

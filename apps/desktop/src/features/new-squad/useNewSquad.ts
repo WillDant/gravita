@@ -1,11 +1,22 @@
 import { MODEL_CHOICES, type ModelChoice } from "@gravita/core";
-import type { SquadAutonomy } from "@gravita/protocol";
+import type { PlanWindow, SquadAutonomy, SquadBudget } from "@gravita/protocol";
+import { RpcErrors } from "@gravita/protocol/constants";
 import { useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { describeError, type ErrorView } from "@/shared/presenters/errors";
-import { useAppStore } from "@/state/hooks";
+import { useAccountPlan, useAppStore } from "@/state/hooks";
 
-export type SquadField = "folder" | "goal" | "budget";
+export type SquadField = "folder" | "goal" | "budget" | "share";
+
+/**
+ * How the budget is stated: a share of a plan window (subscriptions, the usual case), or
+ * dollars for an account that pays per token (an API key).
+ */
+export type BudgetMode = "plan" | "usd";
+
+/** The share of the plan a squad may use unless the user says otherwise. */
+export const DEFAULT_SHARE_PERCENT = 20;
+export const DEFAULT_PLAN_WINDOW: PlanWindow = "seven_day";
 
 /** What a squad may spend unless the user says otherwise. */
 export const DEFAULT_BUDGET_USD = 25;
@@ -16,13 +27,20 @@ export const DEFAULT_MODEL_CHOICE: ModelChoice = "auto";
 export interface NewSquadForm {
   folder: string;
   goal: string;
+  /** Plan share or dollars: dollars only for an account without plan limits. */
+  budgetMode: BudgetMode;
   /** As typed, so "12." can be on its way to "12.5". */
   budget: string;
+  /** The plan share in percent, as typed. */
+  share: string;
+  window: PlanWindow;
   autonomy: SquadAutonomy;
   models: ModelChoice;
   setFolder: (v: string) => void;
   setGoal: (v: string) => void;
   setBudget: (v: string) => void;
+  setShare: (v: string) => void;
+  setWindow: (v: PlanWindow) => void;
   setAutonomy: (v: SquadAutonomy) => void;
   setModels: (v: ModelChoice) => void;
   busy: boolean;
@@ -38,8 +56,20 @@ export function parseUsd(text: string): number {
   return clean && /^\d*\.?\d*$/.test(clean) ? Number(clean) : Number.NaN;
 }
 
+/** "20", "20%", "12.5" → a number of percent; NaN when it isn't one. */
+export function parsePercent(text: string): number {
+  const clean = text.replace(/[%\s]/g, "").replace(",", ".");
+  return clean && /^\d*\.?\d*$/.test(clean) ? Number(clean) : Number.NaN;
+}
+
 export function useNewSquad(defaultFolder = ""): NewSquadForm {
   const createSquad = useAppStore((s) => s.createSquad);
+  const plan = useAccountPlan("claude");
+  // The engine refused a plan share (an API-key account it hadn't seen yet): dollars.
+  const [refusedPlan, setRefusedPlan] = useState(false);
+  const budgetMode: BudgetMode = plan === "api" || refusedPlan ? "usd" : "plan";
+  const [share, setShare] = useState(String(DEFAULT_SHARE_PERCENT));
+  const [planWindow, setWindow] = useState<PlanWindow>(DEFAULT_PLAN_WINDOW);
   const navigate = useNavigate();
   const [folder, setFolder] = useState(defaultFolder);
   const [goal, setGoal] = useState("");
@@ -55,13 +85,16 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
     const cwd = folder.trim();
     const brief = goal.trim();
     const usd = parseUsd(budget);
+    const percent = parsePercent(share);
     const bad: SquadField | undefined = !cwd
       ? "folder"
       : !brief
         ? "goal"
-        : !(usd >= 1 && usd <= MAX_BUDGET_USD)
+        : budgetMode === "usd" && !(usd >= 1 && usd <= MAX_BUDGET_USD)
           ? "budget"
-          : undefined;
+          : budgetMode === "plan" && !(percent >= 1 && percent <= 100)
+            ? "share"
+            : undefined;
     setInvalid(bad);
     setError(undefined);
     if (bad) return;
@@ -69,16 +102,25 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
     void createSquad({
       cwd,
       brief,
-      budgetUsd: Math.round(usd * 100) / 100,
+      budget: budgetOf(),
       autonomy,
       models: { ...MODEL_CHOICES[models] },
     }).then((r) => {
       setBusy(false);
       if (r.ok)
         navigate({ level: "squad", projectId: r.value.projectId, squadId: r.value.squadId });
-      else setError(describeError(r.error));
+      else {
+        if (r.error.code === RpcErrors.planUsageUnavailable.code) setRefusedPlan(true);
+        setError(describeError(r.error));
+      }
     });
   };
+
+  function budgetOf(): SquadBudget {
+    return budgetMode === "plan"
+      ? { mode: "plan", maxPercent: Math.round(parsePercent(share) * 10) / 10, window: planWindow }
+      : { mode: "usd", amount: Math.round(parseUsd(budget) * 100) / 100 };
+  }
 
   const clear = (field: SquadField) => {
     if (invalid === field) setInvalid(undefined);
@@ -87,7 +129,10 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
   return {
     folder,
     goal,
+    budgetMode,
     budget,
+    share,
+    window: planWindow,
     autonomy,
     models,
     setFolder: (v) => {
@@ -102,6 +147,11 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
       setBudget(v);
       clear("budget");
     },
+    setShare: (v) => {
+      setShare(v);
+      clear("share");
+    },
+    setWindow,
     setAutonomy,
     setModels,
     busy,

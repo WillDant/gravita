@@ -18,7 +18,7 @@ You can pause, resume or stop a squad at any time. Anything that needs you (a pe
 
 ## What it costs
 
-Every agent in a squad is a Claude Code session on your account, so a squad spends like that many sessions. The briefing conversation has its own small share of the budget (a twentieth, at least $0.50), and planning another (a tenth, at least $1). Before you approve, the Board shows a rough estimate for the plan, split by model; real spend depends on your repository and on how many tries a task needs.
+Every agent in a squad is a Claude Code session on your account, so a squad uses your plan (or spends) like that many sessions. Before you approve, the Board shows a rough estimate for the plan in dollars, split by model; on a subscription that is what the same work would cost on the API, a way to compare plans rather than a bill. Real use depends on your repository and on how many tries a task needs.
 
 **Which models run.** You choose when you start the squad:
 
@@ -33,15 +33,28 @@ Every agent in a squad is a Claude Code session on your account, so a squad spen
 
 Whatever you choose, a model the plan sets for a role wins for that role, and "Retry with Opus" on a stuck task wins for that task.
 
-The budget you set is a hard ceiling, enforced in layers:
+### Budgets
 
-- Each session gets its own limit (its task's share of the budget, and never more than an equal share of what's left while several work at once). Claude Code stops a session that reaches it.
+Most people run Claude Code on a subscription (Pro, Max, Team) with usage limits: a 5-hour window and a weekly limit. So a squad's budget is a **share of your plan**: "use at most **20%** of my **weekly limit**" (or of the **5-hour window**). The new-squad panel shows how much of that window your account has used and when it resets ("Weekly: 34% used · resets Fri 9:00 AM").
+
+- **What counts.** Plan usage is account-wide: your own Claude Code sessions, claude.ai and (for Codex) ChatGPT move it too, and Gravita can't tell them apart. So a squad counts what the window moved **since it started building**: Gravita records where the window stood when you approved the plan (the baseline) and measures the change from there. Other use of the same account while the squad works counts against its share; the squad's header says so. Time the squad stands paused doesn't count: resuming starts the count again from where the window is then.
+- **A window that resets mid-squad.** What the squad had used is carried over, and the new window counts from 0. The share never goes down.
+- **Several providers.** Each provider's window is counted on its own, and the more consumed one is the squad's share.
+- **Warn and stop.** At 75% of the share you're warned; at 100% the running sessions are stopped within a few seconds and the squad pauses. Resume it with a bigger share to go on. Until the first reading arrives the meter says "measuring…" and nothing is paused.
+- **Where the numbers come from.** Claude Code tells Gravita when your plan's usage changes, and Gravita also reads it through a session that is already running: when the squad starts, every few minutes while it works, and when you open a chat or squad screen (at most once a minute). It never starts a session just to read usage. The reading uses an experimental part of the Agent SDK; if it stops working, Gravita relies on what Claude Code reports by itself and on the last values it knows.
+- **Safety cap.** Each session still gets a dollar cap, but only as a net for a runaway session between two readings: several times its estimate (at least $5), never your budget.
+
+**API key accounts.** An account without plan limits (an API key, Bedrock, Vertex) pays per token, so its budget is in **dollars**, a hard ceiling enforced in layers:
+
+- Each session gets its own limit (its task's share of the budget, and never more than an equal share of what's left while several work at once). Claude Code stops a session that reaches it. The briefing conversation has its own small share (a twentieth, at least $0.50), and planning another (a tenth, at least $1).
 - Gravita adds up what every session spent after each of their turns. At 75% of the squad's budget (or of a role's, if the plan sets one) you're warned. At 100% the running sessions are stopped within a few seconds and the squad pauses.
 - To go on, resume the squad with a higher budget.
 
+If you ask for a share of the plan on an API-key account, Gravita refuses the squad and asks for a dollar budget instead. Squads created before plan budgets keep their dollar budgets.
+
 **For scale:** in Gravita's own end-to-end run on 2026-10-13, a squad built a small todo app from an empty folder (a pnpm workspace with a Hono API, a React + Vite page and Vitest tests: 3 roles, 4 tasks) in under 3 minutes for about **$1.06** on Automatic, with every task done on its first try, the build and tests green, and no file changed outside its role. Your repository, your goal and how many tries a task needs will change the number; the Board's estimate before you approve is the figure to go by.
 
-If you use a Claude subscription rather than an API key, the amounts are what the same work would cost on the API; your subscription's usage limits apply as usual.
+On a subscription, dollar amounts (the estimate, what each role spent) are what the same work would cost on the API; what you actually use is the share of your plan.
 
 ## Autonomy
 

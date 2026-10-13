@@ -1,5 +1,6 @@
 import { toPersona } from "@gravita/core";
 import { agentColor } from "@gravita/orbs";
+import { AGENT_PROVIDERS } from "@gravita/protocol/constants";
 import { useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
@@ -10,6 +11,7 @@ import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPane
 import { PermissionActions } from "@/features/permissions/PermissionActions";
 import { firstQuestion } from "@/features/questions/questions";
 import { SquadDecisionRow } from "@/features/squad-row/SquadDecisionRow";
+import { PlanUsage } from "@/features/usage/PlanUsageLine";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/presenters/selectors";
@@ -52,6 +54,7 @@ export function Home() {
           {all.running + all.waiting + decisions.length === 0 && (
             <p className="mt-1.5 text-ink-2">{t("home.allQuiet")}</p>
           )}
+          <PlanUsage providers={AGENT_PROVIDERS} className="mt-2" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={all} />

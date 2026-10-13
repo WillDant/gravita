@@ -52,7 +52,7 @@ export function SquadHeader({
         <PhaseTrack squad={squad} compact />
       </div>
       <div className="ml-auto flex flex-none items-center gap-4">
-        {squad.budgetUsd > 0 && <BudgetMeter squad={squad} view={view} />}
+        {(squad.budgetUsd > 0 || squad.budgetPlan) && <BudgetMeter squad={squad} view={view} />}
         <SquadControls squad={squad} />
       </div>
     </header>

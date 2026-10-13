@@ -96,3 +96,50 @@ describe("Home: needs you", () => {
     });
   });
 });
+
+describe("Home: plan usage", () => {
+  const reading = (
+    window: "five_hour" | "seven_day",
+    usedPercent: number,
+    status?: "warning" | "rejected",
+  ) =>
+    ev(
+      "usage.limits",
+      {
+        provider: "claude",
+        window,
+        usedPercent,
+        resetsAt: "2099-01-02T09:00:00.000Z",
+        ...(status ? { status } : {}),
+      },
+      { ts: ago(1), projectId: "" },
+    );
+
+  it("shows each window's use and reset in one quiet line", async () => {
+    renderWithApp(<Home />, {
+      state: stateOf([reading("five_hour", 34), reading("seven_day", 61)]),
+    });
+    await act(flush);
+    const line = screen.getByRole("group", { name: "Plan usage" });
+    expect(line.textContent).toContain("Claude plan");
+    expect(line.textContent).toContain("5-hour: 34% used · resets");
+    expect(line.textContent).toContain("Weekly: 61% used · resets");
+    // Nothing waits on the user: no orange.
+    expect(line.querySelector(".text-waiting-ink")).toBeNull();
+  });
+
+  it("turns a window orange, with words, only when the plan is close to its limit", async () => {
+    renderWithApp(<Home />, {
+      state: stateOf([reading("five_hour", 92, "warning"), reading("seven_day", 40)]),
+    });
+    await act(flush);
+    const near = screen.getByText(/5-hour: 92% used · resets .* · close to the limit/);
+    expect(near.className).toContain("text-waiting-ink");
+  });
+
+  it("shows nothing before any reading", async () => {
+    renderWithApp(<Home />, { state });
+    await act(flush);
+    expect(screen.queryByRole("group", { name: "Plan usage" })).toBeNull();
+  });
+});

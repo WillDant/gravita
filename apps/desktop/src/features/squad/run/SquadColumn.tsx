@@ -320,7 +320,10 @@ function RoleRow({
             <span className="flex-none tabular-nums">
               {t("squad.role.tasksDone", { done, total: mine.length })}
             </span>
-            <span className="tabular flex-none text-ink-2">
+            <span
+              className="tabular flex-none text-ink-2"
+              title={view.apiEquivalent ? t("usage.apiEquivalent") : undefined}
+            >
               {usd(role.spentUsd)}
               {role.budgetUsd !== undefined && (
                 <span className="text-ink-3">/{usd(role.budgetUsd, 0)}</span>
