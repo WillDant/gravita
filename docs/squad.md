@@ -39,6 +39,8 @@ The budget you set is a hard ceiling, enforced in layers:
 - Gravita adds up what every session spent after each of their turns. At 75% of the squad's budget (or of a role's, if the plan sets one) you're warned. At 100% the running sessions are stopped within a few seconds and the squad pauses.
 - To go on, resume the squad with a higher budget.
 
+**For scale:** in Gravita's own end-to-end run on 2026-10-13, a squad built a small todo app from an empty folder (a pnpm workspace with a Hono API, a React + Vite page and Vitest tests: 3 roles, 4 tasks) in under 3 minutes for about **$1.06** on Automatic, with every task done on its first try, the build and tests green, and no file changed outside its role. Your repository, your goal and how many tries a task needs will change the number; the Board's estimate before you approve is the figure to go by.
+
 If you use a Claude subscription rather than an API key, the amounts are what the same work would cost on the API; your subscription's usage limits apply as usual.
 
 ## Autonomy

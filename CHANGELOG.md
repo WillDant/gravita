@@ -2,6 +2,22 @@
 
 All notable changes to Gravita. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [SemVer](https://semver.org/).
 
+## [0.2.0-beta] - unreleased
+
+Squads: a team of role agents that builds from a goal you describe, with clear ownership, a budget and you in control.
+
+### Squad
+- **Brief as a conversation:** start a squad from a project (or an empty folder); a read-only planner looks around, asks what it needs and then writes the plan.
+- **Plan you approve:** the Board shows each role, the paths it alone may change, its tasks in plain language, the checks that will run and a cost estimate. Edit, move or remove tasks, answer the planner's questions, or replan with feedback; nothing is built before you approve.
+- **Parallel build without collisions:** each role works in its own git worktree; a foundation sets up the project and freezes the contracts first; Gravita commits every task through a gate that refuses changes outside the role's paths, merges into an integration branch, runs the checks and undoes a merge that turns them red.
+- **Watch it as a transit map:** integration is the trunk, every role a line, every task a station; decisions that need you (a stuck task, a spent budget) come first.
+- **Deliver your way:** merge into your branch, open a pull request, or leave the branch.
+- **Cost-smart by default:** Automatic runs most work on Sonnet, Opus where it matters, Haiku for helpers, and steps up only when a task struggles; or pick one model everywhere. Budgets warn at 75% and stop at 100%; resume with a higher one.
+- **Isolated agents:** squad agents load the repository's own settings only, never your personal MCP servers, plugins or skills.
+
+### Fixed
+- Squad sessions no longer inherit the user's whole Claude Code setup, which multiplied the cost of every call.
+
 ## [0.1.0-alpha] - 2026-10-13
 
 The first preview: see and steer Claude Code sessions and their subagents, on macOS.

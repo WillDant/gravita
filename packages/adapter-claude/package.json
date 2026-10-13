@@ -1,6 +1,6 @@
 {
   "name": "@gravita/adapter-claude",
-  "version": "0.1.0-alpha",
+  "version": "0.2.0-beta",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
