@@ -2,7 +2,7 @@ import { type SquadState, squadPlan } from "@gravita/core";
 import type { PlanTask } from "@gravita/protocol";
 import { rolePermission, rolePermissionMode } from "../../domain/autonomy-policy";
 import { guardToolCall } from "../../domain/ownership-guard";
-import { ROLE_ENV, ROLE_MAX_TURNS, STOP_GRACE_MS } from "../../domain/squad-policy";
+import { ROLE_ENV, ROLE_MAX_TURNS, STOP_GRACE_MS, squadEnv } from "../../domain/squad-policy";
 import type { GitWorkspace } from "../ports/git-workspace";
 import type { SquadReader } from "../ports/squad-reader";
 import type { SyncRoleBranch } from "../usecases/sync-role-branch";
@@ -71,14 +71,13 @@ export class TaskRunner {
       live.worktree,
       await this.d.git.topLevel(live.worktree).catch(() => live.worktree),
     ];
-    const model = run.modelOverride.get(live.taskId) ?? role.model ?? q.models.roles;
     const session = await this.d.sessions.start({
       squadId: run.squadId,
       projectId: run.projectId,
       roleId: live.roleId,
       taskId: live.taskId,
       cwd: live.worktree,
-      model,
+      model: live.model,
       permissionMode: rolePermissionMode(q.autonomy),
       prompt: taskPrompt({
         plan,
@@ -93,7 +92,7 @@ export class TaskRunner {
       systemPromptAppend: roleCharter(plan, role, live.worktree),
       maxBudgetUsd: live.maxBudgetUsd,
       maxTurns: ROLE_MAX_TURNS,
-      env: { ...ROLE_ENV },
+      env: { ...ROLE_ENV, ...squadEnv(q.models) },
       roleTools: roleTools(this.d.host, live),
       toolGuard: (call) => guardToolCall({ plan, roleId: live.roleId, roots }, call),
       permissionPolicy: (tool, input) => rolePermission(q.autonomy, tool, input),

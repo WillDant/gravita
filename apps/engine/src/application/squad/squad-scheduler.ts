@@ -4,6 +4,7 @@ import {
   normalizePath,
   type SquadState,
   squadPlan,
+  squadTaskModel,
   type TaskRun,
 } from "@gravita/core";
 import type { SquadPlan } from "@gravita/protocol";
@@ -90,7 +91,11 @@ export class SquadScheduler {
     if (!task) return true;
     const state = q.tasks[taskId];
     const roleId = state?.role ?? task.role;
-    const maxBudgetUsd = this.d.budget.forTask(q, taskId, roleId, concurrent);
+    // Decided once per run, from the projection (role, earlier struggles), so a restart
+    // picks the same model; the user's pick on a retry wins.
+    const model =
+      run.modelOverride.get(taskId) ?? squadTaskModel(q, plan, taskId) ?? q.models.roles;
+    const maxBudgetUsd = this.d.budget.forTask(q, taskId, roleId, concurrent, model);
     if (maxBudgetUsd < MIN_SESSION_BUDGET_USD) {
       this.pause(run, "The budget is used up; there isn't enough left to start the next task.");
       return false;
@@ -105,6 +110,7 @@ export class SquadScheduler {
       worktree: ref.path,
       roleBranch: ref.branch,
       integrationBranch: run.layout.integration.branch,
+      model,
       maxBudgetUsd,
       bounces: 0,
       progressCount: 0,
@@ -132,12 +138,18 @@ export class SquadScheduler {
     return true;
   }
 
-  /** The task's next status after an attempt ended. */
+  /**
+   * The task's next status after an attempt ended. An attempt that struggled (a failure, a
+   * conflict, a revert, a red check) is recorded as such on that status, so the next run
+   * steps up a model tier under the Automatic policy; an interruption, a question for the
+   * user or a spent budget is not the model's doing and isn't.
+   */
   settle(run: SquadRun, live: LiveAttempt, end: AttemptEnd) {
     const status = (
       s: "done" | "blocked" | "failed" | "ready",
       reason?: string,
       attempt = live.attempt,
+      struggled = false,
     ) =>
       this.d.emitter.taskStatus(run, {
         taskId: live.taskId,
@@ -145,8 +157,11 @@ export class SquadScheduler {
         attempt,
         role: live.roleId,
         ...(reason ? { reason } : {}),
+        ...(struggled ? { struggledAttempt: live.attempt } : {}),
       });
     const again = (reason: string) => status("ready", reason, live.attempt + 1);
+    const struggled = (s: "blocked" | "failed", reason: string) =>
+      status(s, reason, live.attempt, true);
 
     switch (end.kind) {
       case "merged":
@@ -174,13 +189,14 @@ export class SquadScheduler {
           "blocked",
         );
       case "failed":
-        return status("failed", end.reason);
+        // Includes complete_task sent back too often (ownership, red task checks).
+        return struggled("failed", end.reason);
       case "yielded":
         return status("blocked", `Needs you: ${end.reason}`);
       case "incomplete":
-        return status("blocked", "The agent ended its turn twice without finishing the task.");
+        return struggled("blocked", "The agent ended its turn twice without finishing the task.");
       case "max-turns":
-        return status("blocked", "The agent ran out of turns twice.");
+        return struggled("blocked", "The agent ran out of turns twice.");
       case "budget":
         this.d.emitter.budget(run, "exhausted", {
           scope: "task",
@@ -205,10 +221,18 @@ export class SquadScheduler {
     }
   }
 
-  /** Another automatic run while there are any left, else the task waits for the user. */
+  /**
+   * Another automatic run while there are any left, else the task waits for the user. Every
+   * caller is a struggle (conflict, revert, error), so the attempt is marked as one.
+   */
   private retry(run: SquadRun, live: LiveAttempt, reason: string, otherwise: "blocked" | "failed") {
     const used = run.retries.get(live.taskId) ?? 0;
-    const base = { taskId: live.taskId, role: live.roleId, reason };
+    const base = {
+      taskId: live.taskId,
+      role: live.roleId,
+      reason,
+      struggledAttempt: live.attempt,
+    };
     if (used + 1 < MAX_AUTO_ATTEMPTS) {
       run.retries.set(live.taskId, used + 1);
       this.d.emitter.taskStatus(run, { ...base, status: "ready", attempt: live.attempt + 1 });

@@ -1,4 +1,4 @@
-import { type SquadState, validatePlan } from "@gravita/core";
+import { pickModel, type SquadState, validatePlan } from "@gravita/core";
 import { SquadPlan, squadPlanJsonSchema } from "@gravita/protocol";
 import {
   PLANNER_DISALLOWED_TOOLS,
@@ -10,6 +10,7 @@ import {
   PLANNER_MAX_TURNS,
   PLANNER_ROLE_ID,
   STOP_GRACE_MS,
+  squadEnv,
 } from "../../domain/squad-policy";
 import type { TurnOutcome } from "../ports/chat-runtime";
 import type { SquadReader } from "../ports/squad-reader";
@@ -94,7 +95,10 @@ export class RunPlanner {
       projectId: run.projectId,
       roleId: PLANNER_ROLE_ID,
       cwd,
-      model: q.models.planner,
+      // Resuming the briefing may switch models (Sonnet talked, Opus plans): the model is
+      // passed on resume too, and Claude Code continues the transcript on it.
+      model: pickModel({ models: q.models, phase: "planning" }),
+      env: squadEnv(q.models),
       permissionMode: "dontAsk",
       prompt: resume
         ? resumedPlannerPrompt(q, p.feedback)

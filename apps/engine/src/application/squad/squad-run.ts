@@ -17,6 +17,8 @@ export interface LiveAttempt extends RoleBinding {
   roleBranch: string;
   integrationBranch: string;
   session?: SquadSession;
+  /** The model this run uses: the user's pick on a retry, else the squad's policy. */
+  model: string;
   /** The session's maxBudgetUsd. */
   maxBudgetUsd: number;
   /** complete_task calls sent back (ownership violations, red task checks). */

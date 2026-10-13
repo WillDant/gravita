@@ -34,6 +34,8 @@ export interface TaskStatusFact {
   role: string;
   sessionId?: string;
   reason?: string;
+  /** The attempt that went wrong in a way a stronger model may fix (see the event). */
+  struggledAttempt?: number;
 }
 
 export class SquadEmitter {
@@ -97,6 +99,7 @@ export class SquadEmitter {
         role: f.role,
         ...(f.sessionId ? { sessionId: f.sessionId } : {}),
         ...(f.reason ? { reason: clip(f.reason) } : {}),
+        ...(f.struggledAttempt ? { struggledAttempt: f.struggledAttempt } : {}),
       },
     );
   }

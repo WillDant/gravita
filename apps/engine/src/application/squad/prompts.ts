@@ -55,7 +55,11 @@ function briefingText(lines: readonly BriefingLine[]): string {
 }
 
 function budgetLine(q: SquadState) {
-  return `Budget: $${q.budgetUsd} for the whole squad. Roles run on "${q.models.roles}".`;
+  const budget = `Budget: $${q.budgetUsd} for the whole squad.`;
+  // Under Automatic a role's `model` would override Gravita's per-task choice.
+  if (q.models.mode === "auto")
+    return `${budget} Gravita picks each task's model: "${q.models.roles}" for most work, a stronger one for foundation tasks, tasks that write a contract, and large tasks. Leave the roles' \`model\` unset unless the user asked for a specific model.`;
+  return `${budget} Roles run on "${q.models.roles}".`;
 }
 
 function feedbackParts(q: SquadState, feedback?: string): string[] | undefined {
