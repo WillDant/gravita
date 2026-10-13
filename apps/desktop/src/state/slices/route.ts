@@ -3,7 +3,9 @@ import type { Slice } from "../store";
 export type Route =
   | { level: "home" }
   | { level: "project"; projectId: string }
-  | { level: "session"; projectId: string; sessionId: string; agentId?: string };
+  | { level: "session"; projectId: string; sessionId: string; agentId?: string }
+  /** Dev builds only: the persona gallery (#/gallery). */
+  | { level: "gallery" };
 
 export interface RouteSlice {
   route: Route;

@@ -7,6 +7,8 @@ export type { Route };
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  // Production builds drop this branch (and with it the gallery chunk).
+  if (import.meta.env.DEV && parts[0] === "gallery") return { level: "gallery" };
   if (parts[0] === "p" && parts[1]) {
     if (parts[2] === "s" && parts[3]) {
       return {
@@ -25,6 +27,8 @@ export function hashOf(route: Route): string {
   switch (route.level) {
     case "home":
       return "#/";
+    case "gallery":
+      return "#/gallery";
     case "project":
       return `#/p/${encodeURIComponent(route.projectId)}`;
     case "session":

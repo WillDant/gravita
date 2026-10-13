@@ -21,7 +21,8 @@ export function Sidebar() {
   const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const waiting = needsYou(state, now).length;
-  const currentProject = route.level !== "home" ? route.projectId : undefined;
+  const currentProject =
+    route.level === "project" || route.level === "session" ? route.projectId : undefined;
 
   return (
     <nav
