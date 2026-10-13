@@ -87,5 +87,7 @@ export function useControl() {
   };
 }
 
+export const useNotice = () => useAppStore((s) => s.notice);
+
 export const useStartingSessionId = (): string | undefined =>
   useAppStore((s) => s.startingSessionId);

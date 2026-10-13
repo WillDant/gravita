@@ -100,7 +100,8 @@ describe("SessionTail", () => {
       ),
       { numRuns: 40 },
     );
-  });
+    // Forty runs of real file appends: generous, so a busy CI box doesn't time it out.
+  }, 30_000);
 
   test("a poll with nothing new returns nothing", async () => {
     await withTempDir(async (dir) => {

@@ -83,6 +83,16 @@ describe("WsEngineGateway errors", () => {
     gw.close();
   });
 
+  it("stops every Gravita session with engine.stopAll", async () => {
+    const { gw, ws } = await online();
+    const stopped = gw.stopAll();
+    const req = ws.lastCall("engine.stopAll");
+    expect(req.params).toEqual({});
+    ws.reply(req.id, { result: { stopped: 2 } });
+    await expect(stopped).resolves.toEqual({ stopped: 2 });
+    gw.close();
+  });
+
   it("uses a local code when the link is down or drops mid-call", async () => {
     const offline = new WsEngineGateway(async () => ({ url: "ws://x", token: "t" }));
     await expect(offline.sendMessage({ sessionId: "s", text: "hi" })).rejects.toMatchObject({

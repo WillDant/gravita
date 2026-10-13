@@ -19,6 +19,7 @@ import { SetModel } from "../../src/application/usecases/set-model";
 import { SetPermissionMode } from "../../src/application/usecases/set-permission-mode";
 import { StartChat } from "../../src/application/usecases/start-chat";
 import { StopAgent } from "../../src/application/usecases/stop-agent";
+import { StopAllSessions } from "../../src/application/usecases/stop-all-sessions";
 import {
   ClaudeUnavailableError,
   InvalidAnswerError,
@@ -89,6 +90,7 @@ function setup(opts: { chat?: boolean } = {}) {
       }),
     ),
     listModels: new ListModels(runtimes, clock, logger),
+    stopAll: new StopAllSessions(runtimes, clock, logger, 3_000),
   });
   return {
     store,
@@ -303,6 +305,22 @@ describe("rpc router: session control", () => {
     runtimes.register(runtime);
     expect(await router.dispatch("claude.models", {})).toEqual({
       result: { models: [{ value: "opus", displayName: "Opus 5.5" }] },
+    });
+  });
+});
+
+describe("rpc router: kill switch", () => {
+  test("engine.stopAll disposes every runtime Gravita runs and says how many", async () => {
+    const { router, runtimes } = setup();
+    expect(await router.dispatch("engine.stopAll", undefined)).toEqual({ result: { stopped: 0 } });
+    const a = new FakeRuntime("s1");
+    const b = new FakeRuntime("s2");
+    runtimes.register(a);
+    runtimes.register(b);
+    expect(await router.dispatch("engine.stopAll", {})).toEqual({ result: { stopped: 2 } });
+    expect([a.disposed, b.disposed]).toEqual([true, true]);
+    expect(await router.dispatch("engine.stopAll", "all")).toEqual({
+      error: RpcErrors.badRequest,
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ago, ev, NOW, started, stateOf } from "@/test/events";
-import { needsYou, projectSummaries, sessionStatus, totals } from "./selectors";
+import { needsYou, projectSummaries, sessionStatus, totals, trayCounts } from "./selectors";
 
 const at = (sessionId: string, minutesAgo: number, agentId?: string, projectId = "p1") => ({
   ts: ago(minutesAgo),
@@ -108,5 +108,26 @@ describe("needsYou", () => {
 
   it("is empty when nobody waits", () => {
     expect(needsYou(stateOf(started("s", 3), [live("s", 1)]), NOW)).toEqual([]);
+  });
+});
+
+describe("trayCounts", () => {
+  it("counts running agents, waiting agents and the Gravita sessions Stop all reaches", () => {
+    const control = (sessionId: string) =>
+      ev("session.control", { controllable: true }, at(sessionId, 1));
+    const s = stateOf(
+      started("ext", 3),
+      started("chat", 3, "p1", "chat"),
+      started("quiet", 3, "p1", "chat"),
+      [live("ext", 1), spawn("ext", "a", 1)],
+      [live("chat", 1), control("chat"), spawn("chat", "b", 1), ask("chat", "b", 0)],
+      [control("quiet"), ev("turn.completed", {}, at("quiet", 1))],
+    );
+    // ext: main + a running; chat: main running, b waiting; quiet: idle chat.
+    expect(trayCounts(s, NOW)).toEqual({ running: 3, waiting: 1, controllable: 1 });
+  });
+
+  it("is all zeros with nothing loaded", () => {
+    expect(trayCounts(stateOf(), NOW)).toEqual({ running: 0, waiting: 0, controllable: 0 });
   });
 });

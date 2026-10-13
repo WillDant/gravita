@@ -17,7 +17,8 @@ export type FakeCommand =
   | "setPermissionMode"
   | "answerQuestion"
   | "conversation"
-  | "models";
+  | "models"
+  | "stopAll";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -45,6 +46,7 @@ export class FakeGateway implements EngineGateway {
       { value: "opus", displayName: "Opus" },
     ],
   };
+  stopAllResult: RpcResult<"engine.stopAll"> = { stopped: 0 };
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
   private pendingCalls: (() => void)[] = [];
@@ -143,6 +145,9 @@ export class FakeGateway implements EngineGateway {
   }
   models() {
     return this.run("models", {}, () => this.modelsResult);
+  }
+  stopAll() {
+    return this.run("stopAll", {}, () => this.stopAllResult);
   }
 
   onEvents(l: (b: EventsNotification) => void): Unsubscribe {

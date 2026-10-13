@@ -2,10 +2,12 @@ import type { GravitaState } from "@gravita/core";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AppProviders } from "@/app/providers";
+import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { setLocale } from "@/shared/i18n/i18n";
 import { createAppStore } from "@/state/store";
 import { ago, ev, NOW, started, stateOf } from "@/test/events";
 import { FakeGateway, flush } from "@/test/FakeGateway";
+import { memoryStorage } from "@/test/render";
 import { PermissionActions } from "./PermissionActions";
 
 afterEach(cleanup);
@@ -34,7 +36,15 @@ function renderActions(state: GravitaState) {
   const store = createAppStore(gateway, { now: NOW });
   const session = state.sessions.s!;
   render(
-    <AppProviders services={{ store, gateway, navigate: () => {}, toggleTheme: () => {} }}>
+    <AppProviders
+      services={{
+        store,
+        gateway,
+        navigate: () => {},
+        toggleTheme: () => {},
+        notificationPrefs: createNotificationPrefs(memoryStorage),
+      }}
+    >
       <PermissionActions session={session} agent={session.agents.a!} />
     </AppProviders>,
   );

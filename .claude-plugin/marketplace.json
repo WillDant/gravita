@@ -1,0 +1,14 @@
+{
+  "name": "gravita",
+  "owner": { "name": "Gravita" },
+  "metadata": {
+    "description": "Optional Claude Code plugins for the Gravita desktop app."
+  },
+  "plugins": [
+    {
+      "name": "deep-observe",
+      "source": "./plugins/deep-observe",
+      "description": "Live view of your terminal Claude Code sessions in Gravita, including permission prompts. Observe-only hooks that send events to Gravita on 127.0.0.1."
+    }
+  ]
+}

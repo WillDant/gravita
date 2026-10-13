@@ -36,3 +36,13 @@ Use cases and the router are tested without SQLite, sockets or timers, and the d
 - **`ClaudeSdkRuntime`** (infrastructure) is the only code that imports the SDK. It runs the user's own `claude` via `pathToClaudeCodeExecutable`; SDK messages go through the pure `SdkSessionMapper` in adapter-claude, which reuses the transcript normaliser so both sources produce identical keys.
 - **Policies in `domain/`:** at most six chat sessions at once; bypass mode only when a session starts (`BypassLockedError`), never switched on later.
 - **One writer per session:** a registered runtime owns its session, so the transcript tailer skips it until the runtime ends.
+
+## Addendum (M1d): kill switch and Deep Observe hooks
+
+- **Kill switch:** `StopAllSessions` disposes every runtime in the registry with a cap (shutdown uses it too) and returns how many it stopped. It is the `engine.stopAll` RPC and `POST /control/stop-all` for the tray (engine token as a Bearer header). Sessions without a runtime (terminal ones) are never touched.
+- **Plain HTTP routes** live in `transport.ts` beside `/ws`: POST only, any request with an `Origin` header is refused (no web page can reach them), tokens compared in constant time.
+- **Runtime file:** the composition root generates a hook token per run and writes `<dataDir>/runtime.json` (port, hook token, pid, version; 0600, temp file + rename) through the `RuntimeFileStore` port (`FsRuntimeFile`). On stop it is removed only if it still holds our pid.
+- **Hooks as a source:** `@gravita/adapter-claude` parses a hook (`parseHookPayload`, zod, unknown fields dropped) and maps it purely (`mapHook`): tool facts are wrapped as transcript records and go through `normalizeRecords`, so they carry the transcript's keys and data. Everything else is a signal (`tool-start`, `tool-end`, `prompt`, `turn-end`, `session-end`).
+- **Port `HookTranslator`** (implemented by `ClaudeHookTranslator`) keeps the application free of the adapter. **`HookIngest`** (application service) handles hooks one at a time: skips sessions a runtime owns, resolves the project from `cwd` through `AnnounceProject`, and keeps the only state hooks need, the open calls and permission prompts per session and agent. Prompt ids are deterministic (`hook:<toolUseId>`), and prompts still open after a restart are recovered from the projection.
+- **Spool:** `DrainHookSpool` + the `HookSpool` port (`FsHookSpool`) replay `<dataDir>/spool/hooks.jsonl` at start and every 30 s (rename, ingest in order, delete). Demo mode serves hooks but leaves the spool to the real engine.
+- **The plugin** (`plugins/deep-observe`, listed by `.claude-plugin/marketplace.json`) is installed by the user through Claude Code's `/plugin` flow; Gravita never writes under `~/.claude`.

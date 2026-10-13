@@ -228,6 +228,21 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "gallery.budget": "Orçamento de movimento",
   "gallery.budgetNote": "Nove agentes esperam por você: três pulam, todos mantêm o halo.",
 
+  "notify.settings": "Notificações",
+  "notify.settingsHint": "Com o Gravita em segundo plano, me avise quando:",
+  "notify.pref.waiting": "Um agente estiver esperando você",
+  "notify.pref.finished": "Um chat do Gravita terminar a vez dele",
+  "notify.pref.failures": "Um agente parar com um erro",
+  "notify.more.one": "+{count} outra",
+  "notify.more.other": "+{count} outras",
+
+  "notice.stopped.one": "{count} sessão do Gravita foi parada.",
+  "notice.stopped.other": "{count} sessões do Gravita foram paradas.",
+  "notice.stoppedNone": "Nenhuma sessão do Gravita estava rodando.",
+  "notice.stopFailed":
+    "Não consegui falar com o motor para parar as sessões. Tente de novo pela barra de menus.",
+  "notice.dismiss": "Dispensar",
+
   "error.notControllable": "Esta sessão roda no seu terminal. Responda por lá.",
   "error.claudeUnavailable": "O Claude Code não está disponível neste Mac.",
   "error.invalidCwd": "Essa pasta não existe. Confira o caminho.",

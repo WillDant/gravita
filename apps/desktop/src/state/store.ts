@@ -4,6 +4,7 @@ import { type ClockSlice, createClockSlice } from "./slices/clock";
 import { type ConnectionSlice, createConnectionSlice } from "./slices/connection";
 import { type ControlSlice, createControlSlice } from "./slices/control";
 import { type ConversationSlice, createConversationSlice } from "./slices/conversation";
+import { createNoticeSlice, type NoticeSlice } from "./slices/notice";
 import { createOpenSessionSlice, type OpenSessionSlice } from "./slices/openSession";
 import { createProjectionSlice, type ProjectionSlice } from "./slices/projection";
 import { createRouteSlice, type Route, type RouteSlice } from "./slices/route";
@@ -14,7 +15,8 @@ export type AppState = ConnectionSlice &
   RouteSlice &
   ClockSlice &
   ControlSlice &
-  ConversationSlice;
+  ConversationSlice &
+  NoticeSlice;
 export type AppStore = StoreApi<AppState>;
 
 /** A slice creator that sees the whole store and gets the engine port injected. */
@@ -35,5 +37,6 @@ export function createAppStore(gateway: EngineGateway, init: AppStoreInit = {}):
     ...createClockSlice(init.now ?? Date.now())(gateway)(...a),
     ...createControlSlice(gateway)(...a),
     ...createConversationSlice(gateway)(...a),
+    ...createNoticeSlice(gateway)(...a),
   }));
 }

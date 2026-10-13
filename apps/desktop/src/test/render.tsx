@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { vi } from "vitest";
 import { AppProviders } from "@/app/providers";
+import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import type { Route } from "@/state/slices/route";
 import { type AppStore, createAppStore } from "@/state/store";
 import { NOW } from "./events";
@@ -23,10 +24,38 @@ export function renderWithApp(
   const store = createAppStore(gateway, { now: NOW });
   if (state) store.getState().loadSnapshot({ seq: state.seq, state });
   const navigate = vi.fn<(route: Route) => void>();
+  const storage = memoryStorage();
   const view = render(
-    <AppProviders services={{ store, gateway, navigate, toggleTheme: () => {} }}>
+    <AppProviders
+      services={{
+        store,
+        gateway,
+        navigate,
+        toggleTheme: () => {},
+        notificationPrefs: createNotificationPrefs(() => storage),
+      }}
+    >
       {ui}
     </AppProviders>,
   );
   return { ...view, gateway, store, navigate };
+}
+
+/** An empty in-memory Storage: tests never share preferences through localStorage. */
+export function memoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear: () => data.clear(),
+    getItem: (k) => data.get(k) ?? null,
+    key: (i) => [...data.keys()][i] ?? null,
+    removeItem: (k) => {
+      data.delete(k);
+    },
+    setItem: (k, v) => {
+      data.set(k, String(v));
+    },
+  };
 }

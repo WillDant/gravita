@@ -102,7 +102,11 @@ fn read_ready_port(stdout: std::process::ChildStdout) -> Result<u16, String> {
                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(line.trim()) {
                         if v["event"] == "ready" {
                             let port = v["port"].as_u64().unwrap_or(0) as u16;
-                            let _ = tx.send(if port > 0 { Ok(port) } else { Err("engine reported no port".into()) });
+                            let _ = tx.send(if port > 0 {
+                                Ok(port)
+                            } else {
+                                Err("engine reported no port".into())
+                            });
                             // Keep draining so the engine never blocks on a full pipe.
                             let mut sink = String::new();
                             while reader.read_line(&mut sink).map(|n| n > 0).unwrap_or(false) {

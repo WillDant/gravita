@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import pkg from "../../package.json" with { type: "json" };
@@ -9,11 +10,13 @@ import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
+import { HookIngest } from "../application/services/hook-ingest";
 import { ProjectionService } from "../application/services/projection-service";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
 import { AnnounceProject } from "../application/usecases/announce-project";
 import { AnswerQuestion } from "../application/usecases/answer-question";
+import { DrainHookSpool } from "../application/usecases/drain-hook-spool";
 import { GetConversation } from "../application/usecases/get-conversation";
 import { GetEngineStatus } from "../application/usecases/get-engine-status";
 import { GetSessionEvents } from "../application/usecases/get-session-events";
@@ -27,8 +30,10 @@ import { SetModel } from "../application/usecases/set-model";
 import { SetPermissionMode } from "../application/usecases/set-permission-mode";
 import { StartChat } from "../application/usecases/start-chat";
 import { StopAgent } from "../application/usecases/stop-agent";
+import { StopAllSessions } from "../application/usecases/stop-all-sessions";
 import { type ClaudeStatus, detectClaude } from "../infrastructure/claude/claude-cli-locator";
 import { DetectedClaudeEnvironment } from "../infrastructure/claude/claude-environment";
+import { ClaudeHookTranslator } from "../infrastructure/claude/claude-hook-translator";
 import { Registry } from "../infrastructure/claude/registry";
 import {
   ClaudeSdkRuntimeFactory,
@@ -41,6 +46,8 @@ import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { SqliteCheckpointStore } from "../infrastructure/persistence/sqlite-checkpoint-store";
 import { openDatabase } from "../infrastructure/persistence/sqlite-database";
 import { SqliteEventStore } from "../infrastructure/persistence/sqlite-event-store";
+import { FsHookSpool } from "../infrastructure/system/fs-hook-spool";
+import { FsRuntimeFile } from "../infrastructure/system/fs-runtime-file";
 import { GitProjectDirectory } from "../infrastructure/system/git-project-directory";
 import { LoginShellEnv } from "../infrastructure/system/login-shell-env";
 import { NodeWorkspace } from "../infrastructure/system/node-workspace";
@@ -58,8 +65,21 @@ export const ENGINE_VERSION: string = pkg.version;
 /** Identifies Gravita in Claude Code's User-Agent (CLAUDE_AGENT_SDK_CLIENT_APP). */
 export const CLIENT_APP = `gravita/${ENGINE_VERSION}`;
 
-/** How long shutdown waits for the sessions Gravita runs to close. */
+/** How long shutdown (and the kill switch) waits for the sessions Gravita runs to close. */
 export const DISPOSE_CAP_MS = 3_000;
+
+/** How often spooled Deep Observe hooks are picked up while the engine runs. */
+export const SPOOL_DRAIN_MS = 30_000;
+
+/** How long shutdown waits for the hook being ingested. */
+const HOOKS_CAP_MS = 1_000;
+
+function withCap(p: Promise<void>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([p, new Promise<void>((r) => (timer = setTimeout(r, ms)))]).finally(() =>
+    clearTimeout(timer),
+  );
+}
 
 /** Diagnostics before and outside the core (start-up failures). */
 export const stderrLogger: Logger = new StderrLogger();
@@ -98,6 +118,9 @@ export interface EngineCore {
   ingest: IngestEvents;
   runtimes: InMemorySessionRuntimeRegistry;
   projects: AnnounceProject;
+  /** Deep Observe hooks of terminal sessions. */
+  hooks: HookIngest;
+  stopAll: StopAllSessions;
   router: RpcRouter;
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
   disposeRuntimes(capMs?: number): Promise<void>;
@@ -126,6 +149,16 @@ export function createCore(o: CoreOptions): EngineCore {
     clock,
   );
   const settings = new SessionSettingsRecorder(ingest, clock);
+  const stopAll = new StopAllSessions(runtimes, clock, logger, DISPOSE_CAP_MS);
+  const hooks = new HookIngest({
+    translator: new ClaudeHookTranslator(),
+    ingest,
+    projects,
+    ownership: runtimes,
+    sessions: projection,
+    clock,
+    logger,
+  });
 
   let startChat: StartChat | undefined;
   if (o.chat) {
@@ -166,6 +199,7 @@ export function createCore(o: CoreOptions): EngineCore {
       answerQuestion: new AnswerQuestion(runtimes),
       getConversation: new GetConversation(o.transcripts ?? noTranscripts),
       listModels: new ListModels(runtimes, clock, logger),
+      stopAll,
     }),
     logger,
   );
@@ -179,22 +213,14 @@ export function createCore(o: CoreOptions): EngineCore {
     ingest,
     runtimes,
     projects,
+    hooks,
+    stopAll,
     router,
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
-      const all = runtimes
-        .all()
-        .map((r) => r.dispose().catch((err) => logger.log("runtime dispose failed", err)));
-      if (!all.length) return;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([
-        Promise.allSettled(all),
-        new Promise<void>((resolve) => {
-          timer = setTimeout(resolve, capMs);
-        }),
-      ]);
-      clearTimeout(timer);
+      await stopAll.execute(capMs);
     },
     close() {
+      void hooks.close();
       broadcaster.close();
       db.close();
     },
@@ -203,19 +229,26 @@ export function createCore(o: CoreOptions): EngineCore {
 
 export interface EngineOptions extends Omit<EngineArgs, "tokenStdin"> {
   token: string;
+  /** Tests pin it; otherwise 256 random bits per run. */
+  hookToken?: string;
   /** Seed of the demo story. */
   demoSeed?: number;
+  /** Tests replace it, so a real-mode engine doesn't look for the user's `claude`. */
+  detectClaude?: () => Promise<ClaudeStatus>;
 }
 
 export interface RunningEngine {
   port: number;
+  /** What Deep Observe hooks read from `<dataDir>/runtime.json`. */
+  hookToken: string;
   /** Stops the sources and the transport, closes the sessions Gravita runs, then the database. */
   stop(): Promise<void>;
 }
 
 /**
  * Wires the core, the transport and the sources. Demo mode plays the scripted provider
- * into an in-memory database and never touches claudeHome or dataDir.
+ * into an in-memory database and never touches claudeHome; of dataDir it only writes the
+ * runtime file (and leaves the hook spool to the real engine).
  */
 export function startEngine(opts: EngineOptions): RunningEngine {
   let dbPath = ":memory:";
@@ -250,14 +283,22 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   if (!opts.demo) chmodSync(dbPath, 0o600);
   const { clock, logger, broadcaster, ingest, projection, runtimes } = core;
   const stops: (() => void)[] = [];
+  // Separate from the engine token: hooks can read it from disk, the UI's token never is.
+  const hookToken = opts.hookToken ?? randomBytes(32).toString("hex");
 
   let server: ReturnType<typeof startTransport>;
   try {
     server = startTransport(
-      { router: core.router, feed: broadcaster, status: () => broadcaster.status() },
+      {
+        router: core.router,
+        feed: broadcaster,
+        status: () => broadcaster.status(),
+        hooks: core.hooks,
+      },
       {
         port: opts.port,
         token: opts.token,
+        hookToken,
         devOrigins: opts.devOrigins,
         engineVersion: ENGINE_VERSION,
       },
@@ -266,6 +307,20 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     core.close();
     throw err;
   }
+
+  // Only a real engine advertises itself to Deep Observe hooks: a demo engine would
+  // swallow the user's real sessions into a throwaway in-memory store.
+  const runtimeFile = new FsRuntimeFile(opts.dataDir);
+  const advertised = { port: server.port, hookToken, pid: process.pid, version: ENGINE_VERSION };
+  const advertise = (write: () => void) => {
+    try {
+      write();
+    } catch (err) {
+      // Without it hooks spool to disk until an engine that can write it starts.
+      logger.log("could not write the runtime file", err);
+    }
+  };
+  if (!opts.demo) advertise(() => runtimeFile.write(advertised));
 
   if (opts.demo) {
     const demo = new DemoRuntime({
@@ -304,11 +359,23 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     });
     registry.start();
     tails.start();
+    const spool = new DrainHookSpool(
+      new FsHookSpool(join(opts.dataDir, "spool")),
+      core.hooks,
+      logger,
+    );
+    void spool.execute();
+    const drainTimer = setInterval(() => {
+      // Another engine (a dev one) may have come and gone, taking the file with it.
+      advertise(() => runtimeFile.writeIfMissing(advertised));
+      void spool.execute();
+    }, SPOOL_DRAIN_MS);
     stops.push(
       () => registry.stop(),
       () => tails.stop(),
+      () => clearInterval(drainTimer),
     );
-    detection = detectClaude()
+    detection = (opts.detectClaude ?? detectClaude)()
       .then((claude) => {
         broadcaster.updateStatus({ claude });
         // Warm the environment cache so the first session doesn't wait for the shell.
@@ -324,11 +391,15 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   let stopping: Promise<void> | undefined;
   return {
     port: server.port,
+    hookToken,
     stop() {
       stopping ??= (async () => {
+        // First, so hooks spool instead of reaching an engine that is going away.
+        if (!opts.demo) runtimeFile.removeIfOwned(process.pid);
         for (const stop of stops) stop();
         server.stop();
-        await core.disposeRuntimes();
+        // A hook mid-way (resolving its project) still writes; let it, briefly.
+        await Promise.all([core.disposeRuntimes(), withCap(core.hooks.close(), HOOKS_CAP_MS)]);
         core.close();
       })();
       return stopping;

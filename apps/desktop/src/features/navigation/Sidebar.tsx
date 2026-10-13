@@ -2,6 +2,7 @@ import { sessionCounts } from "@gravita/core";
 import { Bell, House, Languages, MoonStar, Sun } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useToggleTheme } from "@/app/providers";
+import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
 import {
   needsYou,
@@ -154,6 +155,7 @@ export function Sidebar() {
           <Languages size={15} />
           <span className="max-[1100px]:sr-only">{getLocale() === "en" ? "EN" : "PT"}</span>
         </button>
+        <NotificationSettings />
       </div>
     </nav>
   );

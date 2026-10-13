@@ -17,7 +17,28 @@ export const Methods = {
   questionAnswer: "question.answer",
   sessionConversation: "session.conversation",
   claudeModels: "claude.models",
+  stopAll: "engine.stopAll",
 } as const;
+
+/**
+ * Plain HTTP routes next to the WebSocket, for callers that aren't the UI:
+ * - `stopAll`: the tray's kill switch (POST, `Authorization: Bearer <engine token>`).
+ * - `hooks`: Deep Observe hook events (POST, `Authorization: Bearer <hook token>` from
+ *   the runtime file). Both refuse any request carrying an `Origin` header, so a web
+ *   page can never reach them.
+ */
+export const HttpPaths = {
+  stopAll: "/control/stop-all",
+  hooks: "/hooks",
+} as const;
+
+/** Written by the engine (mode 0600) so Deep Observe hooks can find it: `<data dir>/runtime.json`. */
+export interface RuntimeFile {
+  port: number;
+  hookToken: string;
+  pid: number;
+  version: string;
+}
 
 export const Notifications = {
   events: "events",
