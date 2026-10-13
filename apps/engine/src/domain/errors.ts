@@ -67,3 +67,69 @@ export class SquadsUnavailableError extends Error {
     this.name = "SquadsUnavailableError";
   }
 }
+
+/** An existing repository has uncommitted or untracked changes; a squad needs a clean start. */
+export class DirtyWorktreeError extends Error {
+  constructor(readonly path: string) {
+    super("Commit or stash your changes first");
+    this.name = "DirtyWorktreeError";
+  }
+}
+
+/** The squad's folder has files but isn't a git repository, so Gravita won't take it over. */
+export class NotARepositoryError extends Error {
+  constructor(readonly path: string) {
+    super("This folder has files but isn't a git repository; pick an empty folder or a repository");
+    this.name = "NotARepositoryError";
+  }
+}
+
+/**
+ * The repository isn't in a state the squad step needs (no commit yet, a detached HEAD, the
+ * wrong branch checked out for delivery…). The message says what to do.
+ */
+export class SquadWorkspaceError extends Error {
+  constructor(
+    readonly reason:
+      | "no-commits"
+      | "detached-head"
+      | "unknown-branch"
+      | "wrong-branch"
+      | "invalid-id"
+      | "missing-contract",
+    message: string,
+  ) {
+    super(message);
+    this.name = "SquadWorkspaceError";
+  }
+}
+
+/** A plan the engine can't run even though its shape is valid (e.g. a reserved role id). */
+export class InvalidSquadPlanError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidSquadPlanError";
+  }
+}
+
+/** Opening a pull request needs a remote and the GitHub CLI, installed and logged in. */
+export class GhUnavailableError extends Error {
+  constructor(readonly reason: "no-remote" | "not-installed" | "not-logged-in") {
+    super(
+      reason === "no-remote"
+        ? "This repository has no remote to push to"
+        : reason === "not-installed"
+          ? "The GitHub CLI (gh) is not installed"
+          : "The GitHub CLI (gh) is not logged in; run `gh auth login`",
+    );
+    this.name = "GhUnavailableError";
+  }
+}
+
+/** A check that must not run: a program outside CHECK_PROGRAMS, or a cwd outside the worktree. */
+export class CheckRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CheckRefusedError";
+  }
+}

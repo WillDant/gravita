@@ -22,10 +22,20 @@ import { StopAgent } from "../../src/application/usecases/stop-agent";
 import { StopAllSessions } from "../../src/application/usecases/stop-all-sessions";
 import {
   ClaudeUnavailableError,
+  DirtyWorktreeError,
+  GhUnavailableError,
   InvalidAnswerError,
+  InvalidSquadPlanError,
+  NotARepositoryError,
   NotLoggedInError,
+  SquadWorkspaceError,
 } from "../../src/domain/errors";
-import { createRouter, INTERNAL_ERROR, rpcHandlers } from "../../src/interface/rpc/router";
+import {
+  createRouter,
+  INTERNAL_ERROR,
+  rpcHandlers,
+  toRpcError,
+} from "../../src/interface/rpc/router";
 import {
   FakeChatFactory,
   FakeClaudeEnvironment,
@@ -384,5 +394,40 @@ describe("rpc router: squads (M2c)", () => {
     expect(await router.dispatch("squad.deliver", { ...sq, mode: "push" })).toEqual({
       error: RpcErrors.badRequest,
     });
+  });
+});
+
+describe("rpc router: squad workspace errors", () => {
+  test("map to the squad codes, keeping messages that say what to do", () => {
+    const logger = new SilentLogger();
+    const cases: [Error, { code: number; message: string }][] = [
+      [new DirtyWorktreeError("/repo"), RpcErrors.dirtyWorktree],
+      [
+        new GhUnavailableError("not-logged-in"),
+        {
+          code: RpcErrors.ghUnavailable.code,
+          message: "The GitHub CLI (gh) is not logged in; run `gh auth login`",
+        },
+      ],
+      [
+        new GhUnavailableError("no-remote"),
+        { code: 4013, message: "This repository has no remote to push to" },
+      ],
+      [
+        new NotARepositoryError("/x"),
+        { code: RpcErrors.invalidCwd.code, message: new NotARepositoryError("/x").message },
+      ],
+      [
+        new InvalidSquadPlanError('"integration" is reserved'),
+        { code: RpcErrors.invalidPlan.code, message: '"integration" is reserved' },
+      ],
+      [
+        new SquadWorkspaceError("wrong-branch", 'Check out "main"'),
+        { code: RpcErrors.squadPhase.code, message: 'Check out "main"' },
+      ],
+    ];
+    for (const [err, expected] of cases)
+      expect(toRpcError(err, logger, "squad.deliver")).toEqual(expected);
+    expect(logger.lines).toEqual([]);
   });
 });

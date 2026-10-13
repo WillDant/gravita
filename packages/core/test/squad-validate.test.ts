@@ -29,6 +29,19 @@ const cases: [string, SquadPlan, PlanIssue[]][] = [
     ],
   ],
   [
+    "the integration role id is reserved",
+    plan((p) => {
+      p.roles.push({ ...role(p, "backend"), id: "integration", owns: ["apps/worker/"] });
+    }),
+    [
+      {
+        code: "reserved_role",
+        message: 'Role id "integration" is reserved by Gravita; choose another.',
+        path: "roles[3].id",
+      },
+    ],
+  ],
+  [
     "owns that nest across roles overlap (trailing slash ignored)",
     plan((p) => {
       role(p, "frontend").owns.push("apps/api/src");

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import pkg from "../../package.json" with { type: "json" };
 import type { ClaudeEnvironmentSource } from "../application/ports/claude-environment";
 import type { Clock } from "../application/ports/clock";
+import type { GitWorkspace, PullRequestHost } from "../application/ports/git-workspace";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
@@ -11,12 +12,17 @@ import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
 import { HookIngest } from "../application/services/hook-ingest";
+import { MergeQueue } from "../application/services/merge-queue";
 import { ProjectionService } from "../application/services/projection-service";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
 import { AnnounceProject } from "../application/usecases/announce-project";
 import { AnswerQuestion } from "../application/usecases/answer-question";
+import { CleanupSquadWorkspace } from "../application/usecases/cleanup-squad-workspace";
+import { CommitTask } from "../application/usecases/commit-task";
+import { DeliverSquad } from "../application/usecases/deliver-squad";
 import { DrainHookSpool } from "../application/usecases/drain-hook-spool";
+import { FreezeContract } from "../application/usecases/freeze-contract";
 import { GetConversation } from "../application/usecases/get-conversation";
 import { GetEngineStatus } from "../application/usecases/get-engine-status";
 import { GetSessionEvents } from "../application/usecases/get-session-events";
@@ -24,13 +30,19 @@ import { GetSnapshot } from "../application/usecases/get-snapshot";
 import { IngestEvents } from "../application/usecases/ingest-events";
 import { InterruptSession } from "../application/usecases/interrupt-session";
 import { ListModels } from "../application/usecases/list-models";
+import { PrepareSquadWorkspace } from "../application/usecases/prepare-squad-workspace";
+import { RegenerateShared } from "../application/usecases/regenerate-shared";
 import { RespondToPermission } from "../application/usecases/respond-to-permission";
+import { RunChecks } from "../application/usecases/run-checks";
 import { SendMessage } from "../application/usecases/send-message";
 import { SetModel } from "../application/usecases/set-model";
 import { SetPermissionMode } from "../application/usecases/set-permission-mode";
 import { StartChat } from "../application/usecases/start-chat";
 import { StopAgent } from "../application/usecases/stop-agent";
 import { StopAllSessions } from "../application/usecases/stop-all-sessions";
+import { SyncRoleBranch } from "../application/usecases/sync-role-branch";
+import type { LockfileCommand } from "../domain/squad-workspace";
+import { BunCheckRunner } from "../infrastructure/checks/bun-check-runner";
 import { type ClaudeStatus, detectClaude } from "../infrastructure/claude/claude-cli-locator";
 import { DetectedClaudeEnvironment } from "../infrastructure/claude/claude-environment";
 import { ClaudeHookTranslator } from "../infrastructure/claude/claude-hook-translator";
@@ -43,6 +55,9 @@ import { TailScheduler } from "../infrastructure/claude/tail-scheduler";
 import { TranscriptDiscovery } from "../infrastructure/claude/transcript-discovery";
 import { ClaudeTranscriptReader, noTranscripts } from "../infrastructure/claude/transcript-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
+import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
+import { GhCli } from "../infrastructure/git/gh-cli";
+import { type Env, GitRunner } from "../infrastructure/git/git-runner";
 import { SqliteCheckpointStore } from "../infrastructure/persistence/sqlite-checkpoint-store";
 import { openDatabase } from "../infrastructure/persistence/sqlite-database";
 import { SqliteEventStore } from "../infrastructure/persistence/sqlite-event-store";
@@ -94,6 +109,74 @@ export interface ChatOptions {
   workspace?: Workspace;
 }
 
+/** Where squads keep their worktrees, and the environment their tools run with. */
+export interface SquadOptions {
+  /** `<dataDir>/worktrees`. */
+  worktreesRoot: string;
+  /** Base environment of git and gh (default: the engine's). */
+  env?: Env;
+  /** Base environment of checks, filtered through an allowlist (default: the engine's). */
+  checkEnv?: () => Env | Promise<Env>;
+  /** Lockfile name → regeneration command (default: LOCKFILE_COMMANDS); tests fake them. */
+  lockfileCommands?: Readonly<Record<string, LockfileCommand>>;
+}
+
+/**
+ * M2b: the git and check building blocks of squads. Constructed and exposed for the
+ * orchestration (M2c); nothing calls them yet, so the engine behaves as before.
+ */
+export interface SquadToolkit {
+  worktreesRoot: string;
+  git: GitWorkspace;
+  pullRequests: PullRequestHost;
+  prepare: PrepareSquadWorkspace;
+  commitTask: CommitTask;
+  runChecks: RunChecks;
+  regenerateShared: RegenerateShared;
+  mergeQueue: MergeQueue;
+  syncRoleBranch: SyncRoleBranch;
+  freezeContract: FreezeContract;
+  deliver: DeliverSquad;
+  cleanup: CleanupSquadWorkspace;
+}
+
+export function createSquadToolkit(
+  o: SquadOptions,
+  d: { ingest: IngestEvents; clock: Clock },
+): SquadToolkit {
+  const { worktreesRoot } = o;
+  const env = o.env ?? process.env;
+  const git = new CliGitWorkspace(new GitRunner({ env }));
+  const pullRequests = new GhCli({ env });
+  const runner = new BunCheckRunner({ env: o.checkEnv ?? (() => process.env) });
+  const runChecks = new RunChecks({ runner, ...d });
+  const regenerateShared = new RegenerateShared({
+    git,
+    runner,
+    ...(o.lockfileCommands ? { commands: o.lockfileCommands } : {}),
+  });
+  return {
+    worktreesRoot,
+    git,
+    pullRequests,
+    prepare: new PrepareSquadWorkspace({ git, worktreesRoot }),
+    commitTask: new CommitTask({ git, ...d }),
+    runChecks,
+    regenerateShared,
+    mergeQueue: new MergeQueue({
+      git,
+      runChecks,
+      regenerate: regenerateShared,
+      worktreesRoot,
+      ...d,
+    }),
+    syncRoleBranch: new SyncRoleBranch({ git }),
+    freezeContract: new FreezeContract({ git, worktreesRoot, ...d }),
+    deliver: new DeliverSquad({ git, pullRequests, ...d }),
+    cleanup: new CleanupSquadWorkspace({ git, worktreesRoot }),
+  };
+}
+
 export interface CoreOptions {
   /** A file path, or ":memory:" (demo mode, tests). */
   dbPath: string;
@@ -105,6 +188,8 @@ export interface CoreOptions {
   transcripts?: TranscriptReader;
   /** Absent: `session.start` answers that Claude Code is unavailable (demo mode). */
   chat?: ChatOptions;
+  /** Absent: no squad toolkit (demo mode, most tests). */
+  squad?: SquadOptions;
 }
 
 /** Everything behind the transport: storage, projection, broadcasting and use cases. */
@@ -122,6 +207,8 @@ export interface EngineCore {
   hooks: HookIngest;
   stopAll: StopAllSessions;
   router: RpcRouter;
+  /** Squads' git and checks (real mode). */
+  squad?: SquadToolkit;
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
   disposeRuntimes(capMs?: number): Promise<void>;
   close(): void;
@@ -216,6 +303,7 @@ export function createCore(o: CoreOptions): EngineCore {
     hooks,
     stopAll,
     router,
+    ...(o.squad ? { squad: createSquadToolkit(o.squad, { ingest, clock }) } : {}),
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       await stopAll.execute(capMs);
     },
@@ -252,8 +340,11 @@ export interface RunningEngine {
  */
 export function startEngine(opts: EngineOptions): RunningEngine {
   let dbPath = ":memory:";
+  const worktreesRoot = join(opts.dataDir, "worktrees");
   if (!opts.demo) {
     mkdirSync(opts.dataDir, { recursive: true, mode: 0o700 });
+    // Squads' worktrees hold the user's code: owner-only, like the database.
+    mkdirSync(worktreesRoot, { recursive: true, mode: 0o700 });
     dbPath = join(opts.dataDir, "gravita.db");
   }
 
@@ -277,7 +368,14 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     ...(chat ? { chat } : {}),
     ...(opts.demo
       ? {}
-      : { transcripts: new ClaudeTranscriptReader({ claudeHome: opts.claudeHome }) }),
+      : {
+          transcripts: new ClaudeTranscriptReader({ claudeHome: opts.claudeHome }),
+          squad: {
+            worktreesRoot,
+            // A Dock-launched app lacks the profile's PATH; checks need it to find pnpm & co.
+            checkEnv: async () => ({ ...process.env, ...(await shellEnv.load()) }),
+          },
+        }),
   });
   // Previews of transcripts live here: owner-only.
   if (!opts.demo) chmodSync(dbPath, 0o600);
