@@ -7,19 +7,19 @@
         "rule": "bounce-easing",
         "value": "orb-bounce",
         "createdAt": "2026-10-13T00:55:07.728Z",
-        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with ease-out-back overshoot on spawn and waiting-for-you, wobble for error; UI chrome stays non-bouncy"
+        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with overshoot on spawn and waiting-for-you, wobble for error; recorded in DESIGN.md"
       },
       {
         "rule": "bounce-easing",
         "value": "orb-wobble",
         "createdAt": "2026-10-13T00:55:07.796Z",
-        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with ease-out-back overshoot on spawn and waiting-for-you, wobble for error; UI chrome stays non-bouncy"
+        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with overshoot on spawn and waiting-for-you, wobble for error; recorded in DESIGN.md"
       },
       {
         "rule": "bounce-easing",
         "value": "cubic-bezier(0.34, 1.4, 0.64, 1)",
         "createdAt": "2026-10-13T00:55:07.855Z",
-        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with ease-out-back overshoot on spawn and waiting-for-you, wobble for error; UI chrome stays non-bouncy"
+        "reason": "Approved plan's motion identity (motion-design skill): agent orbs are the Playful archetype with overshoot on spawn and waiting-for-you, wobble for error; recorded in DESIGN.md"
       }
     ]
   }
