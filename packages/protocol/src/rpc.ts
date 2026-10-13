@@ -85,6 +85,9 @@ export const ConversationMessage = z.object({
 });
 export type ConversationMessage = z.infer<typeof ConversationMessage>;
 export const ConversationResult = z.object({ messages: z.array(ConversationMessage) });
+/** The kill switch: every session Gravita runs is stopped (its Claude Code process ends). */
+export const StopAllResult = z.object({ stopped: z.number().int().nonnegative() });
+
 export const ModelsResult = z.object({
   models: z.array(z.object({ value: z.string(), displayName: z.string() })),
 });
@@ -112,6 +115,7 @@ export const RpcContract = {
   "question.answer": { params: QuestionAnswerParams, result: OkResult },
   "session.conversation": { params: SessionRef, result: ConversationResult },
   "claude.models": { params: z.object({}).optional(), result: ModelsResult },
+  "engine.stopAll": { params: z.object({}).optional(), result: StopAllResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;
