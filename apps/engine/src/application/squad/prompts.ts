@@ -21,18 +21,82 @@ How to plan:
 
 Answer only with the plan.`;
 
-export function plannerPrompt(q: SquadState, feedback?: string): string {
-  const parts = [
-    `The user's brief:\n${q.brief}`,
-    `Budget: $${q.budgetUsd} for the whole squad. Roles run on "${q.models.roles}".`,
+export const BRIEFING_CHARTER = `You are the planner of a Gravita squad: a small team of Claude Code agents, each owning part of one repository, that builds what the user asked for. Right now you are being briefed. Before anything is planned, make sure you understand what the user wants, by talking with them.
+
+How to brief:
+- Look around the repository (Read, Grep, Glob) as much as you need to ask good questions. You can't change anything.
+- Ask short, concrete clarifying questions, a few at a time (three at most), and only those whose answers change what gets built. Prefer choices: use AskUserQuestion with two to four options when the answer is a pick.
+- Say plainly what you're assuming where you don't ask.
+- Don't write a plan, a task list or code yet. Gravita asks you for the plan when the user is ready.
+- When you have enough to plan, say so in one sentence, so the user can ask for the plan.`;
+
+/** One message of the briefing conversation, for a planner that can't resume it. */
+export interface BriefingLine {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/** The briefing as text is capped: the newest part matters most, the brief is sent anyway. */
+export const MAX_BRIEFING_CHARS = 12_000;
+
+function briefingText(lines: readonly BriefingLine[]): string {
+  const out: string[] = [];
+  let size = 0;
+  for (const l of [...lines].reverse()) {
+    const line = `${l.role === "user" ? "User" : "You"}: ${l.text.trim()}`;
+    if (size + line.length > MAX_BRIEFING_CHARS) {
+      out.push("[earlier messages left out]");
+      break;
+    }
+    out.push(line);
+    size += line.length;
+  }
+  return out.reverse().join("\n\n");
+}
+
+function budgetLine(q: SquadState) {
+  return `Budget: $${q.budgetUsd} for the whole squad. Roles run on "${q.models.roles}".`;
+}
+
+function feedbackParts(q: SquadState, feedback?: string): string[] | undefined {
+  if (!q.plan || !feedback) return undefined;
+  return [
+    `Your previous plan:\n${JSON.stringify(q.plan)}`,
+    `The user's feedback on it:\n${feedback}\n\nPropose a new plan that takes the feedback into account.`,
   ];
-  if (q.plan && feedback)
+}
+
+/**
+ * The first message of a fresh planner session. `briefing` is the conversation the user had
+ * with the planner before, when its session can't be resumed (after a restart).
+ */
+export function plannerPrompt(
+  q: SquadState,
+  feedback?: string,
+  briefing: readonly BriefingLine[] = [],
+): string {
+  const parts = [`The user's brief:\n${q.brief}`];
+  if (briefing.length)
     parts.push(
-      `Your previous plan:\n${JSON.stringify(q.plan)}`,
-      `The user's feedback on it:\n${feedback}\n\nPropose a new plan that takes the feedback into account.`,
+      `Before planning, you talked with the user about the brief (oldest first):\n${briefingText(briefing)}`,
     );
-  else parts.push("Read the repository first if it has code, then propose the plan.");
+  parts.push(budgetLine(q));
+  parts.push(
+    ...(feedbackParts(q, feedback) ?? [
+      "Read the repository first if it has code, then propose the plan.",
+    ]),
+  );
   return parts.join("\n\n");
+}
+
+/** The first message of a planner that resumes the briefing (or its own earlier session). */
+export function resumedPlannerPrompt(q: SquadState, feedback?: string): string {
+  return [
+    budgetLine(q),
+    ...(feedbackParts(q, feedback) ?? [
+      "The briefing is over. Now produce the SquadPlan from everything above: what the user asked for, their answers, and what you found in the repository. Answer only with the plan, as structured output.",
+    ]),
+  ].join("\n\n");
 }
 
 export function planFixPrompt(errors: readonly string[]): string {

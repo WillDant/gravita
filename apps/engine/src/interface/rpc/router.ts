@@ -105,6 +105,10 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "claude.models": () => d.listModels.execute(),
     "engine.stopAll": () => d.stopAll.execute(),
     "squad.create": (p) => squads().create(p),
+    "squad.plan": (p) => {
+      squads().plan(p);
+      return OK;
+    },
     "squad.replan": async (p) => {
       await squads().replan(p);
       return OK;

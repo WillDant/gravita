@@ -273,6 +273,8 @@ export function createCore(o: CoreOptions): EngineCore {
         runtimes,
         ingest,
         projection,
+        events,
+        transcripts: o.transcripts ?? noTranscripts,
         projects,
         workspace,
         ids,

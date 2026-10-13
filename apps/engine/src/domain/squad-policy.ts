@@ -17,6 +17,10 @@ export const MAX_PLAN_ATTEMPTS = 3;
 /** Rounds of bug fixing after red final checks before the squad waits for the user. */
 export const MAX_VERIFY_ROUNDS = 2;
 export const PLANNER_MAX_TURNS = 30;
+/** Turns per user message in the briefing conversation. */
+export const BRIEFING_MAX_TURNS = 30;
+/** The role id of the planner's sessions (the briefing and the planning runs). */
+export const PLANNER_ROLE_ID = "planner";
 export const ROLE_MAX_TURNS = 200;
 /** A budget scope warns once at this share. */
 export const BUDGET_WARN_RATIO = 0.75;
@@ -43,6 +47,14 @@ export const ACTIVE_PHASES: ReadonlySet<SquadPhase> = new Set([
 /** The planner's slice of the squad budget: a tenth, at least $1 (never more than the budget). */
 export function plannerBudget(squadBudgetUsd: number): number {
   return Math.min(squadBudgetUsd, Math.max(1, squadBudgetUsd * 0.1));
+}
+
+/**
+ * The briefing conversation's slice of the squad budget: a twentieth, at least $0.50 (never
+ * more than the budget). Modest on purpose: it reads and asks, it doesn't plan.
+ */
+export function briefingBudget(squadBudgetUsd: number): number {
+  return Math.min(squadBudgetUsd, Math.max(0.5, squadBudgetUsd * 0.05));
 }
 
 /** Headroom on a task's share: the estimate is a ballpark, a share is not a hard quote. */

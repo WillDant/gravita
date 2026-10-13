@@ -17,9 +17,9 @@ export class InMemorySessionRuntimeRegistry implements SessionRuntimeRegistry {
     this.ingest.execute([this.controlEvent(runtime, true)]);
   }
 
-  unregister(sessionId: string) {
+  unregister(sessionId: string, only?: SessionRuntime) {
     const runtime = this.runtimes.get(sessionId);
-    if (!runtime) return;
+    if (!runtime || (only && runtime !== only)) return;
     this.runtimes.delete(sessionId);
     this.ingest.execute([this.controlEvent(runtime, false)]);
   }

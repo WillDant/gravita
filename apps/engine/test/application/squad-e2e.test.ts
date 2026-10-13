@@ -7,7 +7,7 @@ import { outsideOwnership, squadPlan } from "@gravita/core";
 import type { GravitaEvent, SquadPlan } from "@gravita/protocol";
 import { BASE_FILES, sh, testPlan, userRepo } from "../git-helpers";
 import { withTempDir } from "../helpers";
-import { type ScriptedAgent, squadCore } from "../squad-fakes";
+import { createAndPlan, type ScriptedAgent, squadCore } from "../squad-fakes";
 
 // A whole squad, end to end, at no cost: the planner and every role are scripted sessions
 // (the real ClaudeSdkRuntime around a fake query), everything else is real — the
@@ -74,6 +74,8 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       const toolTexts: Record<string, string> = {};
 
       const h = squadCore(tmp, async (a) => {
+        // The briefing says nothing: the test asks for the plan at once.
+        if (a.isBriefing) return;
         if (a.isPlanner) {
           await a.prompt(1);
           return a.result({ structured: todoPlan(), cost: 0.4 });
@@ -132,7 +134,7 @@ describe("a squad end to end (scripted sessions, real git)", () => {
         }
       });
 
-      const { squadId, projectId } = await h.squads.create({
+      const { squadId, projectId } = await createAndPlan(h, {
         cwd,
         brief: "A todo app",
         budgetUsd: 50,
@@ -216,7 +218,15 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       const phases = h
         .events("squad.phase_changed")
         .map((e) => (e.data as { phase: string }).phase);
-      expect(phases).toEqual(["planning", "review", "foundation", "build", "verify", "deliver"]);
+      expect(phases).toEqual([
+        "brief",
+        "planning",
+        "review",
+        "foundation",
+        "build",
+        "verify",
+        "deliver",
+      ]);
       const at = (pred: (e: GravitaEvent) => boolean) => h.events().findIndex(pred);
       const phaseAt = (p: string) =>
         at((e) => e.type === "squad.phase_changed" && (e.data as { phase: string }).phase === p);
@@ -239,7 +249,7 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       // Role sessions: one task per role, at most three at once, with Gravita's options.
       expect(maxRunning).toBeLessThanOrEqual(3);
       expect(maxRunning).toBeGreaterThan(1);
-      const role = h.agents.find((a) => !a.isPlanner);
+      const role = h.agents.find((a) => a.isRole);
       expect(role?.options).toMatchObject({
         model: "opus",
         permissionMode: "acceptEdits",
@@ -260,7 +270,7 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       expect(h.core.runtimes.all()).toHaveLength(0);
 
       // Spend: the planner plus every role session's cumulative cost.
-      const roleSessions = h.agents.length - 1;
+      const roleSessions = h.agents.filter((a) => a.isRole).length;
       expect(q.budget.spentUsd).toBeCloseTo(0.4 + 0.1 * roleSessions);
       expect(q.roles.backend?.spentUsd).toBeGreaterThan(0);
 
@@ -281,6 +291,8 @@ describe("a squad end to end (scripted sessions, real git)", () => {
   test("an existing repository, delivered as a branch", async () => {
     await withTempDir(async (tmp) => {
       const h = squadCore(tmp, async (a) => {
+        // The briefing says nothing: the test asks for the plan at once.
+        if (a.isBriefing) return;
         if (a.isPlanner) return a.result({ structured: testPlan() });
         const prompt = await a.prompt(1);
         await doTheWork(a, await a.taskId(), prompt);
@@ -289,7 +301,7 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       const repo = join(tmp, "repo");
       await userRepo(repo, h.env, BASE_FILES);
       const before = await sh(repo, h.env, "rev-parse", "main");
-      const { squadId } = await h.squads.create({
+      const { squadId } = await createAndPlan(h, {
         cwd: repo,
         brief: "Demo",
         budgetUsd: 10,
@@ -303,7 +315,7 @@ describe("a squad end to end (scripted sessions, real git)", () => {
       // No foundation tasks: straight to build.
       expect(
         h.events("squad.phase_changed").map((e) => (e.data as { phase: string }).phase),
-      ).toEqual(["planning", "review", "foundation", "build", "verify", "deliver"]);
+      ).toEqual(["brief", "planning", "review", "foundation", "build", "verify", "deliver"]);
       expect(await h.squads.deliver({ squadId, mode: "branch" })).toEqual({
         ref: `gravita/${squadId}/integration`,
       });

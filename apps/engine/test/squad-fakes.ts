@@ -7,9 +7,10 @@ import type {
   SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { SquadState } from "@gravita/core";
-import type { GravitaEvent } from "@gravita/protocol";
+import type { GravitaEvent, RpcParams } from "@gravita/protocol";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { SquadOrchestrator } from "../src/application/squad/squad-orchestrator";
 import type { QueryFn } from "../src/infrastructure/claude/sdk/claude-sdk-runtime";
 import { createCore, type EngineCore } from "../src/main/container";
 import { FakeClaudeEnvironment, FakeClock, SeqIds, SilentLogger } from "./fakes";
@@ -40,8 +41,19 @@ export class ScriptedAgent {
     return this.options.cwd ?? "";
   }
 
+  /** A planning run: it answers with a plan as structured output. */
   get isPlanner(): boolean {
     return this.options.outputFormat !== undefined;
+  }
+
+  /** The briefing conversation: the planner role talking with the user, before any plan. */
+  get isBriefing(): boolean {
+    return !this.isPlanner && !this.isRole;
+  }
+
+  /** A role's task session (it has Gravita's role tools). */
+  get isRole(): boolean {
+    return this.options.mcpServers?.gravita !== undefined;
   }
 
   /** The text of the n-th message Gravita sent (1-based), once it arrives. */
@@ -196,6 +208,17 @@ export function squadCore(tmp: string, script: AgentScript, o: { dbPath?: string
   const events = (type?: string): GravitaEvent[] =>
     [...core.events.allEvents()].filter((e) => !type || e.type === type);
   return { core, squads, squad, events, agents, failures, clock, logger, env };
+}
+
+/** Creates a squad and asks for its plan at once (the briefing says nothing). */
+export async function createAndPlan(
+  h: { squads: SquadOrchestrator },
+  p: RpcParams<"squad.create">,
+): Promise<{ squadId: string; projectId: string }> {
+  const created = await h.squads.create(p);
+  h.squads.plan({ squadId: created.squadId });
+  await h.squads.idle(created.squadId);
+  return created;
 }
 
 /** Polls until `pred` holds (the engine works in the background). */

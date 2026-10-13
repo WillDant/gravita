@@ -370,6 +370,7 @@ describe("rpc router: squads", () => {
       "squad.create",
       { cwd: "/work/todo", brief: "A todo app", budgetUsd: 20, autonomy: "guarded" },
     ],
+    ["squad.plan", sq],
     ["squad.replan", { ...sq, feedback: "Split the API" }],
     ["squad.approvePlan", { ...sq, plan }],
     ["squad.pause", sq],
@@ -404,6 +405,7 @@ describe("rpc router: squads", () => {
     };
     const fake = {
       create: record("create", { squadId: "q1", projectId: "p1" }),
+      plan: (p: { squadId: string }) => void seen.push(`plan:${p.squadId}`),
       replan: record("replan"),
       approvePlan: record("approvePlan"),
       pause: (p: { squadId: string }) => void seen.push(`pause:${p.squadId}`),
@@ -419,11 +421,12 @@ describe("rpc router: squads", () => {
     for (const [method, params] of calls) outs.push(await router.dispatch(method, params));
     expect(outs).toEqual([
       { result: { squadId: "q1", projectId: "p1" } },
-      ...Array(8).fill({ result: { ok: true } }),
+      ...Array(9).fill({ result: { ok: true } }),
       { result: { ref: "main" } },
     ]);
     expect(seen).toEqual([
       "create:",
+      "plan:q1",
       "replan:q1",
       "approvePlan:q1",
       "pause:q1",

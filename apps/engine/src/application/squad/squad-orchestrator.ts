@@ -29,21 +29,23 @@ import type { CleanupSquadWorkspace } from "../usecases/cleanup-squad-workspace"
 import type { DeliverSquad } from "../usecases/deliver-squad";
 import type { PrepareSquadWorkspace } from "../usecases/prepare-squad-workspace";
 import { MIN_SESSION_BUDGET_USD } from "./budget-guard";
-import type { RunPlanner } from "./run-planner";
+import type { RunBriefing } from "./run-briefing";
+import type { PlannerRun, RunPlanner } from "./run-planner";
 import { clip, type SquadEmitter } from "./squad-emitter";
 import type { SquadRun, SquadRuns } from "./squad-run";
 import { PAUSE_REASONS, type SquadScheduler } from "./squad-scheduler";
 
 // The squad's front door: one instance runs every squad of the engine. It answers the
-// squad RPCs, starts the planner, approves plans into a workspace, and hands the running
-// part to the scheduler. Its memory is rebuilt from the projection, so a restart loses only
-// what was in flight, and `recover` makes that safe.
+// squad RPCs, holds the briefing conversation, starts the planner, approves plans into a
+// workspace, and hands the running part to the scheduler. Its memory is rebuilt from the
+// projection, so a restart loses only what was in flight, and `recover` makes that safe.
 
 export interface SquadOrchestratorDeps {
   squads: SquadReader;
   emitter: SquadEmitter;
   scheduler: SquadScheduler;
   planner: RunPlanner;
+  briefing: RunBriefing;
   git: GitWorkspace;
   prepare: PrepareSquadWorkspace;
   deliver: DeliverSquad;
@@ -84,8 +86,22 @@ export class SquadOrchestrator {
       autonomy: p.autonomy,
       baseBranch,
     });
-    this.startPlanner(this.run(this.need(squadId)));
+    const run = this.run(this.need(squadId));
+    this.d.emitter.phase(run, "brief");
+    await this.startBriefing(run);
     return { squadId, projectId: project.id };
+  }
+
+  /** Ends the briefing: the planner turns the conversation into a plan. */
+  plan(p: RpcParams<"squad.plan">) {
+    const q = this.need(p.squadId);
+    if (q.phase !== "brief")
+      throw new SquadPhaseError("A plan can be asked for only while the squad is being briefed.");
+    this.assertCapacity(q.id);
+    const run = this.run(q);
+    // At once, so the Board moves on and a second click is refused.
+    this.d.emitter.phase(run, "planning");
+    this.startPlanner(run);
   }
 
   async replan(p: RpcParams<"squad.replan">): Promise<void> {
@@ -251,6 +267,9 @@ export class SquadOrchestrator {
    * After a restart nothing of a squad is running any more. Tasks that were running or
    * waiting for their merge go back to ready (a merge that did land counts as done), and
    * every working squad starts paused, so nothing spends money until the user resumes.
+   * A squad being briefed is left as it is: its conversation isn't running any more (a
+   * message to it is refused as not controllable), and `squad.plan` starts the planner
+   * afresh with a summary of what was said.
    */
   recover() {
     for (const q of this.d.squads.squads()) {
@@ -368,13 +387,50 @@ export class SquadOrchestrator {
     }
   }
 
+  /** Where the planner role works: the repository's top level, or the (empty) folder. */
+  private async plannerCwd(q: SquadState): Promise<string> {
+    return (await this.d.git.isRepo(q.cwd)) ? this.d.git.topLevel(q.cwd) : q.cwd;
+  }
+
+  /** A briefing that can't start fails the squad (the user can still ask for a plan with replan). */
+  private async startBriefing(run: SquadRun) {
+    try {
+      await this.d.briefing.start(run, await this.plannerCwd(this.need(run.squadId)));
+    } catch (err) {
+      if (this.d.scheduler.closing) return;
+      this.d.logger.log(`squad ${run.squadId}: the briefing failed`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      this.d.emitter.phase(run, "failed", `The briefing couldn't start: ${message}`);
+    }
+  }
+
+  /**
+   * Resumes the planner role's session when this engine still knows it (the briefing, or
+   * the previous planning run); otherwise, or when Claude Code can't resume it, a fresh
+   * session gets the brief and a summary of the briefing.
+   */
+  private async runPlanner(run: SquadRun, cwd: string, feedback?: string) {
+    const base: PlannerRun = feedback ? { feedback } : {};
+    const fresh = async () => {
+      run.plannerSessionId = undefined;
+      const briefing = await this.d.briefing.conversation(this.need(run.squadId));
+      return this.d.planner.execute(run, cwd, { ...base, briefing });
+    };
+    const resumeSessionId = run.plannerSessionId;
+    if (!resumeSessionId) return fresh();
+    const end = await this.d.planner.execute(run, cwd, { ...base, resumeSessionId });
+    if (end.kind !== "unresumable") return end;
+    this.d.logger.log(`squad ${run.squadId}: the planner couldn't resume ${resumeSessionId}`);
+    return fresh();
+  }
+
   private startPlanner(run: SquadRun, feedback?: string) {
     run.track(
       (async () => {
         try {
+          await this.d.briefing.end(run);
           const q = this.need(run.squadId);
-          const cwd = (await this.d.git.isRepo(q.cwd)) ? await this.d.git.topLevel(q.cwd) : q.cwd;
-          const end = await this.d.planner.execute(run, cwd, feedback);
+          const end = await this.runPlanner(run, await this.plannerCwd(q), feedback);
           if (end.kind === "killed" && !this.d.scheduler.closing)
             this.d.scheduler.pause(run, PAUSE_REASONS.killSwitch);
         } catch (err) {

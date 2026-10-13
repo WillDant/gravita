@@ -155,6 +155,20 @@ export function plannerPermission(toolName: string): PermissionVerdict {
 }
 
 export const PLANNER_TOOLS: readonly string[] = ["Read", "Grep", "Glob"];
+
+/** The briefing reads like the planner, and may also ask the user (that's its job). */
+export const BRIEFING_TOOLS: readonly string[] = [...PLANNER_TOOLS, ASK_USER_QUESTION];
+
+/**
+ * The briefing session's answer to a permission prompt: reading is allowed, AskUserQuestion
+ * goes to the user, anything else is denied. It runs in "default" mode rather than the
+ * planner's "dontAsk", because "dontAsk" denies whatever isn't pre-approved without asking
+ * Gravita, and AskUserQuestion only reaches the user through that question.
+ */
+export function briefingPermission(toolName: string): PermissionVerdict {
+  if (toolName === ASK_USER_QUESTION) return "ask";
+  return PLANNER_TOOLS.includes(toolName) ? "allow" : "deny";
+}
 export const PLANNER_DISALLOWED_TOOLS: readonly string[] = [
   "Write",
   "Edit",

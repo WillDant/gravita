@@ -8,7 +8,13 @@ import { SquadRuns } from "../../src/application/squad/squad-run";
 import { InvalidSquadPlanError, SquadPhaseError } from "../../src/domain/errors";
 import { testPlan } from "../git-helpers";
 import { withTempDir } from "../helpers";
-import { type AgentScript, type ScriptedAgent, squadCore, until } from "../squad-fakes";
+import {
+  type AgentScript,
+  createAndPlan,
+  type ScriptedAgent,
+  squadCore,
+  until,
+} from "../squad-fakes";
 
 // Squads under control: budgets, pause and resume, the kill switch, a restart, stop, and
 // the user's task decisions. Scripted sessions, real git.
@@ -21,10 +27,15 @@ const roleOf = (a: ScriptedAgent) => (a.cwd.endsWith("/backend") ? "backend" : "
 async function building(h: Harness, tmp: string, budgetUsd = 20, sessions = 2, waitRunning = true) {
   const cwd = join(tmp, "app");
   await mkdir(cwd, { recursive: true });
-  const { squadId } = await h.squads.create({ cwd, brief: "Demo", budgetUsd, autonomy: "guarded" });
+  const { squadId } = await createAndPlan(h, {
+    cwd,
+    brief: "Demo",
+    budgetUsd,
+    autonomy: "guarded",
+  });
   await h.squads.idle(squadId);
   await h.squads.approvePlan({ squadId, plan: h.squad(squadId).plan as SquadPlan });
-  await until(() => h.agents.filter((a) => !a.isPlanner).length >= sessions, "role sessions");
+  await until(() => h.agents.filter((a) => a.isRole).length >= sessions, "role sessions");
   if (waitRunning)
     await until(
       () =>
@@ -38,6 +49,8 @@ async function building(h: Harness, tmp: string, budgetUsd = 20, sessions = 2, w
 /** Plans `plan`; role sessions run `role`. */
 function script(role: AgentScript, plan: SquadPlan = testPlan()): AgentScript {
   return async (a) => {
+    // The briefing says nothing: the test asks for the plan at once.
+    if (a.isBriefing) return;
     if (a.isPlanner) return a.result({ structured: plan, cost: 0.1 });
     return role(a);
   };
@@ -83,7 +96,7 @@ describe("budgets", () => {
       expect(h.events("budget.exhausted").map((e) => e.data)).toEqual([
         { squadId, scope: "squad", scopeId: squadId, usedUsd: 2.6, limitUsd: 2 },
       ]);
-      const frontend = h.agents.find((a) => !a.isPlanner && roleOf(a) === "frontend");
+      const frontend = h.agents.find((a) => a.isRole && roleOf(a) === "frontend");
       expect(frontend?.q.calls).toContain("interrupt");
       expect(h.core.runtimes.all()).toHaveLength(1);
       h.clock.advance(5_000);
@@ -115,7 +128,7 @@ describe("budgets", () => {
       expect(q2).toMatchObject({ phase: "deliver", budgetUsd: 10, roleBudgets: { backend: 5 } });
       expect(q2.budget.exhausted).toEqual([]);
       // The resumed sessions share what is left: (10 - 2.6) / 2, and backend's (5 - 2.5).
-      const resumed = h.agents.filter((a) => a.options.resume);
+      const resumed = h.agents.filter((a) => a.isRole && a.options.resume);
       expect(resumed.map((a) => [roleOf(a), a.options.maxBudgetUsd]).sort()).toEqual([
         ["backend", 2.5],
         ["frontend", 3.7],
@@ -149,6 +162,8 @@ describe("budgets", () => {
       };
       // Each session spends a response at a time until Claude Code stops it at its cap.
       const h = squadCore(tmp, async (a) => {
+        // The briefing says nothing: the test asks for the plan at once.
+        if (a.isBriefing) return;
         if (a.isPlanner) return a.result({ structured: plan });
         await a.prompt(1);
         const cap = a.options.maxBudgetUsd ?? 0;
@@ -158,7 +173,7 @@ describe("budgets", () => {
       });
       const { squadId } = await building(h, tmp, 9, 3, false);
       await h.squads.idle(squadId);
-      const sessions = h.agents.filter((a) => !a.isPlanner);
+      const sessions = h.agents.filter((a) => a.isRole);
       expect(sessions).toHaveLength(3);
       // Alone, each task's slice would be $4.50; side by side each gets a third of $9.
       for (const s of sessions) expect(s.options.maxBudgetUsd).toBe(3);
@@ -194,7 +209,7 @@ describe("budgets", () => {
       );
       expect(q.paused).toBeUndefined();
       // Its slice (half the budget, with headroom: $7.50) is capped by its share of what's left.
-      const backend = h.agents.find((a) => !a.isPlanner && roleOf(a) === "backend");
+      const backend = h.agents.find((a) => a.isRole && roleOf(a) === "backend");
       expect(backend?.options.maxBudgetUsd).toBe(4.95);
     });
   });
@@ -213,7 +228,7 @@ describe("pause, resume, the kill switch and stop", () => {
         }),
       );
       const { squadId } = await building(h, tmp);
-      const before = h.agents.filter((a) => !a.isPlanner).map((a) => a.options.sessionId);
+      const before = h.agents.filter((a) => a.isRole).map((a) => a.options.sessionId);
       h.squads.pause({ squadId });
       await h.squads.idle(squadId);
       expect(h.squad(squadId).paused?.reason).toBe("Paused by you.");
@@ -223,7 +238,9 @@ describe("pause, resume, the kill switch and stop", () => {
       h.squads.resume({ squadId });
       await h.squads.idle(squadId);
       expect(h.failures).toEqual([]);
-      const resumed = h.agents.filter((a) => a.options.resume).map((a) => a.options.resume);
+      const resumed = h.agents
+        .filter((a) => a.isRole && a.options.resume)
+        .map((a) => a.options.resume);
       expect(resumed.sort()).toEqual([...before].sort());
       expect(h.squad(squadId).phase).toBe("deliver");
       expect(h.squad(squadId).paused).toBeUndefined();
@@ -241,7 +258,7 @@ describe("pause, resume, the kill switch and stop", () => {
       expect(q.tasks["api-1"]).toMatchObject({ status: "ready", attempt: 2 });
       expect(q.tasks["web-1"]).toMatchObject({ status: "ready", attempt: 2 });
       // Nothing was restarted on its own.
-      expect(h.agents.filter((a) => !a.isPlanner)).toHaveLength(2);
+      expect(h.agents.filter((a) => a.isRole)).toHaveLength(2);
       expect(h.events("squad.paused")).toHaveLength(1);
     });
   });
@@ -266,7 +283,7 @@ describe("pause, resume, the kill switch and stop", () => {
       const dbPath = join(tmp, "gravita.db");
       const first = squadCore(tmp, script(waitForever), { dbPath });
       const { squadId } = await building(first, tmp);
-      const sessions = first.agents.filter((a) => !a.isPlanner).map((a) => a.options.sessionId);
+      const sessions = first.agents.filter((a) => a.isRole).map((a) => a.options.sessionId);
 
       // The engine "crashes": a new one opens the same database.
       const second = squadCore(
