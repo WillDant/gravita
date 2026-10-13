@@ -21,9 +21,9 @@ related_targets: []
 
 **Unresolved:** exact role colors' contrast in dark theme; Squad board density.
 
-**Deferred to M1 (cited, per the approved plan's milestones):**
-- Orbit lens (Canvas2D orbit scene): the M0 lens tabs are Lines · Tree.
-- Composer under the map: lands with the Agent SDK chat runner. External (terminal) sessions never get one; they show the "watching your terminal" bar.
+**Delivered in M1:** composer under the map for sessions Gravita runs (Agent SDK chats; external terminal sessions keep the "watching your terminal" bar), the Conversation lens, and the Orbit lens (Canvas2D orbit scene; lens tabs are Lines · Orbit · Conversation · Tree, Lines by default).
+
+**Deferred (cited, per the approved plan's milestones):**
 - Answering permission prompts of external sessions: their prompt lives in the user's terminal, so Gravita points there instead of offering Allow/Deny. Sessions Gravita controls (demo now, SDK chats in M1) get inline Allow/Deny.
 
 ## Direction contract

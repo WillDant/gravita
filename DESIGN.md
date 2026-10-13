@@ -245,7 +245,7 @@ A cool, near-colourless frame around a set of saturated metro-line hues, with or
 
 ## Layout
 
-A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen is a 48px-ish header (breadcrumb, Lines · Tree segmented control, count chips pushed right), the map filling the centre, and a fixed 340px right column holding "What's happening" or the agent panel. Home and Project are a centred column (max 1080px, 32px side padding, 40px between sections).
+A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen is a 48px-ish header (breadcrumb, Lines · Orbit · Conversation · Tree segmented control, count chips pushed right), the map filling the centre, and a fixed 340px right column holding "What's happening" or the agent panel. Home and Project are a centred column (max 1080px, 32px side padding, 40px between sections).
 
 The line map fits its frame like a printed diagram: columns flex between 16px and 96px, lanes between 56px and 104px, spare height lifts the diagram 30% off the top, and the map scrolls horizontally only when it cannot fit, following "now" like a departures board unless the user scrolls back. Spacing rides Tailwind's 4px grid; the recurring steps are 4, 8, 12, 16, 20, 24, 32, 40.
 
@@ -264,7 +264,7 @@ Flat by default. Surfaces separate by tone (ground vs panel) and 1px hairlines, 
 
 Round, signage-like geometry. Controls use gently rounded corners (6px nav items and tabs, 8px buttons and rows), containers 12px, chips and counts are full pills, project initials sit on 4px tiles. The focus ring is a 2px focus-blue outline at 2px offset with 6px radius.
 
-On the map, form is octolinear: lines are 5px with round caps and joins, run horizontally, drop vertically from their spawn station, and turn on a 45° chamfer (12px knee) into their lane; the merge back mirrors it. Under each line runs a 10px ground-coloured casing. Stations are 4.6px-radius white dots with a 2px ink ring (filled ink while the tool is running; red ring on error); a waiting station grows to a 6.5px white dot with an orange ring plus a pulsing halo. Interchanges are white capsules (13×25px, fully rounded) with a 2.2px ink ring and a pip in the branch's colour. Detached lines turn into a dotted "1 9" dash. The orb is a circle with a 1.6px ink ring, a soft highlight, two white eyes with ink pupils that look toward what the agent is doing, and an optional 7px glyph badge with an ink ring.
+On the map, form is octolinear: lines are 5px with round caps and joins, run horizontally, drop vertically from their spawn station, and turn on a 45° chamfer (12px knee) into their lane; the merge back mirrors it. Under each line runs a 10px ground-coloured casing. Stations are 4.6px-radius white dots with a 2px ink ring (filled ink while the tool is running; red ring on error); a waiting station grows to a 6.5px white dot with an orange ring plus a pulsing halo. Interchanges are white capsules (13×25px, fully rounded) with a 2.2px ink ring and a pip in the branch's colour. Capsules of the same kind (spawns, or merges) on the same parent line in consecutive columns are linked: a 10px white bar with the same ink ring runs along the pip row behind them, so subagents launched together read as one interchange. Detached lines turn into a dotted "1 9" dash. The orb is a circle with a 1.6px ink ring, a soft highlight, two white eyes with ink pupils that look toward what the agent is doing, and an optional 7px glyph badge with an ink ring.
 
 ### Named Rules
 **The Octolinear Rule.** Lines move only horizontally, vertically, or on a 45° knee. No free curves, no other angles.
@@ -297,14 +297,17 @@ Compact and confident; ink does the work.
 ### Navigation
 - **Sidebar:** cool panel, 32px rows with a 16px icon, 0.8125rem 500 ink-2. Hover fills panel-2; active is a ground tile with panel lift. Projects carry an initial tile and a live count pill (orange-tinted when waiting); sessions indent under their project with a status dot and either a live count or "x min ago". Below 1100px the rail keeps icons, initial tiles and count badges only.
 - **Breadcrumb:** Home › Project › Session at 0.8125rem, chevrons in ink-3, current item semibold ink.
-- **Lens tabs:** segmented control on a panel track (2px inset); 28px tabs; the selected tab is a lifted ground tile. Lenses shipped: Lines · Tree.
+- **Lens tabs:** segmented control on a panel track (2px inset); 28px tabs; the selected tab is a lifted ground tile. Lenses shipped: Lines · Orbit · Conversation · Tree (Lines is the default).
 - **Agent panel tabs:** Story · Steps · Raw as 28px text tabs; selected fills panel.
 
 ### Line Map (signature)
 The live session map. One lane per agent, main on top, branches below their parent. Each line's name sits above its lane with a line-code badge (16px disc), starting just past the spawn knee and sliding left rather than colliding with the orb. A dotted hairline-strong "now" rule marks the right edge of live time. The head of every running line carries its 30px orb, with 11px signage under it ending at the orb's right edge ("is reading sessions.ts", or "waiting for you · Bash" in bold waiting-ink). Selecting an agent dims the other lines to 60%. New lines draw themselves in (stroke-dash grow) and their orb pops in.
 
+### Orbit (lens)
+The session as a small solar system, drawn on one Canvas2D: the project is a neutral sun (ground disc, ink ring, its initial in DM Sans bold) at the centre; top-level agents are planets on a hairline ring around it; subagents are moons on their parent's ring, moons of moons smaller again. Bodies keep an angle derived from their id, so nothing jumps when the session changes; moons drift slowly (one turn per 120s) and everything glides 480ms to new places. With one planet (a plain chat, the common case) the planet is pinned to the sun's right and its system fills the pane, the sun held in the left third; with several (a squad) the planets share a ring and drift once per 180s. More than six moons on one parent collapse into a swarm cluster with a "×N" chip that opens the parent; waiting and failed moons (and any moon whose subtree needs you) always stay outside it, finished ones go in first and fade to 45%. A failed moon keeps its size and gets a 2px red ring. Orbs are the same persona as the SVG orb, from the shared rig in `@gravita/orbs`. An invisible button per body sits over the canvas for keyboard and screen readers ("Explore is reading auth.ts"); selection draws an ink ring, keyboard focus a 2px focus-blue ring outside it. The loop runs at 60fps only while a glide or spawn pop is in flight, 30fps otherwise (bounce and halo included), stops when the window is hidden, and with reduced motion only redraws on change.
+
 ### Orb (persona)
-The agent as a character: fill colour from its line, ink ring, eyes whose pupils glance toward the tool, up while thinking, at the viewer while waiting, toward a child while delegating. Done closes the eyes in a smile; stopped and away fade to 45%. A glyph badge (Lucide icon on a ground disc) shows the state where no label does; dense lists hide it. Sizes: 48 (agent panel), 32 (Happening rows), 30 (map), 24-28 (lists, tree).
+The agent as a character: fill colour from its line, ink ring, eyes whose pupils glance toward the tool, up while thinking, at the viewer while waiting, toward a child while delegating. Done closes the eyes in a smile; stopped and away fade to 45%. A glyph badge (Lucide geometry from `@gravita/orbs`, on a ground disc) shows the state where no label does; dense lists hide it. Sizes: 48 (agent panel), 32 (Happening rows), 30 (map), 24-28 (lists, tree).
 
 ### Mini Lines
 A 176×44 thumbnail of a session's map on Home project rows: 3px main line, up to three 2.6px branches with 5px knees, stations and the head drawn small, orange head when waiting.
@@ -315,7 +318,8 @@ Allow (primary) and Deny (secondary) inline on waiting rows, beneath a mono line
 ### Motion
 - **Chrome:** palette of 120 / 240 / 480ms on the signature ease cubic-bezier(0.2, 0, 0, 1); no overshoot. Pupils glide 240ms; new lines draw in on the signature ease.
 - **Orbs (Playful):** slow sine breathing as ambient (2.4s thinking, 3.2s working, 4.2s idle, scale 1.045); a 0.7s 1.5px bob while busy; overshoot pop on spawn (480ms, cubic-bezier(0.34, 1.4, 0.64, 1)); squash-and-stretch bounce plus a pulsing orange halo when waiting; ±6° wobble on error; a blink every ~4.2s; small wander when the gaze is idle.
-- **Budget:** at most about a third of visible orbs in primary motion (pop, bounce, wobble) at once; the rest only breathe.
+- **Budget (the 1/3 rule):** at most a third of visible orbs (at least one) play primary motion (pop, bounce, wobble) at once, enforced by `allocateMotion` on the line map and the orbit: someone waiting on you first, then a failure, then a fresh spawn. The rest only breathe; the orange halo, glyph and colour still tell the state. Each orb's breathing and blink start at a phase seeded by its agent id, so a list never moves in lockstep.
+- **Tokens:** the timings live in `@gravita/orbs` (`tokens/motion.ts`); a test keeps `styles.css` in step with them.
 - **Accessibility:** every loop and entrance lives inside `prefers-reduced-motion: no-preference`.
 
 ## Do's and Don'ts
