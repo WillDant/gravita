@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { type GravitaEvent, keys, MAIN_AGENT } from "@gravita/protocol";
-import { inputPreview } from "../tools";
+import { inputKeyOf } from "@gravita/protocol/input-key";
+import { inputPreview } from "@gravita/protocol/tools";
 import { normalizeRecords } from "../transcript/normalize";
 import type { RawRecord } from "../transcript/records";
 import type { HookPayload } from "./payload";
@@ -59,24 +59,9 @@ export interface HookMapping {
 export const hookSessionStartedKey = (sessionId: string) =>
   `${keys.sessionStarted(sessionId)}:hook`;
 
-/** JSON with object keys sorted, so equal inputs always hash the same. */
-export function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "null";
-}
-
-export function inputKeyOf(toolName: string, input: Record<string, unknown>): string {
-  return createHash("sha1")
-    .update(`${toolName}\0${stableJson(input)}`)
-    .digest("hex")
-    .slice(0, 16);
-}
+// Shared with every provider's hooks (@gravita/protocol); re-exported for existing callers.
+export { inputKeyOf } from "@gravita/protocol/input-key";
+export { stableJson } from "@gravita/protocol/tools";
 
 export function hookAgentId(p: Pick<HookPayload, "agent_id">): string {
   return p.agent_id ?? MAIN_AGENT;

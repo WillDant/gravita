@@ -1,5 +1,5 @@
 import { type GravitaEvent, keys, MAIN_AGENT } from "@gravita/protocol";
-import { preview } from "../tools";
+import { preview } from "@gravita/protocol/tools";
 import { normalizeRecords } from "../transcript/normalize";
 import { AGENT_ID, type RawRecord } from "../transcript/records";
 import {
