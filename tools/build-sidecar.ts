@@ -1,7 +1,8 @@
 // Compiles the engine into a single binary named the way Tauri's externalBin expects:
 // apps/desktop/src-tauri/binaries/gravita-engine-<rust target triple>[.exe]
-import { $ } from "bun";
+
 import { join } from "node:path";
+import { $ } from "bun";
 
 const root = join(import.meta.dir, "..");
 const triple = (await $`rustc -vV`.text()).match(/host: (\S+)/)?.[1];
