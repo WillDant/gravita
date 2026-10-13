@@ -40,3 +40,24 @@ describe("events", () => {
     expect(e.key).toBe("project:p1:discovered");
   });
 });
+
+describe("M1b contract", () => {
+  test("session.start requires a folder and a prompt; mode is one of the known ones", () => {
+    const p = RpcContract["session.start"].params;
+    expect(p.safeParse({ cwd: "/w/app", prompt: "hi" }).success).toBe(true);
+    expect(p.safeParse({ cwd: "", prompt: "hi" }).success).toBe(false);
+    expect(p.safeParse({ cwd: "/w", prompt: "hi", permissionMode: "yolo" }).success).toBe(false);
+  });
+
+  test("question.answer carries answers by question text", () => {
+    const p = RpcContract["question.answer"].params;
+    const ok = {
+      sessionId: "s",
+      agentId: "main",
+      requestId: "r",
+      answers: { "Which DB?": "SQLite" },
+    };
+    expect(p.safeParse(ok).success).toBe(true);
+    expect(p.safeParse({ ...ok, answers: { q: 1 } }).success).toBe(false);
+  });
+});

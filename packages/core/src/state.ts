@@ -1,4 +1,4 @@
-import type { SessionKind, ToolKind } from "@gravita/protocol";
+import type { PermissionMode, Question, SessionKind, ToolKind } from "@gravita/protocol";
 
 /**
  * Persistent lifecycle of an agent node. Activity (what it's doing right now) is
@@ -61,6 +61,14 @@ export interface AgentNode {
   pendingPermissions: string[];
   /** What each pending request asks for, by request id. */
   permissions: Record<string, PermissionRequest>;
+  /** Questions this agent is waiting on the user to answer, by request id. */
+  questions: Record<string, PendingQuestion>;
+}
+
+export interface PendingQuestion {
+  requestId: string;
+  questions: Question[];
+  ts: string;
 }
 
 export interface PermissionRequest {
@@ -85,6 +93,9 @@ export interface SessionState {
   live: boolean;
   /** Gravita runs this session and can answer, interrupt or message it. */
   controllable: boolean;
+  /** Model and permission mode, for sessions Gravita runs. */
+  model?: string;
+  permissionMode?: PermissionMode;
   ended: boolean;
   costUsd?: number;
   agents: Record<string, AgentNode>;

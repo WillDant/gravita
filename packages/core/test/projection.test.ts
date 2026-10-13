@@ -162,3 +162,78 @@ describe("projection", () => {
     });
   });
 });
+
+describe("M1b: questions, settings and Gravita prompts", () => {
+  const base = {
+    source: "sdk" as const,
+    provider: "claude" as const,
+    projectId: "p",
+    sessionId: "q",
+  };
+  const t = (n: number) => `2026-10-12T10:00:0${n}.000Z`;
+  const events: GravitaEvent[] = [
+    {
+      ...base,
+      key: "q1",
+      ts: t(0),
+      type: "session.started",
+      data: { kind: "chat", cwd: "/w/app" },
+    },
+    {
+      ...base,
+      key: "q2",
+      ts: t(1),
+      type: "session.settings",
+      data: { model: "haiku", permissionMode: "default" },
+    },
+    {
+      ...base,
+      key: "q3",
+      ts: t(2),
+      type: "message.user",
+      data: { uuid: "u1", textPreview: "Map the repo", origin: "gravita" },
+    },
+    {
+      ...base,
+      key: "q4",
+      ts: t(3),
+      type: "question.asked",
+      data: {
+        requestId: "r1",
+        questions: [
+          {
+            question: "Which DB?",
+            multiSelect: false,
+            options: [{ label: "SQLite" }, { label: "Postgres" }],
+          },
+        ],
+      },
+    },
+  ];
+
+  test("a Gravita prompt activates main and titles the session; settings land on the session", () => {
+    const s = applyAll(emptyState(), events).sessions.q!;
+    expect(s.firstUserText).toBe("Map the repo");
+    expect(s.model).toBe("haiku");
+    expect(s.permissionMode).toBe("default");
+  });
+
+  test("a question waits on the user and reads as asking; answering releases it", () => {
+    const state = applyAll(emptyState(), events);
+    const s = state.sessions.q!;
+    const now = Date.parse(t(4));
+    expect(s.agents.main!.lifecycle).toBe("waiting_user");
+    expect(toPersona(s.agents.main!, s, now).label.key).toBe("persona.asking");
+    applyAll(state, [
+      {
+        ...base,
+        key: "q5",
+        ts: t(5),
+        type: "question.answered",
+        data: { requestId: "r1", by: "user" },
+      },
+    ]);
+    expect(s.agents.main!.questions).toEqual({});
+    expect(s.agents.main!.lifecycle).toBe("active");
+  });
+});

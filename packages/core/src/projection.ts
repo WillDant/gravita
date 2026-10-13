@@ -45,6 +45,7 @@ function newAgent(sessionId: string, id: string, ts: string, parentId: string | 
     children: [],
     pendingPermissions: [],
     permissions: {},
+    questions: {},
   };
 }
 
@@ -165,6 +166,10 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
         a.inflight = {};
       }
       return;
+    case "session.settings":
+      if (e.data.model !== undefined) s.model = e.data.model;
+      if (e.data.permissionMode !== undefined) s.permissionMode = e.data.permissionMode;
+      return;
     case "session.control":
       s.controllable = e.data.controllable;
       return;
@@ -229,7 +234,8 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       return;
     }
     case "message.user":
-      if (agentId === MAIN_AGENT && e.data.origin === "human") {
+      // A prompt typed in the terminal ("human") or in Gravita's composer ("gravita").
+      if (agentId === MAIN_AGENT && (e.data.origin === "human" || e.data.origin === "gravita")) {
         setLifecycle(a, "active");
         if (!s.firstUserText) s.firstUserText = e.data.textPreview;
       }
@@ -288,7 +294,29 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
     case "permission.resolved":
       a.pendingPermissions = a.pendingPermissions.filter((r) => r !== e.data.requestId);
       if (a.permissions) delete a.permissions[e.data.requestId];
-      if (a.pendingPermissions.length === 0 && a.lifecycle === "waiting_user")
+      if (
+        a.pendingPermissions.length === 0 &&
+        Object.keys(a.questions ?? {}).length === 0 &&
+        a.lifecycle === "waiting_user"
+      )
+        a.lifecycle = "active";
+      return;
+    case "question.asked":
+      a.questions ??= {};
+      a.questions[e.data.requestId] = {
+        requestId: e.data.requestId,
+        questions: e.data.questions,
+        ts: e.ts,
+      };
+      setLifecycle(a, "waiting_user");
+      return;
+    case "question.answered":
+      if (a.questions) delete a.questions[e.data.requestId];
+      if (
+        a.lifecycle === "waiting_user" &&
+        a.pendingPermissions.length === 0 &&
+        Object.keys(a.questions ?? {}).length === 0
+      )
         a.lifecycle = "active";
       return;
     case "error":
