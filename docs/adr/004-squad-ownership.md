@@ -29,3 +29,26 @@ Parallel agents can't overwrite each other; plans are reviewable before any mone
 
 **Limits on concurrency.** Squad sessions don't count against the six chats; a squad runs at most three role sessions, and at most two squads work at once.
 
+## Addendum (M2e): the model policy
+
+**Decision.** New squads default to an *Automatic* (cost-benefit) model policy instead of Opus everywhere. Opus costs about twice Sonnet per token and most squad work is routine; the expensive mistakes cluster in a few places. So the policy spends where a mistake ripples through the whole squad and saves everywhere else:
+
+| Run | Automatic | Why |
+| --- | --- | --- |
+| Briefing conversation | Sonnet | Reading and asking; no decisions that are hard to undo. |
+| Planning run (resumes the briefing) | Opus | One run, highest leverage: every role, path and contract comes from it. |
+| Task, small or medium | Sonnet | Routine work inside one role's paths, checked by the commit gate and the checks. |
+| Task: foundation, writes a contract path (`writes` overlapping a `contracts[].path`), or size `l` | Opus | Everything else builds on it, every role reads it, or it is big enough that a redo costs more than the model. |
+| A later run of a task that struggled | one tier up per struggle (haiku → sonnet → opus, opus stays) | A second try on the same model tends to repeat the first. |
+| Subagents of every squad session | Haiku | They search and read for their parent. |
+
+The user can pick *Opus everywhere* or *Sonnet everywhere* instead (fixed: no lift, no escalation, subagents left alone). A role's own `model` in the plan wins over the policy for that role, and a manual "Retry with a stronger model" wins for that task.
+
+**Shape.** `SquadModels` stays `{ planner, roles }` and gains optional `briefing` and `mode: "auto" | "fixed"`. Automatic is `{ mode: "auto", briefing: "sonnet", planner: "opus", roles: "sonnet" }`; `roles` is the everyday tier and the lift is relative to it. `squad.create` without `models` gets Automatic; with `models` and no `mode` it is fixed (an older client meant exactly those two models). Events from before the policy have no `mode` and project and run as fixed, the briefing on `planner` as before. One pure function in `@gravita/core`, `pickModel({ models, phase, plan?, task?, roleId?, escalations? })`, decides every model; the engine (briefing, planner, scheduler) and the UI (`estimatePlanCost`, the Board's Opus marks and per-model split, the "Retry with Opus" offer) both call it, so the estimate is the policy. `estimatePlanCost` takes optional per-task model overrides, and a task's budget slice prices that task at the model its run actually uses.
+
+**Escalation is a fact in the log.** When an attempt ends in a way a stronger model may fix — a failure (including `complete_task` sent back past the limit for ownership or red task checks), an error, a conflicted merge, a merge undone by a red `integration` check, ending twice without `complete_task`, or running out of turns — the `task.status_changed` that closes it carries `struggledAttempt`. The projection keeps the distinct struggled attempts per task (`SquadTaskState.struggled`), order-tolerant and idempotent, and the escalation count is their number. The scheduler picks the model once per run from the projection (plus an in-memory manual override), so a restart picks the same model. Interruptions, the kill switch, `yield_blocked` and a spent budget are not the model's doing and don't escalate. Red *final* checks create new bug tasks; those start at their own tier.
+
+**Switching model on resume.** The planner resumes the briefing's session on a different model. The runtime passes `model` to `query` whether or not it resumes, and Claude Code continues the transcript on the new model (the prompt cache doesn't carry over, which the estimate's cache-write share already assumes). The switch is recorded as a `session.settings` event on that session.
+
+**Subagents.** The knob is the `CLAUDE_CODE_SUBAGENT_MODEL` environment variable, which the bundled Claude Code (2.1.296, SDK 0.3.296) lists among its known variables and reads when resolving a subagent's model: the model passed on the Agent call wins, then the agent definition's own `model` (Explore's built-in definition already picks Haiku), then this variable, then the parent's model. Under Automatic every squad session gets `CLAUDE_CODE_SUBAGENT_MODEL=haiku`; fixed choices don't set it. Gravita doesn't redefine built-in agents through the SDK's `agents` option, which would replace their definitions, and doesn't set `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, which would also override an explicit model an agent asked for.
+

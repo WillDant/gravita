@@ -18,7 +18,20 @@ You can pause, resume or stop a squad at any time. Anything that needs you (a pe
 
 ## What it costs
 
-Every agent in a squad is a Claude Code session on your account, so a squad spends like that many sessions. Squads use Opus for the planner and the roles unless you pick another model. The briefing conversation has its own small share of the budget (a twentieth, at least $0.50), and planning another (a tenth, at least $1). Before you approve, the Board shows a rough estimate for the plan; real spend depends on your repository and on how many tries a task needs.
+Every agent in a squad is a Claude Code session on your account, so a squad spends like that many sessions. The briefing conversation has its own small share of the budget (a twentieth, at least $0.50), and planning another (a tenth, at least $1). Before you approve, the Board shows a rough estimate for the plan, split by model; real spend depends on your repository and on how many tries a task needs.
+
+**Which models run.** You choose when you start the squad:
+
+- **Automatic (recommended).** Sonnet for most work, Opus where it matters, Haiku for helpers; it steps up only when a task struggles. In detail:
+  - the briefing conversation runs on Sonnet;
+  - writing the plan runs on Opus (one run, and the one that shapes everything after it);
+  - tasks run on Sonnet, except foundation tasks, tasks that write a shared contract, and large tasks, which run on Opus (the Board marks them "Opus");
+  - a task that struggled (it failed, its merge conflicted or was undone by a red check, it was sent back too often, or it ended without finishing) runs its next try one step up: Haiku → Sonnet → Opus. Being paused, asking you a question or running out of budget doesn't count;
+  - the helpers agents start on their own (Explore and other subagents) run on Haiku, unless the agent asks for a specific model.
+- **Opus everywhere.** The strongest model for every agent; costs the most.
+- **Sonnet everywhere.** About half of Opus's price per task, for every agent, with no step up.
+
+Whatever you choose, a model the plan sets for a role wins for that role, and "Retry with Opus" on a stuck task wins for that task.
 
 The budget you set is a hard ceiling, enforced in layers:
 
@@ -53,7 +66,7 @@ Whatever you choose, a role can never edit another role's folders, the shared fi
 
 ## If something goes wrong
 
-- **A task fails.** Gravita retries once on its own (with what went wrong in the agent's instructions); after that the task waits for you: retry it (optionally with another model), skip it, or give it to another role that owns its folders.
+- **A task fails.** Gravita retries once on its own (with what went wrong in the agent's instructions, and under Automatic on a stronger model); after that the task waits for you: retry it (optionally with another model), skip it, or give it to another role that owns its folders.
 - **You pause, or press the kill switch in the tray.** Running sessions stop and the squad waits; when you resume, each interrupted task continues in its own session.
 - **Gravita (or your computer) restarts during the brief.** The conversation so far is kept, but you can't write to the planner any more. Ask for the plan: a new planner session gets your brief and a summary of the conversation.
 - **Gravita (or your computer) restarts.** Squads that were working come back paused, so nothing spends money until you resume. A task that was interrupted before the restart starts over from its last committed state, so changes it hadn't committed yet may be lost.
