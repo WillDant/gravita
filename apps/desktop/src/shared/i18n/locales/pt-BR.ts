@@ -31,6 +31,14 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "home.status.running": "Linhas rodando",
   "home.status.waiting": "Esperando você",
   "home.status.quiet": "Parado",
+  "home.empty":
+    "Nenhuma sessão ainda. Abra o Claude Code ou o Codex em qualquer projeto e ela aparece aqui sozinha.",
+  "home.codex.missing": "Usa o Codex? Depois de instalado, as sessões dele aparecem aqui também.",
+  "home.codex.outdated":
+    "Este Codex é mais antigo do que o Gravita suporta, então as sessões dele podem não aparecer.",
+  "home.codex.show.missing": "Como instalar",
+  "home.codex.show.outdated": "Como atualizar",
+  "home.codex.hide": "Esconder os passos",
 
   "project.sessions": "Sessões",
   "project.col.session": "Sessão",
@@ -40,7 +48,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "project.col.activity": "Última atividade",
   "project.col.tokens": "Tokens",
   "project.empty":
-    "Nenhuma sessão neste projeto ainda. Abra o Claude Code aqui e ela aparece sozinha.",
+    "Nenhuma sessão neste projeto ainda. Abra o Claude Code ou o Codex aqui e ela aparece sozinha.",
 
   "kind.chat": "Chat",
   "kind.squad": "Squad",
@@ -70,6 +78,10 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "action.failed": "Não consegui enviar sua resposta. Tente de novo.",
 
   "agent.main": "Agente principal",
+  "agent.role.explorer": "Explorador",
+  "agent.role.worker": "Executor",
+  "agent.role.default": "Agente padrão",
+  "provider.codex.session": "Sessão do Codex",
   "agent.tabs.story": "História",
   "agent.tabs.steps": "Passos",
   "agent.tabs.raw": "Raw",
@@ -216,6 +228,19 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "connect.step.update": "Atualize no seu Terminal",
   "connect.step.run": "Abra o Claude Code no seu Terminal",
   "connect.step.login": "Depois entre e siga os passos",
+  "connect.step.installBrew": "Instale com o Homebrew",
+  "connect.step.updateBrew": "Atualize com o Homebrew",
+  "connect.step.orNpm": "Ou com o npm",
+  "connect.codex.missing.title": "Conecte o Codex",
+  "connect.codex.missing.body":
+    "O Gravita mostra as sessões do Codex neste Mac enquanto elas rodam. O Codex ainda não está instalado.",
+  "connect.codex.outdated.title": "Atualize o Codex",
+  "connect.codex.outdated.body": "Este Codex é mais antigo do que o Gravita suporta.",
+  "connect.codex.loggedOut.title": "Entre no Codex",
+  "connect.codex.loggedOut.body":
+    "O Codex não está logado. O Gravita nunca pede a sua conta: você entra pelo próprio Codex.",
+  "connect.codex.step.run": "Abra o Codex no seu Terminal e entre",
+  "connect.codex.step.login": "Entre pelo seu Terminal",
   "connect.copy": "Copiar {command}",
   "connect.copied": "Copiado",
 

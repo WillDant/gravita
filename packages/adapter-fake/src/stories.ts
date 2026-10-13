@@ -20,6 +20,8 @@ export const DEMO_PROJECTS = {
   landing: project("landing-site"),
   payments: project("payments-api"),
   todo: project("todo-app"),
+  /** Where the Codex story runs, so Codex shows up as a project of its own. */
+  build: project("build-tools"),
 } as const;
 
 export function projectDiscovered(p: ProjectInfo): Timed {

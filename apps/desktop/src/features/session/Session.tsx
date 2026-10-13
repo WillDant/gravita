@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { sessionTitle } from "@/shared/presenters/selectors";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { CountChips } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import {
@@ -81,6 +82,7 @@ export function Session({
           <span className="truncate font-semibold text-ink" aria-current="page">
             {sessionTitle(session) ?? t("session.untitled")}
           </span>
+          <ProviderMark provider={session.provider} className="ml-0.5" />
         </nav>
         <div role="tablist" aria-label="Lens" className="flex rounded-lg bg-panel p-0.5">
           {LENSES.map((l) => (

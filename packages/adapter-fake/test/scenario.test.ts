@@ -50,6 +50,7 @@ describe("demo scenario", () => {
         DEMO_PROJECTS.landing.id,
         DEMO_PROJECTS.payments.id,
         DEMO_PROJECTS.todo.id,
+        DEMO_PROJECTS.build.id,
       ]),
     );
   });

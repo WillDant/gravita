@@ -1,5 +1,6 @@
 import type { Station } from "@gravita/core";
 import { t } from "@/shared/i18n/i18n";
+import { agentTypeLabel } from "@/shared/presenters/agent";
 import { cn } from "@/shared/utils";
 
 /** Plain-language sentences, one per station, drawn as a route with stops. */
@@ -26,7 +27,11 @@ export function Story({ stations, color }: { stations: Station[]; color: string 
             )}
           />
           <span className="text-sm leading-snug">
-            {t(`story.${s.kind}`, { count: s.count, target: s.label })}
+            {t(`story.${s.kind}`, {
+              count: s.count,
+              // A spawn names the subagent's type: a Codex role reads as a word.
+              target: s.kind === "agent" ? agentTypeLabel(s.label) : s.label,
+            })}
             {s.status === "error" && <span className="text-error-ink"> · {t("story.failed")}</span>}
           </span>
         </li>

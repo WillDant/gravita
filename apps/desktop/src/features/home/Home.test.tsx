@@ -97,6 +97,45 @@ describe("Home: needs you", () => {
   });
 });
 
+describe("Home: Codex", () => {
+  const engine = (codex: { found: boolean; outdated?: boolean }) => ({
+    providers: { claude: { found: true }, codex },
+    claude: { found: true },
+    indexing: { done: 0, total: 0 },
+    demo: false,
+  });
+
+  it("never nags a Claude Code user who has sessions about a missing Codex", () => {
+    const { store } = renderWithApp(<Home />, { state });
+    act(() => store.getState().setEngineStatus(engine({ found: false })));
+    expect(screen.queryByText(/Using Codex\?/)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Connect Codex" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "How to install" })).toBeNull();
+  });
+
+  it("mentions Codex on an empty Home, with its install steps on demand", () => {
+    const { store } = renderWithApp(<Home />);
+    act(() => store.getState().setEngineStatus(engine({ found: false })));
+    expect(screen.getByText(/Start Claude Code or Codex in any project/)).toBeTruthy();
+    expect(screen.getByText(/Using Codex\?/)).toBeTruthy();
+    const show = screen.getByRole("button", { name: "How to install" });
+    expect(show.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("heading", { name: "Connect Codex" })).toBeNull();
+    fireEvent.click(show);
+    expect(show.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Connect Codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy brew install --cask codex" })).toBeTruthy();
+  });
+
+  it("says once, quietly, that an installed Codex is too old", () => {
+    const { store } = renderWithApp(<Home />, { state });
+    act(() => store.getState().setEngineStatus(engine({ found: true, outdated: true })));
+    expect(screen.getByText(/This Codex is older than Gravita supports/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "How to update" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Update Codex" })).toBeNull();
+  });
+});
+
 describe("Home: plan usage", () => {
   const reading = (
     window: "five_hour" | "seven_day",

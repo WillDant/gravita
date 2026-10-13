@@ -14,6 +14,7 @@ import {
   tokensOf,
 } from "@/shared/presenters/selectors";
 import { projectItems } from "@/shared/presenters/squad";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { CountChips, StatusText } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
 import { useNow, useProjection } from "@/state/hooks";
@@ -130,8 +131,11 @@ export function Project({ projectId }: { projectId: string }) {
                   className="cursor-pointer transition-colors hover:bg-panel focus-visible:bg-panel"
                 >
                   <td className="border-b border-hairline py-3 pl-3">
-                    <span className="block truncate font-medium">
-                      {sessionTitle(s) ?? t("session.untitled")}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium">
+                        {sessionTitle(s) ?? t("session.untitled")}
+                      </span>
+                      <ProviderMark provider={s.provider} />
                     </span>
                     <span className="mt-0.5 block text-xs text-ink-3">
                       {t(`kind.${s.kind}`)} · {t("count.subagents", { count: c.subagentsTotal })}

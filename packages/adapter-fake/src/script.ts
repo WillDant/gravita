@@ -1,5 +1,6 @@
 import { inputPreview, toolKind, toolTarget } from "@gravita/adapter-claude";
 import {
+  type AgentProvider,
   type EventOf,
   type GravitaEvent,
   type GravitaEventType,
@@ -7,7 +8,9 @@ import {
   MAIN_AGENT,
   type ProjectIdentity,
   type SessionKind,
+  type ToolKind,
 } from "@gravita/protocol";
+import { preview, type ToolTarget } from "@gravita/protocol/tools";
 import type { Rng } from "./rng";
 
 // A tiny DSL to script sessions on a virtual clock (ms since the scenario started).
@@ -23,18 +26,73 @@ export type DataOf<T extends GravitaEventType> = EventOf<T>["data"];
 
 export type ProjectInfo = ProjectIdentity;
 
+/** How a tool call reads in a `tool.started` event. */
+interface ToolCall {
+  kind: ToolKind;
+  target: ToolTarget;
+  preview: string;
+}
+
+const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+
+/** Codex's tool names in Gravita's kinds, the way the Codex adapter maps its rollouts. */
+const CODEX_KINDS: Readonly<Record<string, ToolKind>> = {
+  exec_command: "bash",
+  exec: "bash",
+  apply_patch: "edit",
+  web_search: "web",
+  spawn_agent: "agent",
+  update_plan: "todo",
+  request_user_input: "ask",
+};
+
+function codexCall(name: string, input: Record<string, unknown>): ToolCall {
+  const kind = CODEX_KINDS[name] ?? (name.startsWith("mcp__") ? "mcp" : "other");
+  const target: ToolTarget = {};
+  const cmd = str(input.cmd);
+  if (cmd) target.cmd = cmd;
+  const path = str(input.path);
+  if (path) target.path = path;
+  const query = str(input.query);
+  if (query) target.query = query;
+  const agentType = str(input.agent_type);
+  if (agentType) target.agentType = agentType;
+  const first = cmd ?? path ?? query ?? str(input.message) ?? JSON.stringify(input);
+  return { kind, target, preview: preview(first) };
+}
+
+function claudeCall(name: string, input: Record<string, unknown>): ToolCall {
+  return { kind: toolKind(name), target: toolTarget(input), preview: inputPreview(input) };
+}
+
 export class SessionScript {
   readonly events: Timed[] = [];
   readonly sessionId: string;
   readonly pid: number;
+  readonly provider: AgentProvider;
   private counter = 0;
 
   constructor(
     readonly rng: Rng,
     readonly project: ProjectInfo,
+    opts: { provider?: AgentProvider } = {},
   ) {
-    this.sessionId = rng.uuid();
+    this.provider = opts.provider ?? "claude";
+    // Codex session ids carry its prefix, as the Codex adapter routes them.
+    this.sessionId = this.provider === "codex" ? `codex:${rng.uuid()}` : rng.uuid();
     this.pid = rng.int(20_000, 90_000);
+  }
+
+  /** A tool call in this provider's terms. */
+  call(name: string, input: Record<string, unknown>): ToolCall {
+    return this.provider === "codex" ? codexCall(name, input) : claudeCall(name, input);
+  }
+
+  /** A new tool-use id in this provider's spelling. */
+  toolUseId(): string {
+    return this.provider === "codex"
+      ? `call_${this.rng.base62(24)}`
+      : `toolu_${this.rng.base62(24)}`;
   }
 
   push<T extends GravitaEventType>(
@@ -48,7 +106,7 @@ export class SessionScript {
       key,
       ts: "",
       source: "fake",
-      provider: "claude",
+      provider: this.provider,
       projectId: this.project.id,
       sessionId: this.sessionId,
       ...(agentId ? { agentId } : {}),
@@ -77,16 +135,20 @@ export class SessionScript {
       entrypoint: string;
       /** A squad role's session: which squad, role and task it works for. */
       squad?: { squadId: string; roleId: string; taskId?: string };
+      /** The provider's own model, mode and CLI version (Claude Code's by default). */
+      model?: string;
+      permissionMode?: string;
+      cliVersion?: string;
     },
   ) {
     this.push(at, "session.started", keys.sessionStarted(this.sessionId), {
       kind,
       cwd: this.project.root,
       gitBranch: opts.branch,
-      model: "claude-opus-5-5",
-      permissionMode: "default",
+      model: opts.model ?? "claude-opus-5-5",
+      permissionMode: opts.permissionMode ?? "default",
       entrypoint: opts.entrypoint,
-      cliVersion: "2.1.296",
+      cliVersion: opts.cliVersion ?? "2.1.296",
       ...opts.squad,
     });
     this.push(at, "session.titled", `session:${this.sessionId}:title:${this.n()}`, {
@@ -113,8 +175,8 @@ export class SessionScript {
     return uuid;
   }
 
-  main(at: number): Actor {
-    return new Actor(this, MAIN_AGENT, at, "claude-opus-5-5", 0, false);
+  main(at: number, model = "claude-opus-5-5"): Actor {
+    return new Actor(this, MAIN_AGENT, at, model, 0, false);
   }
 
   /** Events sorted by time, stable for equal times. */
@@ -212,8 +274,9 @@ export class Actor {
   }
 
   private startTool(name: string, input: Record<string, unknown>): string {
-    const toolUseId = `toolu_${this.s.rng.base62(24)}`;
+    const toolUseId = this.s.toolUseId();
     const messageId = this.messageId();
+    const call = this.s.call(name, input);
     this.s.push(
       this.t,
       "tool.started",
@@ -221,9 +284,9 @@ export class Actor {
       {
         toolUseId,
         name,
-        kind: toolKind(name),
-        target: toolTarget(input),
-        inputPreview: inputPreview(input),
+        kind: call.kind,
+        target: call.target,
+        inputPreview: call.preview,
       },
       this.agentId,
     );
@@ -261,7 +324,12 @@ export class Actor {
         this.t,
         "permission.requested",
         keys.permissionRequested(requestId),
-        { requestId, toolUseId: id, toolName: name, inputPreview: inputPreview(input) },
+        {
+          requestId,
+          toolUseId: id,
+          toolName: name,
+          inputPreview: this.s.call(name, input).preview,
+        },
         this.agentId,
       );
       this.s.presence(this.t, "waiting");
@@ -300,21 +368,27 @@ export class Actor {
     return this;
   }
 
-  /** Calls the Agent tool and returns the child, already running on its own clock. */
+  /**
+   * Calls the provider's spawn tool (Claude Code's Agent, Codex's spawn_agent) and returns
+   * the child, already running on its own clock.
+   */
   spawn(
     agentType: string,
     description: string,
     prompt: string,
     opts: { background: boolean; model: string },
   ): Actor {
-    const input = {
-      description,
-      subagent_type: agentType,
-      prompt,
-      ...(opts.background ? { run_in_background: true } : {}),
-    };
-    const toolUseId = this.startTool("Agent", input);
-    const agentId = `a${this.s.rng.hex(16)}`;
+    const codex = this.s.provider === "codex";
+    const toolUseId = codex
+      ? this.startTool("spawn_agent", { agent_type: agentType, message: prompt })
+      : this.startTool("Agent", {
+          description,
+          subagent_type: agentType,
+          prompt,
+          ...(opts.background ? { run_in_background: true } : {}),
+        });
+    // A Codex subagent is its own thread: its id is that thread's, prefixed like the session's.
+    const agentId = codex ? `codex:${this.s.rng.uuid()}` : `a${this.s.rng.hex(16)}`;
     const child = new Actor(
       this.s,
       agentId,
@@ -410,11 +484,12 @@ export class Actor {
     return this;
   }
 
-  endTurn(turnStartedAt: number, costUsd: number) {
+  /** Ends the main agent's turn; a plan-billed provider (Codex) reports no cost. */
+  endTurn(turnStartedAt: number, costUsd?: number) {
     const uuid = this.s.rng.uuid();
     this.s.push(this.t, "turn.completed", keys.turnCompleted(this.s.sessionId, uuid), {
       subtype: "success",
-      costUsd,
+      ...(costUsd === undefined ? {} : { costUsd }),
       durationMs: Math.round(this.t - turnStartedAt),
       numTurns: this.toolCount + 1,
     });

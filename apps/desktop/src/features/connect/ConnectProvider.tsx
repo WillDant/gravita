@@ -8,6 +8,8 @@ import { cn } from "@/shared/utils";
 interface Step {
   label: string;
   command: string;
+  /** Another way to do the step before it (npm instead of Homebrew): no number of its own. */
+  or?: boolean;
 }
 
 /** What one provider's guidance says: its copy keys and its steps for each problem. */
@@ -18,6 +20,9 @@ interface ProviderGuide {
 }
 
 const CLAUDE_INSTALL = "npm install -g @anthropic-ai/claude-code";
+// Codex's own README offers both: a Homebrew cask and the npm package.
+const CODEX_BREW = "brew install --cask codex";
+const CODEX_NPM = "npm install -g @openai/codex";
 
 /** Each provider's steps; a provider without guidance yet shows only the error line. */
 const GUIDES: Readonly<Partial<Record<AgentProvider, ProviderGuide>>> = {
@@ -34,6 +39,21 @@ const GUIDES: Readonly<Partial<Record<AgentProvider, ProviderGuide>>> = {
         { label: "connect.step.run", command: "claude" },
         { label: "connect.step.login", command: "/login" },
       ],
+    },
+  },
+  codex: {
+    copy: (problem, part) => `connect.codex.${problem}.${part}`,
+    steps: {
+      missing: [
+        { label: "connect.step.installBrew", command: CODEX_BREW },
+        { label: "connect.step.orNpm", command: CODEX_NPM, or: true },
+        { label: "connect.codex.step.run", command: "codex" },
+      ],
+      outdated: [
+        { label: "connect.step.updateBrew", command: "brew upgrade --cask codex" },
+        { label: "connect.step.orNpm", command: `${CODEX_NPM}@latest`, or: true },
+      ],
+      loggedOut: [{ label: "connect.codex.step.login", command: "codex login" }],
     },
   },
 };
@@ -69,10 +89,14 @@ export function ConnectProvider({
           </h2>
           <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t(guide.copy(problem, "body"))}</p>
           <ol className="mt-3 flex flex-col gap-2">
-            {guide.steps[problem].map((step, i) => (
+            {numbered(guide.steps[problem]).map(({ step, n }) => (
               <li key={step.command} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="w-56 max-w-full text-xs text-ink-2">
-                  <span className="tabular-nums text-ink-3">{i + 1}.</span> {t(step.label)}
+                  {/* An alternative keeps the room of a number, so the commands line up. */}
+                  <span className={cn("tabular-nums text-ink-3", step.or && "invisible")}>
+                    {n}.
+                  </span>{" "}
+                  {t(step.label)}
                 </span>
                 <CopyCommand command={step.command} />
               </li>
@@ -82,6 +106,12 @@ export function ConnectProvider({
       </div>
     </section>
   );
+}
+
+/** Each step with its number; an alternative shares the number of the step before it. */
+function numbered(steps: readonly Step[]): { step: Step; n: number }[] {
+  let n = 0;
+  return steps.map((step) => ({ step, n: step.or ? n : ++n }));
 }
 
 function CopyCommand({ command }: { command: string }) {

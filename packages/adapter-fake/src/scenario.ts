@@ -1,4 +1,5 @@
 import type { GravitaEvent } from "@gravita/protocol";
+import { codexSessions } from "./codex";
 import type { Timed } from "./script";
 import { squadSessions } from "./squad";
 import { DEMO_PROJECTS, landingSession, oauthSessions, projectDiscovered } from "./stories";
@@ -30,15 +31,22 @@ function* merge(a: Iterator<Timed, never>, b: Iterator<Timed, never>): Generator
 /** The squad story starts a little after the others, so the first sessions settle first. */
 export const SQUAD_START_MS = 8_000;
 
+/** The Codex story joins once the map is busy, so it reads as one more line among them. */
+export const CODEX_START_MS = 12_000;
+
 /** The endless demo story, in virtual time (ms since start). */
 export function* timeline(seed: number): Generator<Timed, never> {
   yield projectDiscovered(DEMO_PROJECTS.gravita);
   yield projectDiscovered(DEMO_PROJECTS.landing);
   yield projectDiscovered(DEMO_PROJECTS.payments);
   yield projectDiscovered(DEMO_PROJECTS.todo);
+  yield projectDiscovered(DEMO_PROJECTS.build);
   return yield* merge(
-    merge(merge(oauthSessions(seed, 0), landingSession(seed, 2_500)), swarmSessions(seed, 5_000)),
-    squadSessions(seed, SQUAD_START_MS),
+    merge(
+      merge(merge(oauthSessions(seed, 0), landingSession(seed, 2_500)), swarmSessions(seed, 5_000)),
+      squadSessions(seed, SQUAD_START_MS),
+    ),
+    codexSessions(seed, CODEX_START_MS),
   );
 }
 

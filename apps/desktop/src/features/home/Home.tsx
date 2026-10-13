@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
+import { CodexNote } from "@/features/connect/CodexNote";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
@@ -16,9 +17,10 @@ import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { needsYou, projectSummaries, sessionTitle, totals } from "@/shared/presenters/selectors";
 import { squadNeedsYou } from "@/shared/presenters/squad";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { Button, CountChips } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
-import { useNow, useProjection, useProviderProblem } from "@/state/hooks";
+import { useCodexNote, useNow, useProjection, useProviderProblem } from "@/state/hooks";
 
 export function Home() {
   useLocale();
@@ -27,6 +29,8 @@ export function Home() {
   const navigate = useNavigate();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const problem = useProviderProblem();
+  const codexNote = useCodexNote();
+  const empty = summaries.length === 0;
   const [creating, setCreating] = useState<"session" | "squad">();
   const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
   const recent = useMemo(
@@ -55,6 +59,9 @@ export function Home() {
             <p className="mt-1.5 text-ink-2">{t("home.allQuiet")}</p>
           )}
           <PlanUsage providers={AGENT_PROVIDERS} className="mt-2" />
+          {/* Someone who installed Codex hears it's too old on any Home; a missing Codex is
+              only mentioned on an empty Home, so Claude-only users aren't nagged. */}
+          {codexNote === "outdated" && !empty && <CodexNote note="outdated" className="mt-1.5" />}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={all} />
@@ -123,8 +130,11 @@ export function Home() {
                       seed={agent.id}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs text-ink-2">
-                        {project.name} › {sessionTitle(session) ?? t("session.untitled")}
+                      <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-2">
+                        <span className="truncate">
+                          {project.name} › {sessionTitle(session) ?? t("session.untitled")}
+                        </span>
+                        <ProviderMark provider={session.provider} />
                       </span>
                       <span className="block truncate font-medium text-ink">
                         {agentName(agent)} {t(persona.label.key, persona.label.params)}
@@ -189,8 +199,11 @@ export function Home() {
                         <span className="font-semibold">{agentName(agent)}</span>{" "}
                         {t(persona.label.key, persona.label.params)}
                       </span>
-                      <span className="block truncate text-xs text-ink-3">
-                        {project.name} › {sessionTitle(session) ?? t("session.untitled")}
+                      <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+                        <span className="truncate">
+                          {project.name} › {sessionTitle(session) ?? t("session.untitled")}
+                        </span>
+                        <ProviderMark provider={session.provider} />
                       </span>
                     </span>
                   </button>
@@ -210,45 +223,59 @@ export function Home() {
         <h2 id="projects" className="mb-3 text-md font-semibold">
           {t("home.projects")}
         </h2>
-        <div className="overflow-hidden rounded-xl border border-hairline">
-          {summaries.map(({ project, sessions, counts, lastEventTs }, i) => {
-            const quiet = counts.running + counts.waiting === 0;
-            const recent = sessions[0];
-            return (
-              <button
-                type="button"
-                key={project.id}
-                onClick={() => navigate({ level: "project", projectId: project.id })}
-                className={`grid w-full grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-panel ${i > 0 ? "border-t border-hairline" : ""}`}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold">{project.name}</span>
-                  <span className="block truncate text-xs text-ink-3">{tildify(project.root)}</span>
-                </span>
-                <span className="min-w-0">
-                  {recent && <MiniLines session={recent} now={now} />}
-                </span>
-                <span className="min-w-0">
-                  <span
-                    className={`block text-sm font-medium ${counts.waiting > 0 ? "text-waiting-ink" : quiet ? "text-ink-3" : "text-ink"}`}
-                  >
-                    {counts.waiting > 0
-                      ? t("count.waiting", { count: counts.waiting })
-                      : quiet
-                        ? t("home.status.quiet")
-                        : `${t("count.running", { count: counts.running })} · ${t("count.subagents", { count: counts.subagents })}`}
+        {empty ? (
+          <div className="rounded-xl border border-hairline px-5 py-4">
+            <p className="max-w-[68ch] text-ink-2">{t("home.empty")}</p>
+            {codexNote && <CodexNote note={codexNote} className="mt-2" />}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-hairline">
+            {summaries.map(({ project, sessions, counts, lastEventTs }, i) => {
+              const quiet = counts.running + counts.waiting === 0;
+              const recent = sessions[0];
+              return (
+                <button
+                  type="button"
+                  key={project.id}
+                  onClick={() => navigate({ level: "project", projectId: project.id })}
+                  className={`grid w-full grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-panel ${i > 0 ? "border-t border-hairline" : ""}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{project.name}</span>
+                    <span className="block truncate text-xs text-ink-3">
+                      {tildify(project.root)}
+                    </span>
                   </span>
-                  <span className="block truncate text-xs text-ink-3">
-                    {recent ? (sessionTitle(recent) ?? t("session.untitled")) : ""}
+                  <span className="min-w-0">
+                    {recent && <MiniLines session={recent} now={now} />}
                   </span>
-                </span>
-                <span className="text-right text-xs text-ink-3 tabular-nums">
-                  {ago(lastEventTs, now)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <span className="min-w-0">
+                    <span
+                      className={`block text-sm font-medium ${counts.waiting > 0 ? "text-waiting-ink" : quiet ? "text-ink-3" : "text-ink"}`}
+                    >
+                      {counts.waiting > 0
+                        ? t("count.waiting", { count: counts.waiting })
+                        : quiet
+                          ? t("home.status.quiet")
+                          : `${t("count.running", { count: counts.running })} · ${t("count.subagents", { count: counts.subagents })}`}
+                    </span>
+                    {recent && (
+                      <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+                        <span className="truncate">
+                          {sessionTitle(recent) ?? t("session.untitled")}
+                        </span>
+                        <ProviderMark provider={recent.provider} compact />
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-right text-xs text-ink-3 tabular-nums">
+                    {ago(lastEventTs, now)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -38,8 +38,11 @@ export interface LayoutOptions {
   /** Agents by id; lines without an entry have no node (drawn as finished). */
   agents: Readonly<Record<string, AgentInfo>>;
   selectedAgentId?: string;
-  /** Translated words the map prints. */
-  texts: { main: string; hold: string };
+  /**
+   * Translated words the map prints; `type` names a subagent line by its type (a Codex
+   * role reads as a word in the user's language), else the type shows as it is.
+   */
+  texts: { main: string; hold: string; type?: (agentType: string) => string };
 }
 
 export interface Frame {
@@ -177,9 +180,15 @@ export function linePath(
   return d;
 }
 
-function label(line: Line, x: X, y: Y, maxRight: number, mainText: string): LabelPrimitive {
+function label(
+  line: Line,
+  x: X,
+  y: Y,
+  maxRight: number,
+  texts: LayoutOptions["texts"],
+): LabelPrimitive {
   const isMain = !line.parentId;
-  const name = isMain ? mainText : line.agentType;
+  const name = isMain ? texts.main : (texts.type?.(line.agentType) ?? line.agentType);
   const detail = !isMain && line.description ? ` · ${line.description}` : "";
   const full = `${name}${detail}`;
   // Start just past the spawn leg; the knockout lets the name run over any line it
@@ -309,7 +318,7 @@ export function layoutLineMap(map: LineMap, frame: Frame, opts: LayoutOptions): 
 
   // A running line's name must stop short of the orb riding at its head.
   const labels = map.lines.map((l) =>
-    label(l, x, y, l.ended ? width - 8 : headX(l) - ORB / 2 - 8, texts.main),
+    label(l, x, y, l.ended ? width - 8 : headX(l) - ORB / 2 - 8, texts),
   );
 
   const heads: HeadPrimitive[] = [];

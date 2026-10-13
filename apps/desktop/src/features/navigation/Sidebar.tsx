@@ -14,6 +14,7 @@ import {
   squadDecisions,
   squadTitle,
 } from "@/shared/presenters/squad";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { cn } from "@/shared/utils";
 import { useNow, useProjection, useRoute } from "@/state/hooks";
 
@@ -220,6 +221,7 @@ function SubItem({
         <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
       )}
       <span className="truncate">{title}</span>
+      {item.kind === "session" && <ProviderMark provider={item.session.provider} compact />}
       {item.kind === "squad" && (
         <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
       )}

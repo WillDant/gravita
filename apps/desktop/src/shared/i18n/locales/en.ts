@@ -32,6 +32,14 @@ export const en = {
   "home.status.running": "Lines running",
   "home.status.waiting": "Waiting for you",
   "home.status.quiet": "Quiet",
+  "home.empty":
+    "No sessions yet. Start Claude Code or Codex in any project and it shows up here on its own.",
+  "home.codex.missing": "Using Codex? Once it's installed, its sessions show up here too.",
+  "home.codex.outdated":
+    "This Codex is older than Gravita supports, so its sessions may not show up.",
+  "home.codex.show.missing": "How to install",
+  "home.codex.show.outdated": "How to update",
+  "home.codex.hide": "Hide the steps",
 
   "project.sessions": "Sessions",
   "project.col.session": "Session",
@@ -41,7 +49,7 @@ export const en = {
   "project.col.activity": "Last activity",
   "project.col.tokens": "Tokens",
   "project.empty":
-    "No sessions in this project yet. Start Claude Code here and it will appear on its own.",
+    "No sessions in this project yet. Start Claude Code or Codex here and it will appear on its own.",
 
   "kind.chat": "Chat",
   "kind.squad": "Squad",
@@ -71,6 +79,10 @@ export const en = {
   "action.failed": "Couldn't send your answer. Try again.",
 
   "agent.main": "Main agent",
+  "agent.role.explorer": "Explorer",
+  "agent.role.worker": "Worker",
+  "agent.role.default": "Default agent",
+  "provider.codex.session": "Codex session",
   "agent.tabs.story": "Story",
   "agent.tabs.steps": "Steps",
   "agent.tabs.raw": "Raw",
@@ -216,6 +228,19 @@ export const en = {
   "connect.step.update": "Update it in your Terminal",
   "connect.step.run": "Open Claude Code in your Terminal",
   "connect.step.login": "Then log in and follow its steps",
+  "connect.step.installBrew": "Install it with Homebrew",
+  "connect.step.updateBrew": "Update it with Homebrew",
+  "connect.step.orNpm": "Or with npm",
+  "connect.codex.missing.title": "Connect Codex",
+  "connect.codex.missing.body":
+    "Gravita shows the Codex sessions on this Mac as they run. Codex isn't installed yet.",
+  "connect.codex.outdated.title": "Update Codex",
+  "connect.codex.outdated.body": "This Codex is older than Gravita supports.",
+  "connect.codex.loggedOut.title": "Sign in to Codex",
+  "connect.codex.loggedOut.body":
+    "Codex isn't signed in. Gravita never asks for your account: you sign in through Codex itself.",
+  "connect.codex.step.run": "Open Codex in your Terminal and sign in",
+  "connect.codex.step.login": "Sign in from your Terminal",
   "connect.copy": "Copy {command}",
   "connect.copied": "Copied",
 
