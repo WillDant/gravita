@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AGENT_PROVIDERS, CLAUDE_MODES, CODEX_MODES } from "./constants";
 import {
   BudgetScope,
   DeliverMode,
@@ -27,6 +28,10 @@ export const EventSource = z.enum([
 export type EventSource = z.infer<typeof EventSource>;
 
 export const ProviderSchema = z.enum(["claude", "codex", "gravita", "fake"]);
+
+/** The providers whose agents Gravita runs and detects (a subset of `ProviderSchema`). */
+export const AgentProviderSchema = z.enum(AGENT_PROVIDERS);
+export type AgentProvider = z.infer<typeof AgentProviderSchema>;
 
 export const ToolKind = z.enum([
   "read",
@@ -229,8 +234,17 @@ export const Notification = ev("notification", {
   message: z.string().optional(),
 });
 
-export const PermissionModeSchema = z.enum(["default", "acceptEdits", "plan", "bypassPermissions"]);
+/** Claude Code's permission modes. */
+export const PermissionModeSchema = z.enum(CLAUDE_MODES);
 export type PermissionMode = z.infer<typeof PermissionModeSchema>;
+
+/** Codex's session modes (core's `session-modes` maps them to Claude's and back). */
+export const CodexModeSchema = z.enum(CODEX_MODES);
+export type CodexMode = z.infer<typeof CodexModeSchema>;
+
+/** A session's mode in its own provider's terms; the engine checks it fits the provider. */
+export const SessionModeSchema = z.union([PermissionModeSchema, CodexModeSchema]);
+export type SessionMode = z.infer<typeof SessionModeSchema>;
 
 /** Model and permission mode a Gravita-run session uses now. */
 export const SessionSettings = ev("session.settings", {
