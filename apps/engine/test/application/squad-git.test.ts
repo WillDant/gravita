@@ -432,7 +432,7 @@ describe("MergeQueue", () => {
               argv: [
                 "node",
                 "-e",
-                "if (require('fs').existsSync('apps/web/broken.ts')) { console.error('broken!'); process.exit(1) }",
+                "if (require('fs').existsSync('apps/web/broken.ts')) { console.error('broken!'); process.exitCode = 1 }",
               ],
               cwd: ".",
               when: "integration",
