@@ -3,6 +3,7 @@ import type { GravitaEvent } from "@gravita/protocol";
 import type { EventPublisher } from "../../src/application/ports/event-publisher";
 import { PermissionBroker } from "../../src/application/services/permission-broker";
 import { ProjectionService } from "../../src/application/services/projection-service";
+import { RuntimeFactoryRegistry } from "../../src/application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../../src/application/services/session-settings";
 import { AnnounceProject } from "../../src/application/usecases/announce-project";
@@ -14,10 +15,10 @@ import { SetPermissionMode } from "../../src/application/usecases/set-permission
 import { StartChat } from "../../src/application/usecases/start-chat";
 import { MAX_CHAT_SESSIONS } from "../../src/domain/chat-policy";
 import {
-  ClaudeUnavailableError,
   InvalidAnswerError,
   InvalidCwdError,
   NotControllableError,
+  ProviderUnavailableError,
   TooManySessionsError,
 } from "../../src/domain/errors";
 import {
@@ -64,8 +65,7 @@ function setup() {
   const startChat = (maxSessions?: number) =>
     new StartChat({
       workspace,
-      claude: environment,
-      factory,
+      providers: new RuntimeFactoryRegistry({ claude: { factory, environment } }),
       runtimes,
       projects,
       ingest,
@@ -157,11 +157,11 @@ describe("StartChat", () => {
     expect(badCwd).toBeInstanceOf(InvalidCwdError);
     expect(environment.loads).toBe(0);
 
-    environment.result = new ClaudeUnavailableError("not-found");
+    environment.result = new ProviderUnavailableError("claude", "not-found");
     const noClaude = await startChat()
       .execute({ cwd: "/work/demo", prompt: "hi" })
       .catch((e) => e);
-    expect(noClaude).toBeInstanceOf(ClaudeUnavailableError);
+    expect(noClaude).toBeInstanceOf(ProviderUnavailableError);
     expect(factory.created).toHaveLength(0);
     expect(store.rows).toHaveLength(0);
     expect(runtimes.all()).toHaveLength(0);

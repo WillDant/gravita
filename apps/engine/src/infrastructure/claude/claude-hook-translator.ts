@@ -1,8 +1,11 @@
 import { hookAgentId, mapHook, parseHookPayload } from "@gravita/adapter-claude";
 import type { HookTranslator, ParsedHook } from "../../application/ports/hook-translator";
+import { CLAUDE } from "./provider";
 
 /** Claude Code hooks (from the Deep Observe plugin), through the adapter's pure mapper. */
 export class ClaudeHookTranslator implements HookTranslator {
+  readonly provider = CLAUDE;
+
   parse(raw: unknown): ParsedHook | null {
     const p = parseHookPayload(raw);
     if (!p) return null;

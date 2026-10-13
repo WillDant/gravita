@@ -7,8 +7,9 @@ import {
   type SDKUserMessage,
   query as sdkQuery,
 } from "@anthropic-ai/claude-agent-sdk";
-import { inputPreview, SdkSessionMapper } from "@gravita/adapter-claude";
-import { MAIN_AGENT, type PermissionMode } from "@gravita/protocol";
+import { claudeToolCall, inputPreview, SdkSessionMapper } from "@gravita/adapter-claude";
+import { isClaudeMode } from "@gravita/core";
+import { MAIN_AGENT, type PermissionMode, type SessionMode } from "@gravita/protocol";
 import type {
   ChatRuntime,
   ChatRuntimeFactory,
@@ -28,9 +29,16 @@ import {
   type ToolDecision,
 } from "../../../application/services/permission-broker";
 import type { IngestEvents } from "../../../application/usecases/ingest-events";
-import { BypassLockedError, NotControllableError } from "../../../domain/errors";
+import {
+  BypassLockedError,
+  InvalidSessionModeError,
+  NotControllableError,
+} from "../../../domain/errors";
 import { filterClaudeEnv } from "../../system/login-shell-env";
+import { CLAUDE } from "../provider";
 import { AsyncQueue } from "./async-queue";
+import { claudeAccess } from "./claude-access";
+import { claudeSubagentEnv } from "./claude-subagent-env";
 import { buildGravitaMcpServer, GRAVITA_MCP_SERVER, guardHooks } from "./gravita-mcp-server";
 
 // One Claude Code session driven through the Agent SDK in streaming-input mode: the user's
@@ -85,8 +93,14 @@ export function turnOutcome(m: SDKResultMessage): TurnOutcome {
   };
 }
 
+/** The mode Claude Code starts in: its own modes, or Gravita's `dontAsk`. */
+function claudeStartMode(mode: ChatRuntimeSpec["permissionMode"]): PermissionMode | "dontAsk" {
+  if (mode === "dontAsk" || isClaudeMode(mode)) return mode;
+  throw new InvalidSessionModeError(CLAUDE, mode);
+}
+
 export class ClaudeSdkRuntime implements ChatRuntime {
-  readonly provider = "claude" as const;
+  readonly provider = CLAUDE;
   readonly sessionId: string;
   readonly projectId: string;
   readonly kind: ChatRuntime["kind"];
@@ -111,7 +125,7 @@ export class ClaudeSdkRuntime implements ChatRuntime {
     this.projectId = spec.projectId;
     this.kind = spec.kind ?? "chat";
     this.broker = new PermissionBroker({
-      session: { sessionId: spec.sessionId, projectId: spec.projectId, provider: "claude" },
+      session: { sessionId: spec.sessionId, projectId: spec.projectId, provider: CLAUDE },
       ingest: d.ingest,
       clock: d.clock,
       describeInput: inputPreview,
@@ -126,9 +140,14 @@ export class ClaudeSdkRuntime implements ChatRuntime {
   /** The options handed to the SDK's `query`. */
   options(): Options {
     const s = this.spec;
+    const permissionMode = claudeStartMode(s.permissionMode);
+    const access = s.access ? claudeAccess(s.access) : undefined;
     const canUseTool: CanUseTool = (toolName, input, opts) => {
-      // A policy settles what it can; only "ask" reaches the user.
-      const verdict = s.permissionPolicy?.(toolName, input) ?? "ask";
+      // A policy settles what it can; only "ask" reaches the user. The session's own policy
+      // judges the neutral call; without one, its access (planner, briefing) answers.
+      const verdict = s.permissionPolicy
+        ? s.permissionPolicy(claudeToolCall(toolName, input))
+        : (access?.permission(toolName) ?? "ask");
       if (verdict === "allow")
         return Promise.resolve<ToolDecision>({ behavior: "allow", updatedInput: input });
       if (verdict === "deny")
@@ -164,19 +183,20 @@ export class ClaudeSdkRuntime implements ChatRuntime {
         ...(s.systemPromptAppend ? { append: s.systemPromptAppend } : {}),
       },
       // Explicit: without it Claude Code may pick a settings default or auto mode.
-      permissionMode: s.permissionMode,
+      permissionMode,
       // Only when the user started the session in bypass mode (the UI warns first).
-      ...(s.permissionMode === "bypassPermissions"
-        ? { allowDangerouslySkipPermissions: true }
-        : {}),
+      ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
       forwardSubagentText: true,
       agentProgressSummaries: true,
-      env: { ...chatEnv(s.environment.env, this.d.clientApp), ...s.env },
+      env: {
+        ...chatEnv(s.environment.env, this.d.clientApp),
+        ...claudeSubagentEnv(s.subagents),
+        ...s.env,
+      },
       abortController: this.abort,
       canUseTool,
       ...(s.model && s.model !== "default" ? { model: s.model } : {}),
-      ...(s.tools ? { tools: s.tools } : {}),
-      ...(s.disallowedTools ? { disallowedTools: s.disallowedTools } : {}),
+      ...(access ? { tools: access.tools, disallowedTools: access.disallowedTools } : {}),
       ...(s.maxBudgetUsd !== undefined ? { maxBudgetUsd: s.maxBudgetUsd } : {}),
       ...(s.maxTurns !== undefined ? { maxTurns: s.maxTurns } : {}),
       ...(s.outputSchema ? { outputFormat: { type: "json_schema", schema: s.outputSchema } } : {}),
@@ -245,7 +265,8 @@ export class ClaudeSdkRuntime implements ChatRuntime {
     return new Promise((resolve) => this.turnWaiters.push(resolve));
   }
 
-  async setPermissionMode(mode: PermissionMode) {
+  async setPermissionMode(mode: SessionMode) {
+    if (!isClaudeMode(mode)) throw new InvalidSessionModeError(CLAUDE, mode);
     if (mode === "bypassPermissions" && this.spec.permissionMode !== "bypassPermissions") {
       throw new BypassLockedError(this.sessionId);
     }
@@ -325,7 +346,7 @@ export class ClaudeSdkRuntime implements ChatRuntime {
               key: `error:${this.sessionId}:runtime:${this.d.clock.now()}`,
               ts: this.d.clock.iso(),
               source: "gravita",
-              provider: "claude",
+              provider: CLAUDE,
               projectId: this.projectId,
               sessionId: this.sessionId,
               agentId: MAIN_AGENT,
@@ -367,9 +388,8 @@ export class ClaudeSdkRuntime implements ChatRuntime {
   }
 
   private setLoggedIn(loggedIn: boolean) {
-    const claude = this.d.status.status().claude;
-    if (claude.loggedIn !== loggedIn)
-      this.d.status.updateStatus({ claude: { ...claude, loggedIn } });
+    if (this.d.status.providerStatus(CLAUDE)?.loggedIn !== loggedIn)
+      this.d.status.updateProvider(CLAUDE, { loggedIn });
   }
 
   /** Runs a side effect that may fail once the engine is closing (its database is gone). */

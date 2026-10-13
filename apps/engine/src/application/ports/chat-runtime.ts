@@ -1,17 +1,28 @@
-import type { PermissionMode, SessionKind } from "@gravita/protocol";
+import type { AgentProvider, SessionKind, SessionMode } from "@gravita/protocol";
+import type { GuardedCall } from "@gravita/protocol/tools";
 import type { ZodRawShape } from "zod";
-import type { ClaudeEnvironment } from "./claude-environment";
+import type { SubagentPolicy } from "../../domain/squad-policy";
+import type { AgentEnvironment } from "./agent-environment";
 import type { SessionRuntime } from "./session-runtime";
 
-// The runtime of a Claude Code session Gravita starts: a chat, or a squad's planner or role
-// session. Squad sessions add tools, a tool guard and limits; everything here is plain data
-// and functions, and the infrastructure turns it into the Agent SDK's options.
+// The runtime of a session Gravita starts: a chat, or a squad's planner or role session, on
+// one provider. Squad sessions add tools, a tool guard and limits; everything here is plain
+// data and functions, and each provider's infrastructure turns it into its own options (the
+// Agent SDK's for Claude Code).
 
 /**
- * The modes a session can start in. `dontAsk` (deny whatever would prompt) is Gravita's
- * own: the planner uses it, the UI never offers it.
+ * The modes a session can start in, in its provider's terms. `dontAsk` (deny whatever
+ * would prompt) is Gravita's own: the planner uses it, the UI never offers it.
  */
-export type RuntimePermissionMode = PermissionMode | "dontAsk";
+export type RuntimePermissionMode = SessionMode | "dontAsk";
+
+/**
+ * What a planning session may do, whatever its provider calls its tools: `read-only`
+ * reads the repository and nothing else (the planner); `read-and-ask` may also ask the
+ * user (the briefing). Each runtime turns it into its own tool restrictions and answers
+ * the permission prompts itself.
+ */
+export type SessionAccess = "read-only" | "read-and-ask";
 
 /** What a role tool answers the agent: text, flagged when the call failed. */
 export interface ToolReply {
@@ -28,43 +39,36 @@ export interface RoleTool {
   handler(args: Record<string, unknown>): Promise<ToolReply>;
 }
 
-/** A tool call about to run, as the PreToolUse hook sees it (subagents' calls included). */
-export interface ToolCall {
-  toolName: string;
-  input: Record<string, unknown>;
-  /** Set when a subagent makes the call. */
-  agentId?: string;
-  /** The agent's working directory at the time of the call. */
-  cwd?: string;
-}
-
-/** A veto that runs before every tool call: a reason denies the call, undefined lets it through. */
-export type ToolGuard = (call: ToolCall) => string | undefined;
+/**
+ * A veto that runs before every tool call (subagents' calls included), on the provider-
+ * neutral call: a reason denies it, undefined lets it through.
+ */
+export type ToolGuard = (call: GuardedCall) => string | undefined;
 
 export type PermissionVerdict = "allow" | "ask" | "deny";
 
 /** Decides a permission prompt before it reaches the user: allow, deny, or ask them. */
-export type PermissionPolicy = (
-  toolName: string,
-  input: Record<string, unknown>,
-) => PermissionVerdict;
+export type PermissionPolicy = (call: GuardedCall) => PermissionVerdict;
 
 export interface ChatRuntimeSpec {
   sessionId: string;
   projectId: string;
+  /** Which agent runs the session; the factory and the environment are that provider's. */
+  provider: AgentProvider;
   cwd: string;
   model?: string;
   permissionMode: RuntimePermissionMode;
-  environment: ClaudeEnvironment;
+  environment: AgentEnvironment;
   /** "chat" when absent. */
   kind?: SessionKind;
   /** Set on a squad's sessions. */
   squad?: { squadId: string; roleId?: string; taskId?: string };
-  /** Appended to Claude Code's own system prompt (a role's charter). */
+  /** Appended to the agent's own system prompt (a role's charter). */
   systemPromptAppend?: string;
-  /** Restricts the built-in tools to these. */
-  tools?: string[];
-  disallowedTools?: string[];
+  /** A planning session's restrictions; absent, the session has the agent's usual tools. */
+  access?: SessionAccess;
+  /** How the session's subagents run (squad sessions). */
+  subagents?: SubagentPolicy;
   maxBudgetUsd?: number;
   maxTurns?: number;
   /** JSON Schema of the final answer (structured output). */
@@ -76,7 +80,10 @@ export interface ChatRuntimeSpec {
   /** Served as the in-process `gravita` MCP server (`mcp__gravita__<name>`). */
   roleTools?: RoleTool[];
   toolGuard?: ToolGuard;
-  /** Without one, every permission prompt goes to the user. */
+  /**
+   * Without one, every permission prompt goes to the user (or, with `access`, the
+   * runtime's answer for that access).
+   */
   permissionPolicy?: PermissionPolicy;
 }
 
@@ -109,7 +116,7 @@ export interface ChatRuntime extends SessionRuntime {
   nextTurn(): Promise<TurnOutcome>;
 }
 
-/** Creates the runtime of a new session (Claude Code through the Agent SDK). */
+/** Creates the runtime of a new session on one provider (Claude Code: the Agent SDK). */
 export interface ChatRuntimeFactory {
   create(spec: ChatRuntimeSpec): ChatRuntime;
 }

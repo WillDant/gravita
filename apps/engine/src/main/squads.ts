@@ -1,5 +1,3 @@
-import type { ChatRuntimeFactory } from "../application/ports/chat-runtime";
-import type { ClaudeEnvironmentSource } from "../application/ports/claude-environment";
 import type { Clock } from "../application/ports/clock";
 import type { EventStore } from "../application/ports/event-store";
 import type { IdGenerator } from "../application/ports/id-generator";
@@ -8,6 +6,7 @@ import type { SessionRuntimeRegistry } from "../application/ports/session-runtim
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import type { ProjectionService } from "../application/services/projection-service";
+import type { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import type { SessionSettingsRecorder } from "../application/services/session-settings";
 import { BudgetGuard } from "../application/squad/budget-guard";
 import { RunBriefing } from "../application/squad/run-briefing";
@@ -29,8 +28,7 @@ import type { SquadToolkit } from "./container";
 
 export interface SquadWiring {
   kit: SquadToolkit;
-  factory: ChatRuntimeFactory;
-  claude: ClaudeEnvironmentSource;
+  providers: RuntimeFactoryRegistry;
   runtimes: SessionRuntimeRegistry;
   ingest: IngestEvents;
   projection: ProjectionService;
@@ -51,8 +49,7 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
   const runs = new SquadRuns(kit.worktreesRoot);
   const emitter = new SquadEmitter({ ingest, clock, squads });
   const sessions = new SquadSessions({
-    factory: w.factory,
-    claude: w.claude,
+    providers: w.providers,
     runtimes: w.runtimes,
     ingest,
     ids: w.ids,
@@ -120,7 +117,7 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     cleanup: kit.cleanup,
     projects: w.projects,
     workspace: w.workspace,
-    claude: w.claude,
+    providers: w.providers,
     ids: w.ids,
     clock,
     logger,

@@ -1,4 +1,4 @@
-import type { GravitaEvent } from "@gravita/protocol";
+import type { AgentProvider, GravitaEvent } from "@gravita/protocol";
 
 // What a provider's hook means to the engine. The translator (infrastructure) parses the
 // provider's payload and maps it to events; `HookIngest` keeps the prompt bookkeeping.
@@ -47,6 +47,8 @@ export interface ParsedHook {
 }
 
 export interface HookTranslator {
+  /** Whose hooks these are: the provider of every event they become. */
+  readonly provider: AgentProvider;
   /** null: malformed, or an event the engine doesn't read. */
   parse(raw: unknown): ParsedHook | null;
 }

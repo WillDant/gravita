@@ -1,28 +1,37 @@
-import { keys, MAIN_AGENT } from "@gravita/protocol";
-import { previewText } from "../../domain/chat-policy";
+import { type AgentProvider, keys, MAIN_AGENT } from "@gravita/protocol";
+import { preview } from "@gravita/protocol/tools";
+import { SQUAD_PROVIDER } from "../../domain/squad-policy";
 import type {
   ChatRuntime,
-  ChatRuntimeFactory,
   ChatRuntimeSpec,
   RuntimePermissionMode,
   TurnOutcome,
 } from "../ports/chat-runtime";
-import type { ClaudeEnvironmentSource } from "../ports/claude-environment";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
 import type { Logger } from "../ports/logger";
 import type { SessionRuntimeRegistry } from "../ports/session-runtime";
+import type { RuntimeFactoryRegistry } from "../services/runtime-factory-registry";
 import type { SessionSettingsRecorder } from "../services/session-settings";
 import type { IngestEvents } from "../usecases/ingest-events";
 
-// Starts and stops the Claude Code sessions of squads (planner and roles). Like StartChat,
-// the runtime is registered before its first event so the transcript tailer leaves it alone,
-// and every message Gravita sends is recorded with the uuid the SDK gets.
+// Starts and stops the sessions of squads (planner and roles), each on its provider. Like
+// StartChat, the runtime is registered before its first event so the transcript tailer
+// leaves it alone, and every message Gravita sends is recorded with the uuid the agent gets.
 
 export type SquadSessionSpec = Omit<
   ChatRuntimeSpec,
-  "sessionId" | "projectId" | "environment" | "kind" | "squad" | "resume" | "permissionMode"
+  | "sessionId"
+  | "projectId"
+  | "provider"
+  | "environment"
+  | "kind"
+  | "squad"
+  | "resume"
+  | "permissionMode"
 > & {
+  /** The provider the session runs on (the squad's default when absent). */
+  provider?: AgentProvider;
   squadId: string;
   projectId: string;
   roleId?: string;
@@ -88,8 +97,7 @@ export class SquadSession {
 export class SquadSessions {
   constructor(
     private readonly d: {
-      factory: ChatRuntimeFactory;
-      claude: ClaudeEnvironmentSource;
+      providers: RuntimeFactoryRegistry;
       runtimes: SessionRuntimeRegistry;
       ingest: IngestEvents;
       ids: IdGenerator;
@@ -100,12 +108,15 @@ export class SquadSessions {
   ) {}
 
   async start(spec: SquadSessionSpec): Promise<SquadSession> {
-    const environment = await this.d.claude.load();
     const { squadId, roleId, taskId, prompt, resumeSessionId, ...rest } = spec;
+    const { provider, factory, environment } = await this.d.providers.ready(
+      spec.provider ?? SQUAD_PROVIDER,
+    );
     const sessionId = resumeSessionId ?? this.d.ids.uuid();
-    const runtime = this.d.factory.create({
+    const runtime = factory.create({
       ...rest,
       sessionId,
+      provider,
       environment,
       kind: "squad",
       squad: { squadId, ...(roleId ? { roleId } : {}), ...(taskId ? { taskId } : {}) },
@@ -118,7 +129,7 @@ export class SquadSessions {
         {
           ts: this.d.clock.iso(),
           source: "gravita",
-          provider: "claude",
+          provider,
           projectId: spec.projectId,
           sessionId,
           key: keys.sessionStarted(sessionId),
@@ -138,7 +149,7 @@ export class SquadSessions {
       ]);
       // The model shows on the session like a chat's; "dontAsk" is Gravita's own, not a UI mode.
       this.d.settings.record(
-        { sessionId, projectId: spec.projectId, provider: "claude" },
+        { sessionId, projectId: spec.projectId, provider },
         {
           model: spec.model,
           ...(spec.permissionMode !== "dontAsk" ? { permissionMode: spec.permissionMode } : {}),
@@ -161,13 +172,13 @@ export class SquadSessions {
       {
         ts: this.d.clock.iso(),
         source: "gravita",
-        provider: "claude",
+        provider: session.runtime.provider,
         projectId: session.runtime.projectId,
         sessionId: session.sessionId,
         agentId: MAIN_AGENT,
         key: keys.userMessage(uuid),
         type: "message.user",
-        data: { uuid, textPreview: previewText(text), origin: "gravita" },
+        data: { uuid, textPreview: preview(text), origin: "gravita" },
       },
     ]);
     await session.runtime.send(text, uuid);

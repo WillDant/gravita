@@ -5,16 +5,16 @@ import type {
   Provider,
 } from "@gravita/protocol";
 import type {
+  AgentEnvironment,
+  AgentEnvironmentSource,
+} from "../src/application/ports/agent-environment";
+import type {
   ChatRuntime,
   ChatRuntimeFactory,
   ChatRuntimeSpec,
   TurnOutcome,
 } from "../src/application/ports/chat-runtime";
 import type { CheckpointStore, SavedTail } from "../src/application/ports/checkpoint-store";
-import type {
-  ClaudeEnvironment,
-  ClaudeEnvironmentSource,
-} from "../src/application/ports/claude-environment";
 import type { Clock } from "../src/application/ports/clock";
 import type { EventPublisher } from "../src/application/ports/event-publisher";
 import type { EventStore } from "../src/application/ports/event-store";
@@ -212,7 +212,7 @@ export class FakeChatRuntime extends FakeRuntime implements ChatRuntime {
     readonly spec: ChatRuntimeSpec,
     private readonly runtimes: SessionRuntimeRegistry,
   ) {
-    super(spec.sessionId, spec.projectId);
+    super(spec.sessionId, spec.projectId, spec.provider);
   }
 
   private readonly turns: TurnOutcome[] = [];
@@ -260,18 +260,19 @@ export class FakeWorkspace implements Workspace {
   }
 }
 
-export class FakeClaudeEnvironment implements ClaudeEnvironmentSource {
+export class FakeClaudeEnvironment implements AgentEnvironmentSource {
   loads = 0;
 
   constructor(
-    public result: ClaudeEnvironment | Error = {
+    public result: AgentEnvironment | Error = {
+      provider: "claude",
       cliPath: "/bin/claude",
       cliVersion: "2.1.296",
       env: { PATH: "/usr/bin", HOME: "/home/u" },
     },
   ) {}
 
-  async load(): Promise<ClaudeEnvironment> {
+  async load(): Promise<AgentEnvironment> {
     this.loads++;
     if (this.result instanceof Error) throw this.result;
     return this.result;

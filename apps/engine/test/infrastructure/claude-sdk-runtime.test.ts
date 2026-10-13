@@ -19,7 +19,13 @@ function setup(spec: Partial<ChatRuntimeSpec> = {}, disposeTimeoutMs?: number) {
       projectId: "p1",
       cwd: "/work/demo",
       permissionMode: "default",
-      environment: { cliPath: "/opt/claude", cliVersion: "2.1.296", env: { PATH: "/usr/bin" } },
+      provider: "claude",
+      environment: {
+        provider: "claude",
+        cliPath: "/opt/claude",
+        cliVersion: "2.1.296",
+        env: { PATH: "/usr/bin" },
+      },
       ...spec,
     },
     {
@@ -265,8 +271,7 @@ describe("ClaudeSdkRuntime", () => {
       squad: { squadId: "q1", roleId: "backend", taskId: "api" },
       permissionMode: "dontAsk",
       systemPromptAppend: "You are Backend.",
-      tools: ["Read"],
-      disallowedTools: ["Bash"],
+      access: "read-only",
       maxBudgetUsd: 2.5,
       maxTurns: 40,
       outputSchema: { type: "object" },
@@ -281,11 +286,11 @@ describe("ClaudeSdkRuntime", () => {
         },
       ],
       toolGuard: (call) => {
-        guarded.push(`${call.toolName}:${call.agentId ?? "main"}`);
-        return call.toolName === "Bash" ? "no git here" : undefined;
+        guarded.push(`${call.tool}:${call.agentId ?? "main"}`);
+        return call.kind === "shell" ? "no git here" : undefined;
       },
-      permissionPolicy: (tool) =>
-        tool === "Write" ? "allow" : tool === "WebFetch" ? "deny" : "ask",
+      permissionPolicy: (call) =>
+        call.tool === "Write" ? "allow" : call.tool === "WebFetch" ? "deny" : "ask",
     });
     const o = q.options;
     expect(runtime.kind).toBe("squad");
@@ -293,8 +298,8 @@ describe("ClaudeSdkRuntime", () => {
       resume: SID,
       permissionMode: "dontAsk",
       systemPrompt: { type: "preset", preset: "claude_code", append: "You are Backend." },
-      tools: ["Read"],
-      disallowedTools: ["Bash"],
+      tools: ["Read", "Grep", "Glob"],
+      disallowedTools: ["Write", "Edit", "NotebookEdit", "Bash", "MultiEdit"],
       maxBudgetUsd: 2.5,
       maxTurns: 40,
       outputFormat: { type: "json_schema", schema: { type: "object" } },

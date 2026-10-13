@@ -1,12 +1,15 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { isShared, normalizePath, outsideOwnership, ownerOf } from "@gravita/core";
 import type { SquadPlan } from "@gravita/protocol";
+import type { GuardedCall } from "@gravita/protocol/tools";
 import { basename, type ShellCommand, simpleCommands } from "./shell-command";
 
 // The first ownership layer: a veto on each tool call of a role session (and of its
 // subagents) before it runs. It keeps a role's edits inside its worktree and its paths, and
 // git in Gravita's hands. The commit gate stays the layer that counts; this one saves the
-// agent a wasted turn by saying, at the moment it matters, what to do instead.
+// agent a wasted turn by saying, at the moment it matters, what to do instead. It judges
+// provider-neutral calls (`GuardedCall`): each provider's adapter says which of its tools
+// edit files and which run commands.
 
 export interface OwnershipScope {
   plan: SquadPlan;
@@ -14,15 +17,6 @@ export interface OwnershipScope {
   /** The role's worktree, and other spellings of it (its real path: /var vs /private/var). */
   roots: readonly string[];
 }
-
-export interface GuardedCall {
-  toolName: string;
-  input: Record<string, unknown>;
-  agentId?: string;
-  cwd?: string;
-}
-
-const FILE_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 
 /** Git subcommands that only read. */
 const READ_ONLY_GIT = new Set([
@@ -114,14 +108,6 @@ function writeDenial(s: OwnershipScope, abs: string): string | undefined {
     return `${owner} owns ${prefix} — ask ${owner} with request_change (you own ${ownsText(s)}).`;
   }
   return `${path} isn't in what you own (${ownsText(s)}) and no role owns it. Keep your changes inside your paths, or call yield_blocked to ask the user.`;
-}
-
-function filePath(input: Record<string, unknown>): string | undefined {
-  for (const key of ["file_path", "notebook_path", "path"]) {
-    const v = input[key];
-    if (typeof v === "string" && v) return v;
-  }
-  return undefined;
 }
 
 /** Why a git invocation may not run, or undefined for read-only git. */
@@ -256,18 +242,20 @@ const isRecursiveFlag = (a: string) =>
 
 /**
  * Why a role session may not make this tool call, or undefined to let it through. File
- * edits must stay in the worktree and the role's paths (never shared files); Bash may not
- * change git state, `cd` out of the worktree, `rm -r` outside it, or redirect output there.
+ * edits must stay in the worktree and the role's paths (never shared files); shell commands
+ * may not change git state, `cd` out of the worktree, `rm -r` outside it, or redirect
+ * output there.
  */
 export function guardToolCall(s: OwnershipScope, call: GuardedCall): string | undefined {
   const cwd = call.cwd ?? s.roots[0] ?? "/";
   let reason: string | undefined;
-  if (FILE_TOOLS.has(call.toolName)) {
-    const p = filePath(call.input);
-    if (p !== undefined) reason = writeDenial(s, resolve(cwd, p));
-  } else if (call.toolName === "Bash") {
-    const command = call.input.command;
-    if (typeof command === "string") reason = bashDenial(command, cwd, s);
+  if (call.kind === "edit") {
+    for (const p of call.paths) {
+      reason = writeDenial(s, resolve(cwd, p));
+      if (reason) break;
+    }
+  } else if (call.kind === "shell" && call.command !== undefined) {
+    reason = bashDenial(call.command, cwd, s);
   }
   if (reason && call.agentId) return `${reason} (asked by subagent ${call.agentId})`;
   return reason;

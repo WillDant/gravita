@@ -1,15 +1,11 @@
 import { pickModel, type SquadState } from "@gravita/core";
 import { MAIN_AGENT } from "@gravita/protocol";
 import {
-  BRIEFING_TOOLS,
-  briefingPermission,
-  PLANNER_DISALLOWED_TOOLS,
-} from "../../domain/autonomy-policy";
-import {
   BRIEFING_MAX_TURNS,
   PLANNER_ROLE_ID,
+  SQUAD_PROVIDER,
   STOP_GRACE_MS,
-  squadEnv,
+  squadSubagents,
 } from "../../domain/squad-policy";
 import type { Clock } from "../ports/clock";
 import type { EventStore } from "../ports/event-store";
@@ -72,18 +68,17 @@ export class RunBriefing {
       roleId: PLANNER_ROLE_ID,
       cwd,
       // A conversation, not the plan: under Automatic a cheaper model than the planning run.
+      provider: SQUAD_PROVIDER,
       model: pickModel({ models: q.models, phase: "briefing" }),
-      env: squadEnv(q.models),
-      // Not "dontAsk": that would deny AskUserQuestion before it reaches the user. The
-      // tool list and the policy keep it read-only all the same.
+      subagents: squadSubagents(q.models),
+      // Not "dontAsk": that would deny the user's questions before they reach the user. The
+      // access keeps it read-only all the same.
       permissionMode: "default",
+      access: "read-and-ask",
       prompt: q.brief,
       systemPromptAppend: BRIEFING_CHARTER,
-      tools: [...BRIEFING_TOOLS],
-      disallowedTools: [...PLANNER_DISALLOWED_TOOLS],
       maxTurns: BRIEFING_MAX_TURNS,
       maxBudgetUsd: this.d.budget.forBriefing(q),
-      permissionPolicy: (tool) => briefingPermission(tool),
     });
     run.briefing = new Briefing(session);
     run.plannerSessionId = session.sessionId;

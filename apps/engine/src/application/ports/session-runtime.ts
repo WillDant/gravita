@@ -1,4 +1,4 @@
-import type { PermissionMode, Provider, SessionKind } from "@gravita/protocol";
+import type { Provider, SessionKind, SessionMode } from "@gravita/protocol";
 
 export type PermissionDecision = "allow" | "deny";
 
@@ -8,7 +8,8 @@ export interface ModelOption {
 }
 
 /**
- * A session Gravita runs (the demo, or Claude Code through the Agent SDK) and can therefore
+ * A session Gravita runs (the demo, or a provider's agent such as Claude Code through the
+ * Agent SDK) and can therefore
  * control. Each control capability is backed by its own use case. A runtime that can't do
  * something (the demo can't take a message) rejects with `NotControllableError`.
  */
@@ -35,7 +36,8 @@ export interface SessionRuntime {
   stopAgent(agentId: string): Promise<void>;
   /** Switches the model for the next turns ("default" restores Claude Code's default). */
   setModel(model: string): Promise<void>;
-  setPermissionMode(mode: PermissionMode): Promise<void>;
+  /** `mode` is one of the runtime's provider's modes (the use case checks it first). */
+  setPermissionMode(mode: SessionMode): Promise<void>;
   /** Answers a pending AskUserQuestion: question text → chosen label(s), or free text. */
   answerQuestion(
     agentId: string,

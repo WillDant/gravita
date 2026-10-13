@@ -1,5 +1,5 @@
 import { keys, MAIN_AGENT } from "@gravita/protocol";
-import { previewText } from "../../domain/chat-policy";
+import { preview } from "@gravita/protocol/tools";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
 import type { SessionRuntimeRegistry } from "../ports/session-runtime";
@@ -28,7 +28,7 @@ export class SendMessage {
         sessionId: p.sessionId,
         agentId: MAIN_AGENT,
         type: "message.user",
-        data: { uuid, textPreview: previewText(p.text), origin: "gravita" },
+        data: { uuid, textPreview: preview(p.text), origin: "gravita" },
       },
     ]);
     await runtime.send(p.text, uuid);

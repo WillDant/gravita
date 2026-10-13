@@ -6,6 +6,11 @@ export interface EngineArgs {
   port: number;
   demo: boolean;
   claudeHome: string;
+  /**
+   * `--codex-home` (default `~/.codex`): where Codex keeps its sessions. Read-only, like
+   * `--claude-home`; the engine takes it now and reads it once Codex sessions are observed.
+   */
+  codexHome: string;
   lookbackDays: number;
   dataDir: string;
   devOrigins: string[];
@@ -23,6 +28,7 @@ export function parseArgs(argv: string[]): EngineArgs {
       port: { type: "string", default: "0" },
       demo: { type: "boolean", default: false },
       "claude-home": { type: "string", default: "~/.claude" },
+      "codex-home": { type: "string", default: "~/.codex" },
       "lookback-days": { type: "string", default: "14" },
       "data-dir": { type: "string", default: "~/.gravita" },
       "dev-origin": { type: "string", multiple: true, default: [] },
@@ -46,6 +52,7 @@ export function parseArgs(argv: string[]): EngineArgs {
     port,
     demo: values.demo,
     claudeHome: expandHome(values["claude-home"]),
+    codexHome: expandHome(values["codex-home"]),
     lookbackDays,
     dataDir: expandHome(values["data-dir"]),
     devOrigins,

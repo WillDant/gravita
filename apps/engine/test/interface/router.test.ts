@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { RpcErrors } from "@gravita/protocol";
 import { EventBroadcaster } from "../../src/application/services/event-broadcaster";
 import { ProjectionService } from "../../src/application/services/projection-service";
+import { RuntimeFactoryRegistry } from "../../src/application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../../src/application/services/session-settings";
 import type { SquadOrchestrator } from "../../src/application/squad/squad-orchestrator";
@@ -22,13 +23,13 @@ import { StartChat } from "../../src/application/usecases/start-chat";
 import { StopAgent } from "../../src/application/usecases/stop-agent";
 import { StopAllSessions } from "../../src/application/usecases/stop-all-sessions";
 import {
-  ClaudeUnavailableError,
   DirtyWorktreeError,
   GhUnavailableError,
   InvalidAnswerError,
   InvalidSquadPlanError,
   NotARepositoryError,
   NotLoggedInError,
+  ProviderUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
   SquadWorkspaceError,
@@ -73,8 +74,7 @@ function setup(opts: { chat?: boolean; squads?: SquadOrchestrator } = {}) {
   const factory = new FakeChatFactory(runtimes);
   const startChat = new StartChat({
     workspace: new FakeWorkspace(),
-    claude: environment,
-    factory,
+    providers: new RuntimeFactoryRegistry({ claude: { factory, environment } }),
     runtimes,
     projects: new AnnounceProject(
       { resolve: async (cwd) => ({ id: "p1", root: cwd, name: "demo" }) },
@@ -132,6 +132,7 @@ describe("rpc router (no network)", () => {
     });
     expect(await router.dispatch("engine.status", undefined)).toEqual({
       result: {
+        providers: { claude: { found: true, path: "/bin/claude" } },
         claude: { found: true, path: "/bin/claude" },
         indexing: { done: 0, total: 0 },
         demo: true,
@@ -197,9 +198,9 @@ describe("rpc router: session control", () => {
     expect(await router.dispatch("session.start", { ...start, cwd: "/nope" })).toEqual({
       error: RpcErrors.invalidCwd,
     });
-    environment.result = new ClaudeUnavailableError("outdated");
+    environment.result = new ProviderUnavailableError("claude", "outdated");
     expect(await router.dispatch("session.start", start)).toEqual({
-      error: RpcErrors.claudeUnavailable,
+      error: { ...RpcErrors.providerUnavailable, data: { provider: "claude" } },
     });
     expect(await router.dispatch("session.start", { ...start, prompt: "" })).toEqual({
       error: RpcErrors.badRequest,
@@ -220,10 +221,10 @@ describe("rpc router: session control", () => {
     });
   });
 
-  test("session.start without Claude Code wiring (demo) is claudeUnavailable", async () => {
+  test("session.start without Claude Code wiring (demo) is providerUnavailable", async () => {
     const { router } = setup({ chat: false });
     expect(await router.dispatch("session.start", { cwd: "/work/demo", prompt: "hello" })).toEqual({
-      error: RpcErrors.claudeUnavailable,
+      error: { ...RpcErrors.providerUnavailable, data: { provider: "claude" } },
     });
   });
 
@@ -287,9 +288,9 @@ describe("rpc router: session control", () => {
     const { router, runtimes } = setup();
     const runtime = new FakeRuntime("s1");
     runtimes.register(runtime);
-    runtime.failWith = new NotLoggedInError("s1");
+    runtime.failWith = new NotLoggedInError("claude", "s1");
     expect(await router.dispatch("session.send", { sessionId: "s1", text: "hi" })).toEqual({
-      error: RpcErrors.notLoggedIn,
+      error: { ...RpcErrors.notLoggedIn, data: { provider: "claude" } },
     });
     runtime.failWith = new InvalidAnswerError("q1");
     expect(
@@ -321,6 +322,50 @@ describe("rpc router: session control", () => {
     expect(await router.dispatch("claude.models", {})).toEqual({
       result: { models: [{ value: "opus", displayName: "Opus 5.5" }] },
     });
+  });
+});
+
+describe("rpc router: providers", () => {
+  test("models.list asks the named provider; claude.models is Claude's", async () => {
+    const { router, runtimes } = setup();
+    expect(await router.dispatch("models.list", { provider: "claude" })).toEqual({
+      result: { models: [...FALLBACK_MODELS] },
+    });
+    expect(await router.dispatch("models.list", { provider: "codex" })).toEqual({
+      result: { models: [] },
+    });
+    expect(await router.dispatch("models.list", {})).toEqual({ error: RpcErrors.badRequest });
+    const runtime = new FakeRuntime("s1");
+    runtime.supportedModels = async () => [{ value: "opus", displayName: "Opus 5.5" }];
+    runtimes.register(runtime);
+    const claude = { result: { models: [{ value: "opus", displayName: "Opus 5.5" }] } };
+    expect(await router.dispatch("models.list", { provider: "claude" })).toEqual(claude);
+    expect(await router.dispatch("claude.models", undefined)).toEqual(claude);
+  });
+
+  test("a provider the engine can't run is providerUnavailable, naming it", async () => {
+    const { router } = setup();
+    const start = { cwd: "/work/demo", prompt: "hello", provider: "codex" };
+    expect(await router.dispatch("session.start", start)).toEqual({
+      error: { ...RpcErrors.providerUnavailable, data: { provider: "codex" } },
+    });
+    const demo = setup({ chat: false });
+    expect(await demo.router.dispatch("session.start", start)).toEqual({
+      error: { ...RpcErrors.providerUnavailable, data: { provider: "codex" } },
+    });
+  });
+
+  test("another provider's mode is a bad request", async () => {
+    const { router, runtimes, factory } = setup();
+    const start = { cwd: "/work/demo", prompt: "hello", permissionMode: "workspace" };
+    expect(await router.dispatch("session.start", start)).toMatchObject({
+      error: { code: RpcErrors.badRequest.code },
+    });
+    expect(factory.created).toHaveLength(0);
+    runtimes.register(new FakeRuntime("s1"));
+    expect(
+      await router.dispatch("session.setPermissionMode", { sessionId: "s1", mode: "fullAccess" }),
+    ).toMatchObject({ error: { code: RpcErrors.badRequest.code } });
   });
 });
 

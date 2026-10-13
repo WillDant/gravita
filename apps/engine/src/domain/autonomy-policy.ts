@@ -1,36 +1,14 @@
-import type { SquadAutonomy } from "@gravita/protocol";
+import type { PermissionMode, SquadAutonomy } from "@gravita/protocol";
+import type { GuardedCall } from "@gravita/protocol/tools";
 import { basename, simpleCommands } from "./shell-command";
 
 // What a squad session may do without asking, by the autonomy the user picked. Runs after
 // the ownership guard (which already denied what no role may do), on the permission prompts
-// Claude Code raises: "allow" answers for the user, "ask" sends the prompt to Needs you.
+// the agent raises: "allow" answers for the user, "ask" sends the prompt to Needs you. It
+// judges provider-neutral calls (`GuardedCall`); each provider's adapter says what its
+// tools are.
 
 export type PermissionVerdict = "allow" | "ask" | "deny";
-
-/** Tools that only read, or only organise the agent's own work. Never asked in any mode. */
-export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
-  "Read",
-  "Grep",
-  "Glob",
-  "LS",
-  "NotebookRead",
-  "TodoWrite",
-  "ToolSearch",
-  "BashOutput",
-  "TaskOutput",
-  "ListMcpResourcesTool",
-  "ReadMcpResourceTool",
-  // Subagents: each of their tool calls is judged on its own.
-  "Agent",
-  "Task",
-]);
-
-const EDIT_TOOLS: ReadonlySet<string> = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
-const WEB_TOOLS: ReadonlySet<string> = new Set(["WebFetch", "WebSearch"]);
-
-/** The role tools Gravita serves itself. */
-export const GRAVITA_TOOL_PREFIX = "mcp__gravita__";
-export const ASK_USER_QUESTION = "AskUserQuestion";
 
 /** Programs that reach the network by themselves. */
 const NETWORK_PROGRAMS = new Set([
@@ -125,59 +103,30 @@ export function isNetworkCommand(command: string): boolean {
 
 /**
  * A role session's answer to a permission prompt:
- * - `auto`: everything the guard let through, except AskUserQuestion (always the user's);
+ * - `auto`: everything the guard let through, except questions (always the user's);
  * - `guarded`: edits, reads and local commands; network and installs go to the user;
  * - `ask`: only reading is automatic, everything else goes to the user.
  * Gravita's own role tools are always allowed.
  */
-export function rolePermission(
-  autonomy: SquadAutonomy,
-  toolName: string,
-  input: Record<string, unknown>,
-): PermissionVerdict {
-  if (toolName.startsWith(GRAVITA_TOOL_PREFIX)) return "allow";
-  if (toolName === ASK_USER_QUESTION) return "ask";
-  if (READ_ONLY_TOOLS.has(toolName)) return "allow";
+export function rolePermission(autonomy: SquadAutonomy, call: GuardedCall): PermissionVerdict {
+  if (call.kind === "gravita") return "allow";
+  if (call.kind === "ask") return "ask";
+  if (call.kind === "read") return "allow";
   if (autonomy === "auto") return "allow";
   if (autonomy === "ask") return "ask";
-  if (EDIT_TOOLS.has(toolName)) return "allow";
-  if (WEB_TOOLS.has(toolName)) return "ask";
-  if (toolName === "Bash") {
-    const command = input.command;
-    return typeof command === "string" && !isNetworkCommand(command) ? "allow" : "ask";
-  }
+  if (call.kind === "edit") return "allow";
+  if (call.kind === "web") return "ask";
+  if (call.kind === "shell")
+    return call.command !== undefined && !isNetworkCommand(call.command) ? "allow" : "ask";
   return "ask";
 }
 
-/** The planner reads the repository and nothing else; it never asks the user mid-plan. */
-export function plannerPermission(toolName: string): PermissionVerdict {
-  return PLANNER_TOOLS.includes(toolName) ? "allow" : "deny";
-}
-
-export const PLANNER_TOOLS: readonly string[] = ["Read", "Grep", "Glob"];
-
-/** The briefing reads like the planner, and may also ask the user (that's its job). */
-export const BRIEFING_TOOLS: readonly string[] = [...PLANNER_TOOLS, ASK_USER_QUESTION];
-
 /**
- * The briefing session's answer to a permission prompt: reading is allowed, AskUserQuestion
- * goes to the user, anything else is denied. It runs in "default" mode rather than the
- * planner's "dontAsk", because "dontAsk" denies whatever isn't pre-approved without asking
- * Gravita, and AskUserQuestion only reaches the user through that question.
+ * A role session's mode, in Claude Code's terms (core's `session-modes` maps it to another
+ * provider's): edits are accepted unless the user wants to see each.
  */
-export function briefingPermission(toolName: string): PermissionVerdict {
-  if (toolName === ASK_USER_QUESTION) return "ask";
-  return PLANNER_TOOLS.includes(toolName) ? "allow" : "deny";
-}
-export const PLANNER_DISALLOWED_TOOLS: readonly string[] = [
-  "Write",
-  "Edit",
-  "NotebookEdit",
-  "Bash",
-  "MultiEdit",
-];
-
-/** Claude Code's own mode for a role session: edits are accepted unless the user wants to see each. */
-export function rolePermissionMode(autonomy: SquadAutonomy): "acceptEdits" | "default" {
+export function rolePermissionMode(
+  autonomy: SquadAutonomy,
+): Extract<PermissionMode, "acceptEdits" | "default"> {
   return autonomy === "ask" ? "default" : "acceptEdits";
 }

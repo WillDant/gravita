@@ -3,7 +3,7 @@ import { cp, mkdir, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { RpcErrors } from "@gravita/protocol";
-import { ClaudeUnavailableError } from "../../src/domain/errors";
+import { ProviderUnavailableError } from "../../src/domain/errors";
 import { DetectedClaudeEnvironment } from "../../src/infrastructure/claude/claude-environment";
 import { chatEnv } from "../../src/infrastructure/claude/sdk/claude-sdk-runtime";
 import { ClaudeTranscriptReader } from "../../src/infrastructure/claude/transcript-reader";
@@ -137,19 +137,24 @@ describe("environment allowlist", () => {
     const env = async () => ({ PATH: "/usr/bin" });
     await expect(
       new DetectedClaudeEnvironment(async () => ({ found: false }), env).load(),
-    ).rejects.toBeInstanceOf(ClaudeUnavailableError);
+    ).rejects.toBeInstanceOf(ProviderUnavailableError);
     await expect(
       new DetectedClaudeEnvironment(
         async () => ({ found: true, path: "/c", version: "2.0.1", outdated: true }),
         env,
       ).load(),
-    ).rejects.toEqual(new ClaudeUnavailableError("outdated"));
+    ).rejects.toEqual(new ProviderUnavailableError("claude", "outdated"));
     expect(
       await new DetectedClaudeEnvironment(
         async () => ({ found: true, path: "/c", version: "2.1.296", outdated: false }),
         env,
       ).load(),
-    ).toEqual({ cliPath: "/c", cliVersion: "2.1.296", env: { PATH: "/usr/bin" } });
+    ).toEqual({
+      provider: "claude",
+      cliPath: "/c",
+      cliVersion: "2.1.296",
+      env: { PATH: "/usr/bin" },
+    });
   });
 });
 
