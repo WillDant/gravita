@@ -18,6 +18,16 @@ export const Methods = {
   sessionConversation: "session.conversation",
   claudeModels: "claude.models",
   stopAll: "engine.stopAll",
+  squadCreate: "squad.create",
+  squadReplan: "squad.replan",
+  squadApprovePlan: "squad.approvePlan",
+  squadPause: "squad.pause",
+  squadResume: "squad.resume",
+  squadStop: "squad.stop",
+  squadTaskRetry: "squad.task.retry",
+  squadTaskSkip: "squad.task.skip",
+  squadTaskReassign: "squad.task.reassign",
+  squadDeliver: "squad.deliver",
 } as const;
 
 /**
@@ -58,4 +68,13 @@ export const RpcErrors = {
   tooManySessions: { code: 4007, message: "Too many sessions are running" },
   /** Claude Code isn't logged in; the user runs /login in Claude Code itself. */
   notLoggedIn: { code: 4008, message: "Claude Code is not logged in" },
+  squadNotFound: { code: 4009, message: "No such squad" },
+  /** The plan breaks a rule (overlapping ownership, a task writing outside its role…). */
+  invalidPlan: { code: 4010, message: "The plan is not valid" },
+  /** The action doesn't fit the squad's phase (e.g. approving while it's building). */
+  squadPhase: { code: 4011, message: "The squad can't do that right now" },
+  /** An existing repository must have a clean working tree before a squad starts. */
+  dirtyWorktree: { code: 4012, message: "Commit or stash your changes first" },
+  /** Opening a pull request needs the GitHub CLI (gh), installed and logged in. */
+  ghUnavailable: { code: 4013, message: "The GitHub CLI is not available" },
 } as const;

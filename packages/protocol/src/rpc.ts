@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { GravitaEvent, PermissionModeSchema } from "./events";
+import { DeliverMode, SquadAutonomy, SquadModels, SquadPlan } from "./squad";
 
 // JSON-RPC 2.0 over one WebSocket between the UI and the engine.
 // Flow: connect → `auth` → `state.snapshot` → server pushes `events` batches.
@@ -92,6 +93,29 @@ export const ModelsResult = z.object({
   models: z.array(z.object({ value: z.string(), displayName: z.string() })),
 });
 
+// Squad control. The engine re-validates every plan it receives; the UI's validation
+// (same @gravita/core rules) is only for live feedback on the Board.
+export const SquadRef = z.object({ squadId: z.string() });
+export const SquadCreateParams = z.object({
+  cwd: z.string().min(1),
+  brief: z.string().min(1).max(8_000),
+  models: SquadModels.optional(),
+  budgetUsd: z.number().positive().max(1_000),
+  autonomy: SquadAutonomy,
+});
+export const SquadCreateResult = z.object({ squadId: z.string(), projectId: z.string() });
+export const SquadReplanParams = SquadRef.extend({ feedback: z.string().min(1).max(4_000) });
+export const SquadApproveParams = SquadRef.extend({
+  plan: SquadPlan,
+  /** Answers to the plan's open questions, keyed by the question text. */
+  answers: z.record(z.string(), z.string()).optional(),
+});
+export const SquadTaskRef = SquadRef.extend({ taskId: z.string() });
+export const SquadRetryParams = SquadTaskRef.extend({ model: z.string().optional() });
+export const SquadReassignParams = SquadTaskRef.extend({ role: z.string() });
+export const SquadDeliverParams = SquadRef.extend({ mode: DeliverMode });
+export const SquadDeliverResult = z.object({ ref: z.string() });
+
 /**
  * Every method's params and result, in one place. The engine's router validates with
  * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
@@ -116,6 +140,16 @@ export const RpcContract = {
   "session.conversation": { params: SessionRef, result: ConversationResult },
   "claude.models": { params: z.object({}).optional(), result: ModelsResult },
   "engine.stopAll": { params: z.object({}).optional(), result: StopAllResult },
+  "squad.create": { params: SquadCreateParams, result: SquadCreateResult },
+  "squad.replan": { params: SquadReplanParams, result: OkResult },
+  "squad.approvePlan": { params: SquadApproveParams, result: OkResult },
+  "squad.pause": { params: SquadRef, result: OkResult },
+  "squad.resume": { params: SquadRef, result: OkResult },
+  "squad.stop": { params: SquadRef, result: OkResult },
+  "squad.task.retry": { params: SquadRetryParams, result: OkResult },
+  "squad.task.skip": { params: SquadTaskRef, result: OkResult },
+  "squad.task.reassign": { params: SquadReassignParams, result: OkResult },
+  "squad.deliver": { params: SquadDeliverParams, result: SquadDeliverResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;

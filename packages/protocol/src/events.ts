@@ -1,4 +1,13 @@
 import { z } from "zod";
+import {
+  BudgetScope,
+  DeliverMode,
+  SquadAutonomy,
+  SquadModels,
+  SquadPhase,
+  SquadPlan,
+  TaskStatus,
+} from "./squad";
 
 // GravitaEvent: the one normalized event model. Every adapter (Claude SDK stream,
 // Claude transcripts, hooks, later Codex) maps into this union. Projections and the
@@ -72,6 +81,10 @@ export const SessionStarted = ev("session.started", {
   cliVersion: z.string().optional(),
   authSourceKind: z.string().optional(),
   resumedFrom: z.string().optional(),
+  /** Set on a squad role's session: which squad, role and task it works for. */
+  squadId: z.string().optional(),
+  roleId: z.string().optional(),
+  taskId: z.string().optional(),
 });
 
 export const SessionTitled = ev("session.titled", { title: z.string() });
@@ -251,6 +264,138 @@ export const ErrorEvent = ev("error", {
   retryable: z.boolean(),
 });
 
+// Squad events. They belong to a squad, not a session: `squadId` is in the data and the
+// envelope's sessionId stays empty. Only the engine emits them.
+
+const squadEv = <T extends string, S extends z.ZodRawShape>(type: T, data: S) =>
+  ev(type, { squadId: z.string(), ...data });
+
+export const SquadCreated = squadEv("squad.created", {
+  cwd: z.string(),
+  brief: z.string(),
+  models: SquadModels,
+  budgetUsd: z.number().positive(),
+  autonomy: SquadAutonomy,
+  /** The branch the squad started from, and later delivers into. */
+  baseBranch: z.string().optional(),
+});
+
+export const SquadPhaseChanged = squadEv("squad.phase_changed", {
+  phase: SquadPhase,
+  reason: z.string().optional(),
+});
+
+export const PlanProposed = squadEv("plan.proposed", {
+  attempt: z.number().int().positive(),
+  plan: SquadPlan,
+});
+
+export const PlanRejected = squadEv("plan.rejected", {
+  attempt: z.number().int().positive(),
+  errors: z.array(z.string()),
+});
+
+/** The user changed the proposed plan on the Board (each edit is a new revision). */
+export const PlanEdited = squadEv("plan.edited", {
+  revision: z.number().int().positive(),
+  plan: SquadPlan,
+});
+
+export const PlanApproved = squadEv("plan.approved", { plan: SquadPlan });
+
+export const TaskStatusChanged = squadEv("task.status_changed", {
+  taskId: z.string(),
+  status: TaskStatus,
+  /** 1 on the first run; grows when a task is sent back or retried. */
+  attempt: z.number().int().positive(),
+  /** The role now doing it (reassignment moves it). */
+  role: z.string(),
+  sessionId: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export const NotePosted = squadEv("note.posted", {
+  noteId: z.string(),
+  fromRole: z.string(),
+  toRole: z.string().optional(),
+  text: z.string(),
+});
+
+export const ChangeRequestOpened = squadEv("change_request.opened", {
+  requestId: z.string(),
+  fromRole: z.string(),
+  toRole: z.string(),
+  text: z.string(),
+  /** The task created for the receiving role, if any. */
+  taskId: z.string().optional(),
+});
+
+export const ChangeRequestResolved = squadEv("change_request.resolved", {
+  requestId: z.string(),
+  outcome: z.enum(["done", "declined"]),
+});
+
+export const ContractFrozen = squadEv("contract.frozen", {
+  path: z.string(),
+  version: z.number().int().positive(),
+  sha: z.string(),
+});
+
+export const CommitCreated = squadEv("commit.created", {
+  role: z.string(),
+  taskId: z.string(),
+  sha: z.string(),
+  files: z.array(z.string()),
+});
+
+/** The commit gate found changes outside the role's paths; the task goes back. */
+export const OwnershipViolation = squadEv("ownership.violation", {
+  role: z.string(),
+  taskId: z.string(),
+  attempt: z.number().int().positive(),
+  paths: z.array(z.string()),
+});
+
+const MergeRef = { taskId: z.string(), role: z.string(), attempt: z.number().int().positive() };
+export const MergeStarted = squadEv("merge.started", MergeRef);
+export const MergeSucceeded = squadEv("merge.succeeded", { ...MergeRef, sha: z.string() });
+export const MergeConflicted = squadEv("merge.conflicted", {
+  ...MergeRef,
+  paths: z.array(z.string()),
+});
+/** A red integration check undid the merge; the task goes back to its role. */
+export const MergeReverted = squadEv("merge.reverted", {
+  ...MergeRef,
+  toSha: z.string(),
+  checkId: z.string(),
+});
+
+export const CheckRan = squadEv("check.ran", {
+  checkId: z.string(),
+  runId: z.string(),
+  ok: z.boolean(),
+  durationMs: z.number().optional(),
+  outputPreview: z.string().optional(),
+});
+
+const BudgetLevel = {
+  scope: BudgetScope,
+  /** The task id or role id for task and role scopes; the squad id otherwise. */
+  scopeId: z.string(),
+  usedUsd: z.number().nonnegative(),
+  limitUsd: z.number().positive(),
+};
+/** 75% of a budget is spent. */
+export const BudgetWarned = squadEv("budget.warned", BudgetLevel);
+/** A budget ran out: everything under it is interrupted and the squad waits for the user. */
+export const BudgetExhausted = squadEv("budget.exhausted", BudgetLevel);
+
+export const SquadDelivered = squadEv("squad.delivered", {
+  mode: DeliverMode,
+  /** The merged branch, the PR url, or the integration branch left for the user. */
+  ref: z.string(),
+});
+
 export const GravitaEvent = z.discriminatedUnion("type", [
   ProjectDiscovered,
   SessionStarted,
@@ -280,6 +425,27 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   QuestionAsked,
   QuestionAnswered,
   ErrorEvent,
+  SquadCreated,
+  SquadPhaseChanged,
+  PlanProposed,
+  PlanRejected,
+  PlanEdited,
+  PlanApproved,
+  TaskStatusChanged,
+  NotePosted,
+  ChangeRequestOpened,
+  ChangeRequestResolved,
+  ContractFrozen,
+  CommitCreated,
+  OwnershipViolation,
+  MergeStarted,
+  MergeSucceeded,
+  MergeConflicted,
+  MergeReverted,
+  CheckRan,
+  BudgetWarned,
+  BudgetExhausted,
+  SquadDelivered,
 ]);
 
 export type GravitaEvent = z.infer<typeof GravitaEvent>;

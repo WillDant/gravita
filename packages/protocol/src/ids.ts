@@ -38,4 +38,28 @@ export const keys = {
   questionAsked: (requestId: string) => `question:${requestId}:asked`,
   questionAnswered: (requestId: string) => `question:${requestId}:answered`,
   sessionSettings: (sid: string, seq: number) => `settings:${sid}:${seq}`,
+  // Squad facts. Keys name the fact and its attempt, so replaying a squad after a crash
+  // re-emits the same keys and stores nothing twice.
+  squadCreated: (sq: string) => `squad:${sq}:created`,
+  squadPhase: (sq: string, phase: string, round: number) => `squad:${sq}:phase:${phase}:${round}`,
+  planProposed: (sq: string, attempt: number) => `squad:${sq}:plan:proposed:${attempt}`,
+  planRejected: (sq: string, attempt: number) => `squad:${sq}:plan:rejected:${attempt}`,
+  planEdited: (sq: string, revision: number) => `squad:${sq}:plan:edited:${revision}`,
+  planApproved: (sq: string) => `squad:${sq}:plan:approved`,
+  taskStatus: (sq: string, taskId: string, attempt: number, status: string) =>
+    `squad:${sq}:task:${taskId}:${attempt}:${status}`,
+  note: (sq: string, noteId: string) => `squad:${sq}:note:${noteId}`,
+  changeRequest: (sq: string, requestId: string, state: "opened" | "resolved") =>
+    `squad:${sq}:cr:${requestId}:${state}`,
+  contractFrozen: (sq: string, path: string, version: number) =>
+    `squad:${sq}:contract:${path}:${version}`,
+  commit: (sq: string, sha: string) => `squad:${sq}:commit:${sha}`,
+  ownershipViolation: (sq: string, taskId: string, attempt: number) =>
+    `squad:${sq}:violation:${taskId}:${attempt}`,
+  merge: (sq: string, taskId: string, attempt: number, state: string) =>
+    `squad:${sq}:merge:${taskId}:${attempt}:${state}`,
+  checkRan: (sq: string, checkId: string, runId: string) => `squad:${sq}:check:${checkId}:${runId}`,
+  budget: (sq: string, scope: string, scopeId: string, level: "warned" | "exhausted") =>
+    `squad:${sq}:budget:${scope}:${scopeId}:${level}`,
+  squadDelivered: (sq: string) => `squad:${sq}:delivered`,
 } as const;
