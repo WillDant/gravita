@@ -163,7 +163,7 @@ describe("projection", () => {
   });
 });
 
-describe("M1b: questions, settings and Gravita prompts", () => {
+describe("questions, settings and Gravita prompts", () => {
   const base = {
     source: "sdk" as const,
     provider: "claude" as const,

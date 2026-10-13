@@ -41,7 +41,7 @@ describe("events", () => {
   });
 });
 
-describe("M1b contract", () => {
+describe("chat control contract", () => {
   test("session.start requires a folder and a prompt; mode is one of the known ones", () => {
     const p = RpcContract["session.start"].params;
     expect(p.safeParse({ cwd: "/w/app", prompt: "hi" }).success).toBe(true);

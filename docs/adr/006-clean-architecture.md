@@ -1,9 +1,9 @@
 # 006 — Clean Architecture in the engine and the desktop
 
-Status: accepted (milestone M1a)
+Status: accepted (before chats in Gravita, v0.1.0-alpha)
 
 ## Context
-M0 grew around a few large modules: the engine's `Hub` stored, projected and broadcast events and held a mutable permission-responder slot; `ingest.ts` mixed discovery, scheduling, checkpoints and status; the server reached into the store. M1b adds Agent SDK sessions that Gravita runs and controls, so those concerns need clear seams first.
+The first version (live observability) grew around a few large modules: the engine's `Hub` stored, projected and broadcast events and held a mutable permission-responder slot; `ingest.ts` mixed discovery, scheduling, checkpoints and status; the server reached into the store. Chats in Gravita add Agent SDK sessions that Gravita runs and controls, so those concerns need clear seams first.
 
 ## Decision
 Both apps use layers with one dependency rule: **domain ← application ← infrastructure / interface ← main**. Inner layers never import outer ones. Application code depends only on ports (interfaces), never on `bun:sqlite`, `Bun.serve`, `fs`, child processes or `Date.now` (it gets a `Clock`). Only the composition root creates concrete classes.
@@ -26,9 +26,9 @@ Both apps use layers with one dependency rule: **domain ← application ← infr
 - **A new RPC method**: add its params and result schemas to `RpcContract` in `@gravita/protocol`, write a use case in `application/usecases/` against ports only, and add one entry to `rpcHandlers` in `interface/rpc/router.ts` (the type of the table requires it). Domain errors that clients must tell apart get a mapping in the router. Test the use case with in-memory fakes and the route with the router alone, without a network.
 
 ## Consequences
-Use cases and the router are tested without SQLite, sockets or timers, and the desktop store with a fake gateway. M1b adds the Agent SDK as one more `SessionRuntime` plus use cases, without touching the transport or the projection. The cost is more files and an explicit wiring step in the container.
+Use cases and the router are tested without SQLite, sockets or timers, and the desktop store with a fake gateway. Chats add the Agent SDK as one more `SessionRuntime` plus use cases, without touching the transport or the projection. The cost is more files and an explicit wiring step in the container.
 
-## Addendum (M1b): driving sessions through the Agent SDK
+## Addendum: driving chats through the Agent SDK
 
 - **Ports added:** `ChatRuntimeFactory` (creates a `SessionRuntime` for a new chat), `ClaudeEnvironment` (the user's `claude` path and an allowlisted login-shell env), `Workspace` (is this folder a directory), `TranscriptReader` (full conversation text, read-only), `IdGenerator`.
 - **`SessionRuntime` grew** `send`, `interrupt`, `stopAgent`, `setModel`, `setPermissionMode` and `answerQuestion`. Each control has its own use case (`StartChat`, `SendMessage`, `InterruptSession`, `StopAgent`, `SetModel`, `SetPermissionMode`, `AnswerQuestion`, `GetConversation`, `ListModels`) and an RPC method in `RpcContract`.
@@ -37,7 +37,7 @@ Use cases and the router are tested without SQLite, sockets or timers, and the d
 - **Policies in `domain/`:** at most six chat sessions at once; bypass mode only when a session starts (`BypassLockedError`), never switched on later.
 - **One writer per session:** a registered runtime owns its session, so the transcript tailer skips it until the runtime ends.
 
-## Addendum (M1d): kill switch and Deep Observe hooks
+## Addendum: kill switch and Deep Observe hooks
 
 - **Kill switch:** `StopAllSessions` disposes every runtime in the registry with a cap (shutdown uses it too) and returns how many it stopped. It is the `engine.stopAll` RPC and `POST /control/stop-all` for the tray (engine token as a Bearer header). Sessions without a runtime (terminal ones) are never touched.
 - **Plain HTTP routes** live in `transport.ts` beside `/ws`: POST only, any request with an `Origin` header is refused (no web page can reach them), tokens compared in constant time.
