@@ -17,6 +17,8 @@ export interface CommitTaskParams {
   worktree: string;
   /** What the role's work is measured against: the integration branch. */
   base: string;
+  /** Which try within the attempt (the role may fix a violation and try again); 1 by default. */
+  bounce?: number;
 }
 
 export type CommitTaskResult =
@@ -54,13 +56,14 @@ export class CommitTask {
       this.d.ingest.execute([
         squadEvent(
           "ownership.violation",
-          { ...at, key: keys.ownershipViolation(p.squadId, p.taskId, p.attempt) },
+          { ...at, key: keys.ownershipViolation(p.squadId, p.taskId, p.attempt, p.bounce) },
           {
             squadId: p.squadId,
             role: p.roleId,
             taskId: p.taskId,
             attempt: p.attempt,
             paths: outside,
+            ...(p.bounce && p.bounce > 1 ? { bounce: p.bounce } : {}),
           },
         ),
       ]);

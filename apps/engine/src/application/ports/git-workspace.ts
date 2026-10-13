@@ -48,6 +48,13 @@ export interface GitWorkspace {
   mergeBase(repo: string, a: string, b: string): Promise<string | null>;
   /** True when `path` exists in the tree of `ref`. */
   hasPath(repo: string, ref: string, path: string): Promise<boolean>;
+  /** A file's text at `ref`, cut at `maxBytes`; null when the path isn't there. */
+  readFile(
+    repo: string,
+    ref: string,
+    path: string,
+    maxBytes: number,
+  ): Promise<{ text: string; truncated: boolean } | null>;
 
   /** Adds a worktree on `branch` (created from `from`). Idempotent for the same path and branch. */
   createWorktree(repo: string, spec: WorktreeSpec): Promise<void>;

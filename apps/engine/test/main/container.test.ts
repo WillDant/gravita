@@ -3,7 +3,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { RuntimeFile } from "@gravita/protocol/constants";
 import { createCore, ENGINE_VERSION, startEngine } from "../../src/main/container";
-import { FakeRuntime } from "../fakes";
+import { FakeClaudeEnvironment, FakeRuntime } from "../fakes";
 import { withTempDir } from "../helpers";
 
 class SlowRuntime extends FakeRuntime {
@@ -52,6 +52,27 @@ describe("shutdown", () => {
       expect(await fetch(`http://127.0.0.1:${engine.port}/health`).catch(() => "down")).toBe(
         "down",
       );
+    });
+  });
+});
+
+describe("squads", () => {
+  test("a real core with Claude Code runs squads; the demo and a core without squad options don't", async () => {
+    await withTempDir(async (dir) => {
+      const chat = { environment: new FakeClaudeEnvironment() };
+      const real = createCore({
+        dbPath: ":memory:",
+        demo: false,
+        chat,
+        squad: { worktreesRoot: join(dir, "worktrees") },
+      });
+      expect(real.squads).toBeDefined();
+      expect(real.squad).toBeDefined();
+      const demo = createCore({ dbPath: ":memory:", demo: true });
+      expect(demo.squads).toBeUndefined();
+      const chatOnly = createCore({ dbPath: ":memory:", demo: false, chat });
+      expect(chatOnly.squads).toBeUndefined();
+      for (const c of [real, demo, chatOnly]) c.close();
     });
   });
 });

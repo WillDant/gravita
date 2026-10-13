@@ -123,6 +123,19 @@ export class CliGitWorkspace implements GitWorkspace {
     return r.code === 0;
   }
 
+  async readFile(
+    repo: string,
+    ref: string,
+    path: string,
+    maxBytes: number,
+  ): Promise<{ text: string; truncated: boolean } | null> {
+    const r = await this.git.run(["cat-file", "blob", `${ref}:${path}`], {
+      cwd: repo,
+      maxOutputBytes: maxBytes,
+    });
+    return r.code === 0 ? { text: r.stdout, truncated: r.truncated } : null;
+  }
+
   private async worktrees(repo: string): Promise<WorktreeEntry[]> {
     const out = await this.git.ok(["worktree", "list", "--porcelain", "-z"], { cwd: repo });
     const entries: WorktreeEntry[] = [];

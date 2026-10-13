@@ -1,8 +1,20 @@
 import type { EventOf, GravitaEventType } from "@gravita/protocol";
 
-/** Squad events Gravita emits about git and checks. */
-export type SquadGitEventType = Extract<
+/** Every squad event: they belong to a squad (its id is in the data), not to a session. */
+export type SquadEventType = Extract<
   GravitaEventType,
+  | "squad.created"
+  | "squad.phase_changed"
+  | "plan.proposed"
+  | "plan.rejected"
+  | "plan.edited"
+  | "plan.approved"
+  | "task.status_changed"
+  | "task.added"
+  | "note.posted"
+  | "change_request.opened"
+  | "change_request.resolved"
+  | "contract.frozen"
   | "commit.created"
   | "ownership.violation"
   | "merge.started"
@@ -10,7 +22,11 @@ export type SquadGitEventType = Extract<
   | "merge.conflicted"
   | "merge.reverted"
   | "check.ran"
-  | "contract.frozen"
+  | "budget.warned"
+  | "budget.exhausted"
+  | "squad.budget_changed"
+  | "squad.paused"
+  | "squad.resumed"
   | "squad.delivered"
 >;
 
@@ -18,7 +34,7 @@ export type SquadGitEventType = Extract<
  * Builds a squad event: Gravita is both source and provider, and the envelope carries no
  * session (the squad id is in the data).
  */
-export function squadEvent<T extends SquadGitEventType>(
+export function squadEvent<T extends SquadEventType>(
   type: T,
   o: { key: string; ts: string; projectId: string },
   data: EventOf<T>["data"],

@@ -187,6 +187,22 @@ describe("StartChat", () => {
     expect(runtimes.all()).toHaveLength(2);
   });
 
+  test("squad sessions don't count against the chat limit", async () => {
+    const { startChat, runtimes } = setup();
+    for (const id of ["q-a", "q-b", "q-c"]) {
+      const squadRuntime = new FakeRuntime(id);
+      Object.assign(squadRuntime, { kind: "squad" });
+      runtimes.register(squadRuntime);
+    }
+    const chat = startChat(2);
+    await chat.execute({ cwd: "/work/demo", prompt: "one" });
+    await chat.execute({ cwd: "/work/demo", prompt: "two" });
+    expect(
+      await chat.execute({ cwd: "/work/demo", prompt: "three" }).catch((e) => e),
+    ).toBeInstanceOf(TooManySessionsError);
+    expect(runtimes.all()).toHaveLength(5);
+  });
+
   test("a failed first send unregisters and disposes the runtime", async () => {
     const { startChat, factory, runtimes, projection } = setup();
     factory.failSend = new Error("stream closed");
