@@ -320,6 +320,14 @@ export class ClaudeSdkRuntime implements ChatRuntime {
     clearTimeout(timer);
   }
 
+  /**
+   * The running query, for the plan usage read (claude-plan-usage.ts); undefined once the
+   * session ended or before it started.
+   */
+  liveQuery(): Query | undefined {
+    return this.query && !this.ended && !this.disposing ? this.query : undefined;
+  }
+
   private live(): Query {
     if (!this.query || this.ended || this.disposing) throw new NotControllableError(this.sessionId);
     return this.query;

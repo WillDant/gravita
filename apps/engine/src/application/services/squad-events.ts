@@ -25,6 +25,7 @@ export type SquadEventType = Extract<
   | "budget.warned"
   | "budget.exhausted"
   | "squad.budget_changed"
+  | "budget.baseline"
   | "squad.paused"
   | "squad.resumed"
   | "squad.delivered"

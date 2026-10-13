@@ -1,4 +1,11 @@
-import { AUTO_MODELS, autoSubagentModel, estimatePlanCost } from "@gravita/core";
+import {
+  AUTO_MODELS,
+  autoSubagentModel,
+  estimatePlanCost,
+  PLANNER_TOKENS,
+  pickModel,
+  tokenCost,
+} from "@gravita/core";
 import type {
   AgentProvider,
   PlanRole,
@@ -140,4 +147,49 @@ export function taskBudget(
   const tasksUsd = est.totalUsd - est.plannerUsd;
   const share = tasksUsd > 0 ? (est.byTask[taskId] ?? 0) / tasksUsd : 1 / plan.tasks.length;
   return Math.max(0.01, Math.min(squadBudgetUsd, squadBudgetUsd * share * TASK_HEADROOM));
+}
+
+// Plan budgets. A plan squad's budget is a share of a plan window, which only the provider
+// can measure (account-wide, a few minutes behind). Its sessions still get a dollar cap, but
+// only as a safety net against a runaway session between two readings: a generous multiple
+// of the estimate, never the budget. Claude Code reports API-equivalent dollars even on a
+// subscription, so a tight cap there would stop work the plan still has room for.
+
+/** How often plan usage is read while a plan squad works. */
+export const PLAN_USAGE_POLL_MS = 3 * 60_000;
+/** While a working plan squad has no baseline yet, plan usage is read this often. */
+export const PLAN_BASELINE_POLL_MS = 10_000;
+/** The least time between two reads the UI asks for (a chat or squad screen opening). */
+export const PLAN_USAGE_MIN_GAP_MS = 60_000;
+/** A reading older than this when the squad starts building isn't its baseline. */
+export const PLAN_BASELINE_MAX_AGE_MS = 10 * 60_000;
+/** How long a usage read on a live session may take before Gravita gives up on it. */
+export const PLAN_USAGE_READ_TIMEOUT_MS = 10_000;
+/** A plan squad session's dollar cap is this many times its estimate… */
+export const PLAN_CAP_FACTOR = 4;
+/** …and at least this much. */
+export const PLAN_TASK_CAP_MIN_USD = 5;
+export const PLAN_PLANNER_CAP_MIN_USD = 5;
+export const PLAN_BRIEFING_CAP_MIN_USD = 2.5;
+
+/** A plan squad task's safety cap: a multiple of its estimate at the model its run uses. */
+export function planTaskCap(
+  plan: SquadPlan,
+  models: SquadModels,
+  taskId: string,
+  model?: string,
+): number {
+  const est = estimatePlanCost(plan, models, model ? { [taskId]: model } : {});
+  return Math.max(PLAN_TASK_CAP_MIN_USD, (est.byTask[taskId] ?? 0) * PLAN_CAP_FACTOR);
+}
+
+/** The planner's safety cap in a plan squad. */
+export function planPlannerCap(models: SquadModels): number {
+  const est = tokenCost(pickModel({ models, phase: "planning" }), PLANNER_TOKENS);
+  return Math.max(PLAN_PLANNER_CAP_MIN_USD, est * PLAN_CAP_FACTOR);
+}
+
+/** The briefing's safety cap in a plan squad (it reads and asks: half the planner's). */
+export function planBriefingCap(models: SquadModels): number {
+  return Math.max(PLAN_BRIEFING_CAP_MIN_USD, planPlannerCap(models) / 2);
 }

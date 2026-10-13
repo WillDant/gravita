@@ -9,6 +9,8 @@ import type { ProjectionService } from "../services/projection-service";
  * are applied and published but never stored.
  */
 export class IngestEvents {
+  private readonly listeners = new Set<(accepted: readonly GravitaEvent[]) => void>();
+
   constructor(
     private readonly store: EventStore,
     private readonly projection: ProjectionService,
@@ -36,7 +38,20 @@ export class IngestEvents {
       alsoInTx?.();
     });
     this.projection.apply(accepted, seq);
-    if (accepted.length) this.publisher.publish(accepted, seq);
+    if (accepted.length) {
+      this.publisher.publish(accepted, seq);
+      for (const l of this.listeners) l(accepted);
+    }
     return accepted;
+  }
+
+  /**
+   * Calls `listener` with every batch of new events, once they are in the projection, for
+   * the engine's own reactions (a plan usage reading checks the budgets). A listener that
+   * ingests in turn is called again for those events.
+   */
+  onAccepted(listener: (accepted: readonly GravitaEvent[]) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 }

@@ -1,10 +1,26 @@
-import { outsideOwnership, type SquadState, squadPlan, validatePlan } from "@gravita/core";
-import { type DeliverMode, keys, type RpcParams, type SquadPlan } from "@gravita/protocol";
+import {
+  budgetState,
+  isCounting,
+  isPlanSquad,
+  outsideOwnership,
+  type SquadState,
+  squadPlan,
+  validatePlan,
+} from "@gravita/core";
+import {
+  type AgentProvider,
+  type DeliverMode,
+  keys,
+  type RpcParams,
+  type SquadBudget,
+  type SquadPlan,
+} from "@gravita/protocol";
 import {
   DirtyWorktreeError,
   InvalidCwdError,
   InvalidSquadPlanError,
   NotARepositoryError,
+  PlanUsageUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
   SquadWorkspaceError,
@@ -22,12 +38,13 @@ import type { IdGenerator } from "../ports/id-generator";
 import type { Logger } from "../ports/logger";
 import type { SquadReader } from "../ports/squad-reader";
 import type { Workspace } from "../ports/workspace";
+import type { PlanUsageMonitor } from "../services/plan-usage-monitor";
 import type { RuntimeFactoryRegistry } from "../services/runtime-factory-registry";
 import type { AnnounceProject } from "../usecases/announce-project";
 import type { CleanupSquadWorkspace } from "../usecases/cleanup-squad-workspace";
 import type { DeliverSquad } from "../usecases/deliver-squad";
 import type { PrepareSquadWorkspace } from "../usecases/prepare-squad-workspace";
-import { MIN_SESSION_BUDGET_USD } from "./budget-guard";
+import { type BudgetGuard, MIN_SESSION_BUDGET_USD } from "./budget-guard";
 import type { RunBriefing } from "./run-briefing";
 import type { PlannerRun, RunPlanner } from "./run-planner";
 import { clip, type SquadEmitter } from "./squad-emitter";
@@ -57,6 +74,9 @@ export interface SquadOrchestratorDeps {
   clock: Clock;
   logger: Logger;
   runs: SquadRuns;
+  budget: BudgetGuard;
+  /** Plan usage (absent: plan squads can't be told apart from API accounts up front). */
+  usage?: PlanUsageMonitor;
   /** Squads with work in flight at once (default MAX_RUNNING_SQUADS). */
   maxRunning?: number;
 }
@@ -75,6 +95,10 @@ export class SquadOrchestrator {
     // a squad.
     await this.d.providers.ready(SQUAD_PROVIDER);
     const baseBranch = await this.checkFolder(p.cwd);
+    const budget = requestedBudget(p);
+    // An account known to pay per token has no plan to take a share of.
+    if (budget.mode === "plan" && this.d.usage?.accountPlan(SQUAD_PROVIDER) === "api")
+      throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
     const project = await this.d.projects.execute(p.cwd, this.d.clock.iso());
     const squadId = this.newSquadId();
     const models = squadModels(p.models);
@@ -83,14 +107,37 @@ export class SquadOrchestrator {
       cwd: p.cwd,
       brief: p.brief,
       models,
-      budgetUsd: p.budgetUsd,
+      // Dollars keep the field older readers know; a plan share is the new form.
+      ...(budget.mode === "usd" ? { budgetUsd: budget.amount } : { budget }),
       autonomy: p.autonomy,
       baseBranch,
     });
     const run = this.run(this.need(squadId));
     this.d.emitter.phase(run, "brief");
     await this.startBriefing(run);
+    if (budget.mode === "plan") await this.checkPlanAccount(run);
     return { squadId, projectId: project.id };
+  }
+
+  /**
+   * A plan squad whose account wasn't known yet: ask the briefing's session (already
+   * running, so nothing extra starts) whether plan limits apply. An API-key account
+   * refuses the squad here, before anything more is spent; no answer lets it go on (the
+   * monitor learns it later and the guard waits for a baseline).
+   */
+  private async checkPlanAccount(run: SquadRun) {
+    const usage = this.d.usage;
+    if (!usage || usage.accountPlan(SQUAD_PROVIDER) === "limited") return;
+    const prefer = run.briefing ? [run.briefing.session.sessionId] : [];
+    const reading = await usage.refresh({ provider: SQUAD_PROVIDER, prefer, force: true });
+    if (reading?.limited !== false && usage.accountPlan(SQUAD_PROVIDER) !== "api") return;
+    await this.d.briefing.end(run).catch(() => {});
+    this.d.emitter.phase(
+      run,
+      "failed",
+      "This account has no plan usage limits (it uses an API key); start the squad again with a dollar budget.",
+    );
+    throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
   }
 
   /** Ends the briefing: the planner turns the conversation into a plan. */
@@ -119,6 +166,8 @@ export class SquadOrchestrator {
     const q = this.need(p.squadId);
     if (q.phase !== "review")
       throw new SquadPhaseError("A plan can be approved only while it is in review.");
+    if (isPlanSquad(q) && this.d.usage?.accountPlan(SQUAD_PROVIDER) === "api")
+      throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
     const plan = p.plan as SquadPlan;
     const issues = validatePlan(plan);
     if (issues.length) throw new InvalidSquadPlanError(issues.map((i) => i.message).join(" "));
@@ -134,7 +183,22 @@ export class SquadOrchestrator {
     const run = this.run(q);
     this.d.emitter.planApproved(run, plan, p.answers);
     this.d.emitter.phase(run, "foundation");
+    if (isPlanSquad(q)) this.startCounting(run);
     run.track(this.d.scheduler.advance(run));
+  }
+
+  /**
+   * A plan squad starts counting its window: from a fresh reading if one is known, else
+   * from the first one its sessions bring (the monitor reads often until then).
+   */
+  private startCounting(run: SquadRun) {
+    this.d.budget.measure(this.need(run.squadId));
+    run.track(
+      (async () => {
+        await this.d.usage?.refresh({ provider: SQUAD_PROVIDER, force: true });
+        this.d.budget.measure(this.need(run.squadId));
+      })(),
+    );
   }
 
   pause(p: RpcParams<"squad.pause">) {
@@ -149,6 +213,9 @@ export class SquadOrchestrator {
     if (!q.paused || !ACTIVE_PHASES.has(q.phase))
       throw new SquadPhaseError("The squad isn't paused.");
     this.assertCapacity(q.id);
+    if (q.budgetPlan) return this.resumePlan(q, p);
+    if (p.maxPercent !== undefined)
+      throw new SquadPhaseError("This squad's budget is in dollars; raise it in dollars.");
     const roleBudgets = this.checkRoleBudgets(q, p.roleBudgets ?? {});
     const spent = q.budget.spentUsd;
     if (p.budgetUsd !== undefined && p.budgetUsd <= spent)
@@ -166,6 +233,61 @@ export class SquadOrchestrator {
     this.d.emitter.resumed(run);
     if (q.phase === "planning") this.startPlanner(run, run.replanFeedback);
     else run.track(this.d.scheduler.advance(run));
+  }
+
+  /**
+   * Resumes a plan squad, maybe with a bigger share. Its count starts again from the
+   * window's usage now (the paused time doesn't count), carrying what it had used.
+   */
+  private resumePlan(q: SquadState, p: RpcParams<"squad.resume">) {
+    const plan = q.budgetPlan;
+    if (!plan) return;
+    if (p.budgetUsd !== undefined || p.roleBudgets)
+      throw new SquadPhaseError(
+        "This squad's budget is a share of your plan; raise the percent instead.",
+      );
+    const b = budgetState(q, this.d.budget.usage());
+    const maxPercent = p.maxPercent ?? plan.maxPercent;
+    const used = `${formatPoints(b.spent)} of ${plan.maxPercent}%`;
+    if (p.maxPercent !== undefined && !b.measuring && p.maxPercent <= b.spent)
+      throw new SquadPhaseError(
+        `The new share must be more than the ${formatPoints(b.spent)} points already used.`,
+      );
+    if (!b.measuring && b.spent >= maxPercent)
+      throw new SquadPhaseError(
+        `The squad used its share (${used}); resume with a bigger share to go on.`,
+      );
+    const run = this.run(q);
+    if (maxPercent !== plan.maxPercent)
+      this.d.emitter.budgetChanged(run, { maxPercent, previousPercent: plan.maxPercent });
+    this.d.emitter.resumed(run);
+    this.d.budget.rebase(this.need(q.id));
+    if (q.phase === "planning") this.startPlanner(run, run.replanFeedback);
+    else run.track(this.d.scheduler.advance(run));
+  }
+
+  /** New plan usage arrived: every working plan squad checks its share. */
+  checkBudgets() {
+    if (this.d.scheduler.closing) return;
+    for (const q of this.d.squads.squads()) {
+      if (!q.created || !isPlanSquad(q) || !isCounting(q)) continue;
+      this.d.scheduler.onTurn(this.run(q));
+    }
+  }
+
+  /**
+   * The account turned out to pay per token: a plan squad can't be measured, so a working
+   * one waits for the user (who restarts it with a dollar budget).
+   */
+  planUnavailable(provider: AgentProvider) {
+    if (provider !== SQUAD_PROVIDER) return;
+    for (const q of this.d.squads.squads()) {
+      if (!q.created || !isPlanSquad(q) || q.paused || !ACTIVE_PHASES.has(q.phase)) continue;
+      this.d.scheduler.pause(
+        this.run(q),
+        "This account has no plan usage limits (it uses an API key), so a share of a plan can't be measured. Stop this squad and start one with a dollar budget.",
+      );
+    }
   }
 
   async stop(p: RpcParams<"squad.stop">): Promise<void> {
@@ -444,6 +566,14 @@ export class SquadOrchestrator {
     );
   }
 }
+
+/** The budget squad.create asks for: a plan share, dollars, or the older `budgetUsd`. */
+export function requestedBudget(p: RpcParams<"squad.create">): SquadBudget {
+  if (p.budget) return p.budget as SquadBudget;
+  return { mode: "usd", amount: p.budgetUsd ?? 0 };
+}
+
+const formatPoints = (n: number) => String(Math.round(n * 10) / 10);
 
 function deliveryBody(q: SquadState, plan: SquadPlan): string {
   const done = plan.tasks.filter((t) => q.tasks[t.id]?.status === "done");
