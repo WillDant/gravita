@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { keys } from "@gravita/protocol";
+import { keys, projectDiscoveredEvent } from "@gravita/protocol";
 import { mixSeed, Rng } from "./rng";
 import { type ProjectInfo, SessionScript, type Timed } from "./script";
 
@@ -21,18 +21,7 @@ export const DEMO_PROJECTS = {
 } as const;
 
 export function projectDiscovered(p: ProjectInfo): Timed {
-  return {
-    at: 0,
-    event: {
-      key: `project:${p.id}:discovered`,
-      ts: "",
-      source: "fake",
-      provider: "claude",
-      projectId: p.id,
-      type: "project.discovered",
-      data: { root: p.root, name: p.name },
-    },
-  };
+  return { at: 0, event: projectDiscoveredEvent(p, "", { source: "fake", provider: "claude" }) };
 }
 
 /**

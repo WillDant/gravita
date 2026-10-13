@@ -84,6 +84,9 @@ export const SessionPresence = ev("session.presence", {
 export const SessionDetached = ev("session.detached", { reason: z.string() });
 export const SessionEnded = ev("session.ended", { reason: z.string() });
 
+/** Whether Gravita runs this session and can answer, interrupt or message it. Ephemeral. */
+export const SessionControl = ev("session.control", { controllable: z.boolean() });
+
 export const TurnCompleted = ev("turn.completed", {
   subtype: z.string().optional(),
   costUsd: z.number().optional(),
@@ -225,6 +228,7 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   SessionPresence,
   SessionDetached,
   SessionEnded,
+  SessionControl,
   TurnCompleted,
   AgentSpawned,
   AgentProgress,
@@ -251,3 +255,10 @@ export type EventOf<T extends GravitaEventType> = Extract<GravitaEvent, { type: 
 
 /** An event after the store assigned its global ingest order. */
 export type StoredEvent = GravitaEvent & { seq: number };
+
+/** Facts about the live moment (presence, control). Applied and broadcast, never stored. */
+export const EPHEMERAL_EVENT_TYPES: ReadonlySet<GravitaEventType> = new Set([
+  "session.presence",
+  "session.detached",
+  "session.control",
+]);

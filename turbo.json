@@ -15,5 +15,6 @@
     "typecheck": {
       "dependsOn": ["^build"]
     }
-  }
+  },
+  "globalPassThroughEnv": ["GRAVITA_BUN_TARGET"]
 }

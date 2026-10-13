@@ -38,6 +38,16 @@ const ACTIVITY_BY_KIND: Record<ToolKind, Activity> = {
 export const DROWSY_MS = 5 * 60_000;
 /** A session that isn't live and has been quiet this long is treated as detached. */
 export const STALE_MS = 10 * 60_000;
+/**
+ * A session counts as "recently live" for this long after its last event: the engine
+ * polls it as hot, the UI keeps its "now" rule. One value for every layer.
+ */
+export const LIVE_WINDOW_MS = STALE_MS;
+
+/** True while a session is live or was active within the live window. */
+export function isRecentlyLive(s: { live: boolean; lastEventTs: string }, now: number): boolean {
+  return s.live || now - (Date.parse(s.lastEventTs) || 0) < LIVE_WINDOW_MS;
+}
 /** Text written in the last few seconds counts as "talking". */
 const TALKING_MS = 4_000;
 

@@ -83,6 +83,8 @@ export interface SessionState {
   lastEventTs: string;
   presence?: "busy" | "idle" | "waiting";
   live: boolean;
+  /** Gravita runs this session and can answer, interrupt or message it. */
+  controllable: boolean;
   ended: boolean;
   costUsd?: number;
   agents: Record<string, AgentNode>;

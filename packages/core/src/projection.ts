@@ -61,6 +61,7 @@ function ensureSession(state: GravitaState, e: GravitaEvent): SessionState | und
       startedTs: e.ts,
       lastEventTs: e.ts,
       live: false,
+      controllable: false,
       ended: false,
       agents: { [MAIN_AGENT]: newAgent(e.sessionId, MAIN_AGENT, e.ts, null) },
       usage: {},
@@ -164,9 +165,13 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
         a.inflight = {};
       }
       return;
+    case "session.control":
+      s.controllable = e.data.controllable;
+      return;
     case "session.ended":
       s.live = false;
       s.ended = true;
+      s.controllable = false;
       return;
     case "turn.completed": {
       const main = ensureAgent(s, MAIN_AGENT, e.ts);

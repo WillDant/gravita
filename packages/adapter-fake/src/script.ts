@@ -5,6 +5,7 @@ import {
   type GravitaEventType,
   keys,
   MAIN_AGENT,
+  type ProjectIdentity,
   type SessionKind,
 } from "@gravita/protocol";
 import type { Rng } from "./rng";
@@ -20,11 +21,7 @@ export interface Timed {
 
 type DataOf<T extends GravitaEventType> = EventOf<T>["data"];
 
-export interface ProjectInfo {
-  id: string;
-  name: string;
-  root: string;
-}
+export type ProjectInfo = ProjectIdentity;
 
 export class SessionScript {
   readonly events: Timed[] = [];

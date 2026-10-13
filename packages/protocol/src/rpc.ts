@@ -48,6 +48,28 @@ export const PermissionRespondParams = z.object({
 });
 export type PermissionRespondParams = z.infer<typeof PermissionRespondParams>;
 
+export const OkResult = z.object({ ok: z.literal(true) });
+
+/**
+ * Every method's params and result, in one place. The engine's router validates with
+ * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
+ * `state` in the snapshot is a @gravita/core GravitaState (protocol stays below core).
+ */
+export const RpcContract = {
+  auth: { params: AuthParams, result: AuthResult },
+  "state.snapshot": {
+    params: SnapshotParams,
+    result: z.object({ seq: z.number(), state: z.unknown() }),
+  },
+  "engine.status": { params: z.object({}).optional(), result: EngineStatus },
+  "session.events": { params: SessionEventsParams, result: SessionEventsResult },
+  "permission.respond": { params: PermissionRespondParams, result: OkResult },
+} as const;
+
+export type RpcMethod = keyof typeof RpcContract;
+export type RpcParams<M extends RpcMethod> = z.input<(typeof RpcContract)[M]["params"]>;
+export type RpcResult<M extends RpcMethod> = z.output<(typeof RpcContract)[M]["result"]>;
+
 export interface RpcRequest {
   jsonrpc: "2.0";
   id: number;
