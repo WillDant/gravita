@@ -21,6 +21,11 @@ export interface SquadTaskState {
   role: string;
   sessionId?: string;
   reason?: string;
+  /**
+   * Earlier attempts that went wrong in a way a stronger model may fix, ascending; each one
+   * moves the task up a model tier under the Automatic policy (see `taskEscalations`).
+   */
+  struggled?: number[];
   updatedTs: string;
 }
 

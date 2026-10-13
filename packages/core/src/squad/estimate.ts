@@ -1,10 +1,9 @@
 import type { SquadModels, SquadPlan, TaskSize } from "@gravita/protocol";
+import { type ModelFamily, modelFamily, pickModel } from "./models";
 
 // A rough cost estimate shown before the user approves a plan. It is a ballpark, not a
 // quote: real spend depends on the repo, the model's effort and how many retries a task
 // needs. Every number lives here so it is easy to update when prices or habits change.
-
-export type ModelFamily = "opus" | "sonnet" | "haiku";
 
 export interface ModelPrice {
   /** USD per million uncached input tokens. */
@@ -50,14 +49,6 @@ export const PLANNER_TOKENS: Readonly<TokenUse> = {
   cacheWrite: 80_000,
 };
 
-/** The price family of a model string; "default" and anything unknown price as sonnet. */
-export function modelFamily(model: string): ModelFamily {
-  const m = model.toLowerCase();
-  if (m.includes("opus")) return "opus";
-  if (m.includes("haiku")) return "haiku";
-  return "sonnet";
-}
-
 /** USD for a token use at a model's prices. */
 export function tokenCost(model: string, t: TokenUse): number {
   const p = PRICES[modelFamily(model)];
@@ -78,24 +69,44 @@ export interface PlanEstimate {
   /** Task spend per role; every plan role appears, possibly at 0. */
   byRole: Record<string, number>;
   byTask: Record<string, number>;
+  /** The model each task runs on: the squad's policy, or the override given for it. */
+  taskModels: Record<string, string>;
+  /** Spend per model family, the planner run included; families with no work are absent. */
+  byModel: Partial<Record<ModelFamily, number>>;
 }
 
 /**
- * Rough cost of running a plan: the planner run at the planner model, then each task at
- * its role's model (the role's own `model`, else `models.roles`) and its size.
+ * Rough cost of running a plan: the planner run at the planning model, then each task at
+ * the model the squad's policy picks for it (see `pickModel`) and its size. `taskModels`
+ * overrides the model of some tasks, for a run that escalated or that the user retried
+ * with another model.
  */
-export function estimatePlanCost(plan: SquadPlan, models: SquadModels): PlanEstimate {
-  const plannerUsd = tokenCost(models.planner, PLANNER_TOKENS);
+export function estimatePlanCost(
+  plan: SquadPlan,
+  models: SquadModels,
+  taskModels: Readonly<Record<string, string>> = {},
+): PlanEstimate {
+  const plannerModel = pickModel({ models, phase: "planning" });
+  const plannerUsd = tokenCost(plannerModel, PLANNER_TOKENS);
   const byRole: Record<string, number> = {};
   const byTask: Record<string, number> = {};
+  const picked: Record<string, string> = {};
+  const byModel: Partial<Record<ModelFamily, number>> = {};
+  const add = (model: string, usd: number) => {
+    const f = modelFamily(model);
+    byModel[f] = (byModel[f] ?? 0) + usd;
+  };
+  add(plannerModel, plannerUsd);
   for (const r of plan.roles) byRole[r.id] = 0;
   let totalUsd = plannerUsd;
   for (const t of plan.tasks) {
-    const role = plan.roles.find((r) => r.id === t.role);
-    const usd = tokenCost(role?.model ?? models.roles, TASK_TOKENS[t.size]);
+    const model = taskModels[t.id] ?? pickModel({ models, phase: "task", plan, task: t });
+    const usd = tokenCost(model, TASK_TOKENS[t.size]);
+    picked[t.id] = model;
     byTask[t.id] = (byTask[t.id] ?? 0) + usd;
     byRole[t.role] = (byRole[t.role] ?? 0) + usd;
+    add(model, usd);
     totalUsd += usd;
   }
-  return { totalUsd, plannerUsd, byRole, byTask };
+  return { totalUsd, plannerUsd, byRole, byTask, taskModels: picked, byModel };
 }

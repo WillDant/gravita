@@ -317,6 +317,13 @@ export const TaskStatusChanged = squadEv("task.status_changed", {
   role: z.string(),
   sessionId: z.string().optional(),
   reason: z.string().optional(),
+  /**
+   * The attempt that just went wrong in a way a stronger model may fix (a failure, a
+   * violation that ended it, a merge conflict or revert, a red check). Under the Automatic
+   * model policy each one moves the task's later runs up a tier. On a "ready" status it is
+   * the previous attempt; on "failed" or "blocked" this one.
+   */
+  struggledAttempt: z.number().int().positive().optional(),
 });
 
 export const NotePosted = squadEv("note.posted", {
