@@ -14,6 +14,7 @@ import type {
   GatewayConnection,
   Unsubscribe,
 } from "./EngineGateway";
+import { GatewayError, LocalErrors } from "./GatewayError";
 import type { EngineEndpoint } from "./resolveEndpoint";
 
 const CALL_TIMEOUT_MS = 15_000;
@@ -21,7 +22,7 @@ const MAX_BACKOFF_MS = 10_000;
 
 interface Pending {
   resolve: (v: unknown) => void;
-  reject: (e: Error) => void;
+  reject: (e: GatewayError) => void;
 }
 
 function listeners<T>() {
@@ -90,6 +91,48 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.permissionRespond, params);
   }
 
+  startSession(params: RpcParams<"session.start">): Promise<RpcResult<"session.start">> {
+    return this.call(Methods.sessionStart, params);
+  }
+
+  sendMessage(params: RpcParams<"session.send">): Promise<RpcResult<"session.send">> {
+    return this.call(Methods.sessionSend, params);
+  }
+
+  interruptSession(
+    params: RpcParams<"session.interrupt">,
+  ): Promise<RpcResult<"session.interrupt">> {
+    return this.call(Methods.sessionInterrupt, params);
+  }
+
+  stopAgent(params: RpcParams<"agent.stop">): Promise<RpcResult<"agent.stop">> {
+    return this.call(Methods.agentStop, params);
+  }
+
+  setModel(params: RpcParams<"session.setModel">): Promise<RpcResult<"session.setModel">> {
+    return this.call(Methods.sessionSetModel, params);
+  }
+
+  setPermissionMode(
+    params: RpcParams<"session.setPermissionMode">,
+  ): Promise<RpcResult<"session.setPermissionMode">> {
+    return this.call(Methods.sessionSetPermissionMode, params);
+  }
+
+  answerQuestion(params: RpcParams<"question.answer">): Promise<RpcResult<"question.answer">> {
+    return this.call(Methods.questionAnswer, params);
+  }
+
+  conversation(
+    params: RpcParams<"session.conversation">,
+  ): Promise<RpcResult<"session.conversation">> {
+    return this.call(Methods.sessionConversation, params);
+  }
+
+  models(): Promise<RpcResult<"claude.models">> {
+    return this.call(Methods.claudeModels, {});
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }
@@ -133,7 +176,9 @@ export class WsEngineGateway implements EngineGateway {
     ws.onclose = () => {
       if (generation !== this.generation) return;
       this.ws = undefined;
-      for (const p of this.pending.values()) p.reject(new Error("closed"));
+      for (const p of this.pending.values()) {
+        p.reject(new GatewayError(LocalErrors.offline, "closed"));
+      }
       this.pending.clear();
       this.connection.emit("offline");
       this.scheduleRetry();
@@ -157,7 +202,7 @@ export class WsEngineGateway implements EngineGateway {
       const p = this.pending.get(data.id);
       if (!p) return;
       this.pending.delete(data.id);
-      if (data.error) p.reject(new Error(data.error.message));
+      if (data.error) p.reject(new GatewayError(data.error.code, data.error.message));
       else p.resolve(data.result);
       return;
     }
@@ -173,13 +218,15 @@ export class WsEngineGateway implements EngineGateway {
    */
   private call<M extends RpcMethod>(method: M, params: RpcParams<M>): Promise<RpcResult<M>> {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error("not connected"));
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new GatewayError(LocalErrors.offline, "not connected"));
+    }
     const id = this.nextId++;
     ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
     return new Promise<RpcResult<M>>((resolve, reject) => {
       this.pending.set(id, { resolve: (v) => resolve(v as RpcResult<M>), reject });
       setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error("timeout"));
+        if (this.pending.delete(id)) reject(new GatewayError(LocalErrors.timeout, "timeout"));
       }, CALL_TIMEOUT_MS);
     });
   }

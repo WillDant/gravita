@@ -18,6 +18,7 @@
     "@gravita/core": "workspace:*",
     "@gravita/protocol": "workspace:*",
     "@tauri-apps/api": "2.12.3",
+    "@tauri-apps/plugin-dialog": "2.8.0",
     "clsx": "2.1.1",
     "lucide-react": "1.55.0",
     "react": "19.3.0",

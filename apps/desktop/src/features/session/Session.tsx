@@ -1,18 +1,23 @@
 import { sessionCounts } from "@gravita/core";
 import { ChevronRight, Terminal } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { sessionTitle } from "@/shared/presenters/selectors";
 import { CountChips } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
-import { useNow, useProjection, useSessionEvents } from "@/state/hooks";
+import { useNow, useProjection, useSessionEvents, useStartingSessionId } from "@/state/hooks";
 import { AgentPanel } from "./agent-panel/AgentPanel";
+import { Composer } from "./composer/Composer";
 import { Happening } from "./happening/Happening";
 import { LineMap } from "./line-map/LineMap";
 import { TreeLens } from "./tree-lens/TreeLens";
 
-type Lens = "lines" | "tree";
+// The Conversation lens (renderer and all) loads on first open, off the initial bundle.
+const ConversationLens = lazy(() => import("./conversation/ConversationLens"));
+
+const LENSES = ["lines", "conversation", "tree"] as const;
+type Lens = (typeof LENSES)[number];
 
 export function Session({
   projectId,
@@ -30,8 +35,15 @@ export function Session({
   const now = useNow();
   const navigate = useNavigate();
   const [lens, setLens] = useState<Lens>("lines");
+  const starting = useStartingSessionId();
 
-  if (!session || !project) return null;
+  if (!session || !project) {
+    return starting === sessionId ? (
+      <p role="status" className="p-8 text-ink-2">
+        {t("session.starting")}
+      </p>
+    ) : null;
+  }
   const select = (id?: string) =>
     navigate({ level: "session", projectId, sessionId, ...(id ? { agentId: id } : {}) });
   const selected = agentId ? session.agents[agentId] : undefined;
@@ -61,7 +73,7 @@ export function Session({
           </span>
         </nav>
         <div role="tablist" aria-label="Lens" className="flex rounded-lg bg-panel p-0.5">
-          {(["lines", "tree"] as const).map((l) => (
+          {LENSES.map((l) => (
             <button
               key={l}
               type="button"
@@ -83,7 +95,7 @@ export function Session({
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1">
-            {lens === "lines" ? (
+            {lens === "lines" && (
               <LineMap
                 session={session}
                 events={events}
@@ -91,16 +103,26 @@ export function Session({
                 selectedAgentId={agentId}
                 onSelectAgent={select}
               />
-            ) : (
+            )}
+            {lens === "conversation" && (
+              <Suspense fallback={null}>
+                <ConversationLens session={session} onSelect={select} />
+              </Suspense>
+            )}
+            {lens === "tree" && (
               <TreeLens session={session} now={now} selectedAgentId={agentId} onSelect={select} />
             )}
           </div>
-          {session.kind === "external" && (
-            <div className="flex flex-none items-center gap-2 border-t border-hairline bg-panel px-6 py-2.5 text-sm text-ink-2">
-              <Terminal size={15} aria-hidden="true" />
-              {t("session.watching")}
-              <span className="ml-auto truncate text-xs text-ink-3">{session.cwd}</span>
-            </div>
+          {session.controllable ? (
+            <Composer session={session} />
+          ) : (
+            session.kind === "external" && (
+              <div className="flex flex-none items-center gap-2 border-t border-hairline bg-panel px-6 py-2.5 text-sm text-ink-2">
+                <Terminal size={15} aria-hidden="true" />
+                {t("session.watching")}
+                <span className="ml-auto truncate text-xs text-ink-3">{session.cwd}</span>
+              </div>
+            )
           )}
         </div>
 

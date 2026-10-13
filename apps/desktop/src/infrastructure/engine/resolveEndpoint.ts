@@ -1,3 +1,5 @@
+import { isTauri } from "@/infrastructure/platform/tauri";
+
 export interface EngineEndpoint {
   url: string;
   token: string;
@@ -5,8 +7,7 @@ export interface EngineEndpoint {
 
 /** Tauri hands us the sidecar's port and token; the browser dev mode uses env or the URL. */
 export async function resolveEndpoint(): Promise<EngineEndpoint> {
-  const w = window as unknown as { __TAURI_INTERNALS__?: unknown };
-  if (w.__TAURI_INTERNALS__) {
+  if (isTauri()) {
     const { invoke } = await import("@tauri-apps/api/core");
     const info = await invoke<{ port: number; token: string }>("engine_info");
     return { url: `ws://127.0.0.1:${info.port}/ws`, token: info.token };
