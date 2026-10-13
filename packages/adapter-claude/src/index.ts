@@ -9,7 +9,12 @@ export { inputPreview, isAgentTool, preview, toolKind, toolTarget } from "./tool
 export { conversationOf } from "./transcript/conversation";
 export { nodeTranscriptFs, type TranscriptFs, type TranscriptStat } from "./transcript/fs";
 export { readSessionHead, type SessionHead } from "./transcript/head";
-export { type FileContext, isCommandEcho, normalizeRecords } from "./transcript/normalize";
+export {
+  type FileContext,
+  isCommandEcho,
+  normalizeRecords,
+  stripInjected,
+} from "./transcript/normalize";
 export {
   AGENT_ID,
   parseLine,

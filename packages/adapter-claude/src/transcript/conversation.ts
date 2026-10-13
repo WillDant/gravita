@@ -1,6 +1,6 @@
 import type { ConversationMessage } from "@gravita/protocol";
 import { isAgentTool } from "../tools";
-import { isCommandEcho } from "./normalize";
+import { isCommandEcho, stripInjected } from "./normalize";
 import { type ContentBlock, parseTaskNotification, type RawRecord } from "./records";
 
 // The main agent's conversation with full text, for the Conversation lens. Events carry
@@ -31,8 +31,10 @@ export function conversationOf(records: readonly RawRecord[]): ConversationMessa
       const content = r.message?.content;
       if (!r.uuid || r.isMeta || r.isCompactSummary) continue;
       if (Array.isArray(content) && content.some((b) => b.type === "tool_result")) continue;
-      const text = fullText(content);
-      if (!text.trim() || isCommandEcho(text) || parseTaskNotification(text)) continue;
+      const raw = fullText(content);
+      if (parseTaskNotification(raw)) continue;
+      const text = stripInjected(raw);
+      if (!text || isCommandEcho(text)) continue;
       out.push({ uuid: r.uuid, role: "user", ts: r.timestamp ?? "", text });
       continue;
     }
