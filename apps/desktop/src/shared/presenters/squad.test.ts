@@ -93,7 +93,10 @@ describe("squad presenters", () => {
     // All five built-in kinds present: orchid, then the look-alikes, before any repeat.
     const crowded = {
       roles: [
-        ...(["backend", "frontend", "design", "tests"] as const).map((kind) => ({ id: kind, kind })),
+        ...(["backend", "frontend", "design", "tests"] as const).map((kind) => ({
+          id: kind,
+          kind,
+        })),
         { id: "docs", kind: "custom" as const },
         { id: "infra", kind: "custom" as const },
       ],
