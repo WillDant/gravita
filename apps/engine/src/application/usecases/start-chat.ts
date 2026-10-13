@@ -1,5 +1,5 @@
 import { keys, MAIN_AGENT, type PermissionMode } from "@gravita/protocol";
-import { canStartChat, MAX_CHAT_SESSIONS, previewText } from "../../domain/chat-policy";
+import { canStartChat, countChats, MAX_CHAT_SESSIONS, previewText } from "../../domain/chat-policy";
 import { InvalidCwdError, TooManySessionsError } from "../../domain/errors";
 import type { ChatRuntimeFactory } from "../ports/chat-runtime";
 import type { ClaudeEnvironmentSource } from "../ports/claude-environment";
@@ -42,13 +42,15 @@ export class StartChat {
 
   async execute(p: StartChatParams): Promise<{ sessionId: string; projectId: string }> {
     const limit = this.d.maxSessions ?? MAX_CHAT_SESSIONS;
-    if (!canStartChat(this.d.runtimes.all().length, limit)) throw new TooManySessionsError(limit);
+    if (!canStartChat(countChats(this.d.runtimes.all()), limit))
+      throw new TooManySessionsError(limit);
     if (!(await this.d.workspace.isDirectory(p.cwd))) throw new InvalidCwdError(p.cwd);
     const environment = await this.d.claude.load();
     const ts = this.d.clock.iso();
     const project = await this.d.projects.execute(p.cwd, ts);
     // Checked again after the awaits: another start may have registered meanwhile.
-    if (!canStartChat(this.d.runtimes.all().length, limit)) throw new TooManySessionsError(limit);
+    if (!canStartChat(countChats(this.d.runtimes.all()), limit))
+      throw new TooManySessionsError(limit);
 
     const sessionId = this.d.ids.uuid();
     const uuid = this.d.ids.uuid();

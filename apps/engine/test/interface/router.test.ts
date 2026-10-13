@@ -4,6 +4,7 @@ import { EventBroadcaster } from "../../src/application/services/event-broadcast
 import { ProjectionService } from "../../src/application/services/projection-service";
 import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../../src/application/services/session-settings";
+import type { SquadOrchestrator } from "../../src/application/squad/squad-orchestrator";
 import { AnnounceProject } from "../../src/application/usecases/announce-project";
 import { AnswerQuestion } from "../../src/application/usecases/answer-question";
 import { GetConversation } from "../../src/application/usecases/get-conversation";
@@ -28,7 +29,10 @@ import {
   InvalidSquadPlanError,
   NotARepositoryError,
   NotLoggedInError,
+  SquadNotFoundError,
+  SquadPhaseError,
   SquadWorkspaceError,
+  TooManySquadsError,
 } from "../../src/domain/errors";
 import {
   createRouter,
@@ -51,7 +55,7 @@ import { event } from "../helpers";
 
 const SID = "11111111-1111-4111-8111-111111111111";
 
-function setup(opts: { chat?: boolean } = {}) {
+function setup(opts: { chat?: boolean; squads?: SquadOrchestrator } = {}) {
   const clock = new FakeClock();
   const store = new MemoryEventStore();
   const projection = new ProjectionService();
@@ -101,6 +105,7 @@ function setup(opts: { chat?: boolean } = {}) {
     ),
     listModels: new ListModels(runtimes, clock, logger),
     stopAll: new StopAllSessions(runtimes, clock, logger, 3_000),
+    ...(opts.squads ? { squads: opts.squads } : {}),
   });
   return {
     store,
@@ -335,7 +340,7 @@ describe("rpc router: kill switch", () => {
   });
 });
 
-describe("rpc router: squads (M2c)", () => {
+describe("rpc router: squads", () => {
   const plan = {
     goal: "A todo app",
     summary: "An API for todos.",
@@ -376,21 +381,100 @@ describe("rpc router: squads (M2c)", () => {
     ["squad.deliver", { ...sq, mode: "pr" }],
   ];
 
-  test("every squad method answers that squads arrive later, until the engine runs them", async () => {
+  test("without an orchestrator (the demo), every squad method says squads need Claude Code", async () => {
     const { router } = setup();
     for (const [method, params] of calls) {
       expect({ method, out: await router.dispatch(method, params) }).toEqual({
         method,
         out: {
-          error: { code: RpcErrors.squadPhase.code, message: "Squads arrive in a later version" },
+          error: {
+            code: RpcErrors.squadPhase.code,
+            message: "Squads run with Claude Code; the demo only plays a scripted one",
+          },
         },
       });
+    }
+  });
+
+  test("with an orchestrator, each method calls it and answers its result", async () => {
+    const seen: string[] = [];
+    const record = (name: string, result?: unknown) => async (p: { squadId?: string }) => {
+      seen.push(`${name}:${p.squadId ?? ""}`);
+      return result;
+    };
+    const fake = {
+      create: record("create", { squadId: "q1", projectId: "p1" }),
+      replan: record("replan"),
+      approvePlan: record("approvePlan"),
+      pause: (p: { squadId: string }) => void seen.push(`pause:${p.squadId}`),
+      resume: (p: { squadId: string }) => void seen.push(`resume:${p.squadId}`),
+      stop: record("stop"),
+      retryTask: (p: { squadId: string }) => void seen.push(`retry:${p.squadId}`),
+      skipTask: (p: { squadId: string }) => void seen.push(`skip:${p.squadId}`),
+      reassignTask: (p: { squadId: string }) => void seen.push(`reassign:${p.squadId}`),
+      deliver: record("deliver", { ref: "main" }),
+    } as unknown as SquadOrchestrator;
+    const { router } = setup({ squads: fake });
+    const outs = [];
+    for (const [method, params] of calls) outs.push(await router.dispatch(method, params));
+    expect(outs).toEqual([
+      { result: { squadId: "q1", projectId: "p1" } },
+      ...Array(8).fill({ result: { ok: true } }),
+      { result: { ref: "main" } },
+    ]);
+    expect(seen).toEqual([
+      "create:",
+      "replan:q1",
+      "approvePlan:q1",
+      "pause:q1",
+      "resume:q1",
+      "stop:q1",
+      "retry:q1",
+      "skip:q1",
+      "reassign:q1",
+      "deliver:q1",
+    ]);
+  });
+
+  test("squad errors map to their codes, keeping the messages that say what to do", async () => {
+    const throwing = (err: Error) =>
+      ({
+        pause: () => {
+          throw err;
+        },
+      }) as unknown as SquadOrchestrator;
+    const cases: [Error, { code: number; message: string }][] = [
+      [new SquadNotFoundError("q1"), RpcErrors.squadNotFound],
+      [
+        new SquadPhaseError("Only a squad that is working can be paused."),
+        { code: RpcErrors.squadPhase.code, message: "Only a squad that is working can be paused." },
+      ],
+      [
+        new TooManySquadsError(2),
+        {
+          code: RpcErrors.tooManySessions.code,
+          message: "At most 2 squads can run at once; pause or finish one first",
+        },
+      ],
+      [
+        new InvalidSquadPlanError('Roles "a" and "b" overlap.'),
+        { code: RpcErrors.invalidPlan.code, message: 'Roles "a" and "b" overlap.' },
+      ],
+      [new DirtyWorktreeError("/r"), RpcErrors.dirtyWorktree],
+    ];
+    for (const [err, want] of cases) {
+      const { router } = setup({ squads: throwing(err) });
+      expect(await router.dispatch("squad.pause", sq)).toEqual({ error: want });
     }
   });
 
   test("their params are still validated first", async () => {
     const { router } = setup();
     expect(await router.dispatch("squad.pause", {})).toEqual({ error: RpcErrors.badRequest });
+    for (const bad of [{ budgetUsd: 0 }, { budgetUsd: 5_000 }, { roleBudgets: { backend: -1 } }])
+      expect(await router.dispatch("squad.resume", { ...sq, ...bad })).toEqual({
+        error: RpcErrors.badRequest,
+      });
     expect(await router.dispatch("squad.deliver", { ...sq, mode: "push" })).toEqual({
       error: RpcErrors.badRequest,
     });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   BudgetScope,
   DeliverMode,
+  PlanTask,
   SquadAutonomy,
   SquadModels,
   SquadPhase,
@@ -301,7 +302,11 @@ export const PlanEdited = squadEv("plan.edited", {
   plan: SquadPlan,
 });
 
-export const PlanApproved = squadEv("plan.approved", { plan: SquadPlan });
+export const PlanApproved = squadEv("plan.approved", {
+  plan: SquadPlan,
+  /** The user's answers to the plan's open questions, keyed by the question text. */
+  answers: z.record(z.string(), z.string()).optional(),
+});
 
 export const TaskStatusChanged = squadEv("task.status_changed", {
   taskId: z.string(),
@@ -354,6 +359,8 @@ export const OwnershipViolation = squadEv("ownership.violation", {
   taskId: z.string(),
   attempt: z.number().int().positive(),
   paths: z.array(z.string()),
+  /** Which try within the attempt (the role may fix and call complete_task again); 1 when absent. */
+  bounce: z.number().int().positive().optional(),
 });
 
 const MergeRef = { taskId: z.string(), role: z.string(), attempt: z.number().int().positive() };
@@ -389,6 +396,31 @@ const BudgetLevel = {
 export const BudgetWarned = squadEv("budget.warned", BudgetLevel);
 /** A budget ran out: everything under it is interrupted and the squad waits for the user. */
 export const BudgetExhausted = squadEv("budget.exhausted", BudgetLevel);
+/**
+ * The user raised the squad's budget (and maybe some roles'): the new limits apply, and the
+ * 75% / 100% levels of the changed scopes are armed again.
+ */
+export const SquadBudgetChanged = squadEv("squad.budget_changed", {
+  budgetUsd: z.number().positive(),
+  previousUsd: z.number().nonnegative(),
+  /** New budgets of some roles, by role id. */
+  roleBudgets: z.record(z.string(), z.number().positive()).optional(),
+});
+
+/** The squad stopped starting work and its sessions were interrupted; it waits for the user. */
+export const SquadPaused = squadEv("squad.paused", { reason: z.string() });
+export const SquadResumed = squadEv("squad.resumed", {});
+
+/**
+ * A task that wasn't in the approved plan: a change request or a bug report from a role
+ * (or from the final checks) became work for the role that owns the paths.
+ */
+export const TaskAdded = squadEv("task.added", {
+  task: PlanTask,
+  origin: z.enum(["change_request", "bug"]),
+  /** The role that asked; absent when Gravita's final checks found the bug. */
+  fromRole: z.string().optional(),
+});
 
 export const SquadDelivered = squadEv("squad.delivered", {
   mode: DeliverMode,
@@ -445,6 +477,10 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   CheckRan,
   BudgetWarned,
   BudgetExhausted,
+  SquadBudgetChanged,
+  SquadPaused,
+  SquadResumed,
+  TaskAdded,
   SquadDelivered,
 ]);
 

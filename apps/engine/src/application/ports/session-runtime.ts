@@ -1,4 +1,4 @@
-import type { PermissionMode, Provider } from "@gravita/protocol";
+import type { PermissionMode, Provider, SessionKind } from "@gravita/protocol";
 
 export type PermissionDecision = "allow" | "deny";
 
@@ -16,6 +16,8 @@ export interface SessionRuntime {
   readonly sessionId: string;
   readonly projectId: string;
   readonly provider: Provider;
+  /** "squad" for a squad's planner and role sessions; chats (and the demo) leave it out. */
+  readonly kind?: SessionKind;
   /**
    * Answers a pending permission request. Rejects with `NotControllableError` when the
    * request can't be answered (unknown, or no longer pending).

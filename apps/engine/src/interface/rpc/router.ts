@@ -1,6 +1,7 @@
 import { RpcContract, RpcErrors, type RpcMethod, type RpcResult } from "@gravita/protocol";
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
+import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
 import type { GetConversation } from "../../application/usecases/get-conversation";
 import type { GetEngineStatus } from "../../application/usecases/get-engine-status";
@@ -26,9 +27,12 @@ import {
   NotARepositoryError,
   NotControllableError,
   NotLoggedInError,
+  SquadNotFoundError,
+  SquadPhaseError,
   SquadsUnavailableError,
   SquadWorkspaceError,
   TooManySessionsError,
+  TooManySquadsError,
 } from "../../domain/errors";
 
 // Method → use case, with params validated by the protocol's RpcContract. Pure dispatch:
@@ -71,15 +75,17 @@ export interface RouterDeps {
   getConversation: GetConversation;
   listModels: ListModels;
   stopAll: StopAllSessions;
+  /** Absent in demo mode: the demo plays a scripted squad and runs none. */
+  squads?: SquadOrchestrator;
 }
 
-// M2c: the squad methods are in the contract before the engine runs squads. Until the
-// orchestration lands, each one answers SquadsUnavailableError (RpcErrors.squadPhase).
-const squadsLater = (): never => {
-  throw new SquadsUnavailableError();
-};
+const OK = { ok: true } as const;
 
 export function rpcHandlers(d: RouterDeps): RpcHandlers {
+  const squads = (): SquadOrchestrator => {
+    if (!d.squads) throw new SquadsUnavailableError();
+    return d.squads;
+  };
   return {
     "state.snapshot": () => d.getSnapshot.execute(),
     "engine.status": () => d.getEngineStatus.execute(),
@@ -98,16 +104,40 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "session.conversation": (p) => d.getConversation.execute(p),
     "claude.models": () => d.listModels.execute(),
     "engine.stopAll": () => d.stopAll.execute(),
-    "squad.create": squadsLater,
-    "squad.replan": squadsLater,
-    "squad.approvePlan": squadsLater,
-    "squad.pause": squadsLater,
-    "squad.resume": squadsLater,
-    "squad.stop": squadsLater,
-    "squad.task.retry": squadsLater,
-    "squad.task.skip": squadsLater,
-    "squad.task.reassign": squadsLater,
-    "squad.deliver": squadsLater,
+    "squad.create": (p) => squads().create(p),
+    "squad.replan": async (p) => {
+      await squads().replan(p);
+      return OK;
+    },
+    "squad.approvePlan": async (p) => {
+      await squads().approvePlan(p);
+      return OK;
+    },
+    "squad.pause": (p) => {
+      squads().pause(p);
+      return OK;
+    },
+    "squad.resume": (p) => {
+      squads().resume(p);
+      return OK;
+    },
+    "squad.stop": async (p) => {
+      await squads().stop(p);
+      return OK;
+    },
+    "squad.task.retry": (p) => {
+      squads().retryTask(p);
+      return OK;
+    },
+    "squad.task.skip": (p) => {
+      squads().skipTask(p);
+      return OK;
+    },
+    "squad.task.reassign": (p) => {
+      squads().reassignTask(p);
+      return OK;
+    },
+    "squad.deliver": (p) => squads().deliver(p),
   };
 }
 
@@ -124,6 +154,11 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
   if (err instanceof InvalidAnswerError) return RpcErrors.badRequest;
   if (err instanceof SquadsUnavailableError)
     return { code: RpcErrors.squadPhase.code, message: err.message };
+  if (err instanceof SquadNotFoundError) return RpcErrors.squadNotFound;
+  if (err instanceof SquadPhaseError)
+    return { code: RpcErrors.squadPhase.code, message: err.message };
+  if (err instanceof TooManySquadsError)
+    return { code: RpcErrors.tooManySessions.code, message: err.message };
   // Squad workspace errors keep their message: it says what the user should do.
   if (err instanceof DirtyWorktreeError) return RpcErrors.dirtyWorktree;
   if (err instanceof GhUnavailableError)

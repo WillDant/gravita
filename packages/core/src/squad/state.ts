@@ -1,6 +1,7 @@
 import type {
   BudgetScope,
   DeliverMode,
+  PlanTask,
   SquadAutonomy,
   SquadModels,
   SquadPhase,
@@ -68,7 +69,17 @@ export interface OwnershipViolationState {
   role: string;
   taskId: string;
   attempt: number;
+  /** Which try within the attempt; 1 for the first. */
+  bounce?: number;
   paths: string[];
+  ts: string;
+}
+
+/** A task added after approval (a change request or a bug), and who asked for it. */
+export interface AddedTask {
+  task: PlanTask;
+  origin: "change_request" | "bug";
+  fromRole?: string;
   ts: string;
 }
 
@@ -134,6 +145,19 @@ export interface SquadState {
   planErrors?: string[];
   planErrorsAttempt?: number;
   approvedTs?: string;
+  /** The user's answers to the plan's questions, given at approval. */
+  answers?: Record<string, string>;
+  /** Tasks added after approval, in the order they came; see `squadTasks`. */
+  addedTasks?: AddedTask[];
+  /** Set while the squad waits for the user to resume it. */
+  paused?: { reason: string; ts: string };
+  /** Role budgets the user set after approval, over the plan's (see `roleBudget`). */
+  roleBudgets?: Record<string, number>;
+  /** How many times the budget was changed (event keys count them). */
+  budgetChanges?: number;
+  /** How many times the squad was paused and resumed (event keys count them). */
+  pauseCount?: number;
+  resumeCount?: number;
   tasks: Record<string, SquadTaskState>;
   roles: Record<string, SquadRoleState>;
   /** Every session that works for this squad, roles and planner alike. */

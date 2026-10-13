@@ -1,0 +1,208 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import type {
+  HookCallbackMatcher,
+  Options,
+  Query,
+  SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+import type { SquadState } from "@gravita/core";
+import type { GravitaEvent } from "@gravita/protocol";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { QueryFn } from "../src/infrastructure/claude/sdk/claude-sdk-runtime";
+import { createCore, type EngineCore } from "../src/main/container";
+import { FakeClaudeEnvironment, FakeClock, SeqIds, SilentLogger } from "./fakes";
+import { isolatedEnv } from "./git-helpers";
+import { ScriptedQuery } from "./sdk-fakes";
+
+// A scripted "model" for squads: each Claude Code session the engine starts gets a
+// ScriptedAgent, and a test script decides what it does — write files in its worktree, call
+// Gravita's role tools through the real in-process MCP server, end its turns. Nothing runs
+// Claude Code, so it costs nothing; git, the merge queue and the checks are all real.
+
+let resultSeq = 0;
+
+export class ScriptedAgent {
+  private client: Client | undefined;
+  /** The session's cumulative cost so far (results repeat it unless told otherwise). */
+  private cost = 0;
+  /** Runs when the engine interrupts the turn; by default the turn ends as an error. */
+  onInterrupt: () => void = () => this.result({ subtype: "error_during_execution" });
+
+  constructor(readonly q: ScriptedQuery) {}
+
+  get options(): Options {
+    return this.q.options;
+  }
+
+  get cwd(): string {
+    return this.options.cwd ?? "";
+  }
+
+  get isPlanner(): boolean {
+    return this.options.outputFormat !== undefined;
+  }
+
+  /** The text of the n-th message Gravita sent (1-based), once it arrives. */
+  async prompt(n = 1): Promise<string> {
+    await this.q.waitForPrompts(n);
+    const content = this.q.prompts[n - 1]?.message.content;
+    return typeof content === "string" ? content : JSON.stringify(content);
+  }
+
+  /** The task id of a role session, from its first message. */
+  async taskId(): Promise<string> {
+    const m = /Your task: .* \(([a-z0-9-]+)\)/.exec(await this.prompt(1));
+    if (!m?.[1]) throw new Error("not a role session");
+    return m[1];
+  }
+
+  /** Calls one of Gravita's role tools through the session's MCP server. */
+  async tool(name: string, args: Record<string, unknown> = {}) {
+    if (!this.client) {
+      const server = this.options.mcpServers?.gravita as { instance?: unknown } | undefined;
+      if (!server?.instance) throw new Error("no gravita MCP server in this session");
+      const [ours, theirs] = InMemoryTransport.createLinkedPair();
+      await (server.instance as { connect(t: unknown): Promise<void> }).connect(ours);
+      this.client = new Client({ name: "scripted-agent", version: "1" });
+      await this.client.connect(theirs);
+    }
+    const r = (await this.client.callTool({ name, arguments: args })) as {
+      content: { type: string; text?: string }[];
+      isError?: boolean;
+    };
+    return { text: r.content.map((c) => c.text ?? "").join(""), isError: r.isError === true };
+  }
+
+  /** Runs the session's PreToolUse hooks on a tool call, like Claude Code would. */
+  async preToolUse(toolName: string, toolInput: Record<string, unknown>, agentId?: string) {
+    const matchers = (this.options.hooks?.PreToolUse ?? []) as HookCallbackMatcher[];
+    for (const m of matchers) {
+      if (m.matcher && !new RegExp(`^(${m.matcher})$`).test(toolName)) continue;
+      for (const hook of m.hooks) {
+        const out = (await hook(
+          {
+            hook_event_name: "PreToolUse",
+            tool_name: toolName,
+            tool_input: toolInput,
+            tool_use_id: "toolu_hook",
+            session_id: this.options.sessionId ?? "",
+            transcript_path: "",
+            cwd: this.cwd,
+            ...(agentId ? { agent_id: agentId, agent_type: "general-purpose" } : {}),
+          },
+          "toolu_hook",
+          { signal: new AbortController().signal },
+        )) as {
+          hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string };
+        };
+        if (out.hookSpecificOutput?.permissionDecision === "deny")
+          return out.hookSpecificOutput.permissionDecisionReason;
+      }
+    }
+    return undefined;
+  }
+
+  async write(files: Record<string, string>) {
+    for (const [path, text] of Object.entries(files)) {
+      await mkdir(dirname(join(this.cwd, path)), { recursive: true });
+      await writeFile(join(this.cwd, path), text);
+    }
+  }
+
+  /** Ends the current turn. `cost` is the session's cumulative cost. */
+  result(o: { subtype?: string; cost?: number; structured?: unknown; errors?: string[] } = {}) {
+    const subtype = o.subtype ?? "success";
+    this.cost = o.cost ?? this.cost;
+    this.q.emit({
+      type: "result",
+      subtype,
+      is_error: subtype !== "success",
+      duration_ms: 10,
+      duration_api_ms: 5,
+      num_turns: 1,
+      stop_reason: null,
+      total_cost_usd: this.cost,
+      usage: {},
+      modelUsage: {},
+      permission_denials: [],
+      uuid: `00000000-0000-4000-8000-${String(++resultSeq).padStart(12, "0")}`,
+      session_id: this.options.sessionId ?? "",
+      ...(subtype === "success" ? { result: "", structured_output: o.structured } : {}),
+      ...(o.errors ? { errors: o.errors } : {}),
+    } as unknown as SDKMessage);
+  }
+}
+
+export type AgentScript = (agent: ScriptedAgent) => Promise<void>;
+
+/** A QueryFn whose sessions are played by `script`; failures of the script are collected. */
+export function squadQueryFn(script: AgentScript) {
+  const agents: ScriptedAgent[] = [];
+  const failures: unknown[] = [];
+  const queryFn: QueryFn = (params) => {
+    const q = new ScriptedQuery(params);
+    const agent = new ScriptedAgent(q);
+    const interrupt = q.interrupt.bind(q);
+    q.interrupt = async () => {
+      await interrupt();
+      agent.onInterrupt();
+      return undefined;
+    };
+    agents.push(agent);
+    void script(agent).catch((err) => failures.push(err));
+    return q as unknown as Query;
+  };
+  return { queryFn, agents, failures };
+}
+
+/** A clock whose every timestamp is a millisecond later, so event order is visible in ts. */
+export class TickingClock extends FakeClock {
+  override iso(): string {
+    this.t += 1;
+    return super.iso();
+  }
+}
+
+/** A real-mode core whose Claude Code sessions are scripted, with git in `tmp`. */
+export function squadCore(tmp: string, script: AgentScript, o: { dbPath?: string } = {}) {
+  const env = isolatedEnv(join(tmp, "home"));
+  const { queryFn, agents, failures } = squadQueryFn(script);
+  const clock = new TickingClock();
+  const logger = new SilentLogger();
+  const core: EngineCore = createCore({
+    dbPath: o.dbPath ?? ":memory:",
+    demo: false,
+    clock,
+    logger,
+    ids: new SeqIds(),
+    projectDirectory: { resolve: async (cwd) => ({ id: "p1", root: cwd, name: "demo" }) },
+    chat: { environment: new FakeClaudeEnvironment(), queryFn },
+    squad: {
+      worktreesRoot: join(tmp, "data", "worktrees"),
+      env,
+      checkEnv: () => env,
+      lockfileCommands: {},
+    },
+  });
+  const squads = core.squads;
+  if (!squads) throw new Error("no orchestrator");
+  const squad = (id: string): SquadState => {
+    const q = core.projection.squad(id);
+    if (!q) throw new Error(`no squad ${id}`);
+    return q;
+  };
+  const events = (type?: string): GravitaEvent[] =>
+    [...core.events.allEvents()].filter((e) => !type || e.type === type);
+  return { core, squads, squad, events, agents, failures, clock, logger, env };
+}
+
+/** Polls until `pred` holds (the engine works in the background). */
+export async function until(pred: () => boolean, what = "condition", ms = 10_000) {
+  const end = Date.now() + ms;
+  while (!pred()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}

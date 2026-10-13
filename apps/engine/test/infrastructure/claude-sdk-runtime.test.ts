@@ -257,4 +257,138 @@ describe("ClaudeSdkRuntime", () => {
     });
     expect(b.logger.lines.some((l) => l.includes("stopped"))).toBe(true);
   });
+
+  test("a squad session: tools, guard hook, limits, structured output and resume reach the SDK", async () => {
+    const guarded: string[] = [];
+    const { q, runtime } = setup({
+      kind: "squad",
+      squad: { squadId: "q1", roleId: "backend", taskId: "api" },
+      permissionMode: "dontAsk",
+      systemPromptAppend: "You are Backend.",
+      tools: ["Read"],
+      disallowedTools: ["Bash"],
+      maxBudgetUsd: 2.5,
+      maxTurns: 40,
+      outputSchema: { type: "object" },
+      resume: true,
+      env: { CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: "4" },
+      roleTools: [
+        {
+          name: "whoami",
+          description: "who",
+          input: {},
+          handler: async () => ({ text: "backend" }),
+        },
+      ],
+      toolGuard: (call) => {
+        guarded.push(`${call.toolName}:${call.agentId ?? "main"}`);
+        return call.toolName === "Bash" ? "no git here" : undefined;
+      },
+      permissionPolicy: (tool) =>
+        tool === "Write" ? "allow" : tool === "WebFetch" ? "deny" : "ask",
+    });
+    const o = q.options;
+    expect(runtime.kind).toBe("squad");
+    expect(o).toMatchObject({
+      resume: SID,
+      permissionMode: "dontAsk",
+      systemPrompt: { type: "preset", preset: "claude_code", append: "You are Backend." },
+      tools: ["Read"],
+      disallowedTools: ["Bash"],
+      maxBudgetUsd: 2.5,
+      maxTurns: 40,
+      outputFormat: { type: "json_schema", schema: { type: "object" } },
+    });
+    // Resuming continues the session under its own id: no new id is passed.
+    expect(o.sessionId).toBeUndefined();
+    expect(o.env).toMatchObject({
+      PATH: "/usr/bin",
+      GRAVITA_MANAGED: "1",
+      CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: "4",
+    });
+    expect(o.mcpServers?.gravita).toMatchObject({ type: "sdk", name: "gravita" });
+
+    const [matcher] = o.hooks?.PreToolUse ?? [];
+    expect(matcher?.matcher).toBe("Edit|Write|MultiEdit|NotebookEdit|Bash");
+    const hook = matcher?.hooks[0];
+    const pre = (tool: string, agentId?: string) =>
+      hook?.(
+        {
+          hook_event_name: "PreToolUse",
+          tool_name: tool,
+          tool_input: { command: "git commit" },
+          tool_use_id: "t",
+          session_id: SID,
+          transcript_path: "",
+          cwd: "/work/demo",
+          ...(agentId ? { agent_id: agentId } : {}),
+        },
+        "t",
+        { signal: new AbortController().signal },
+      );
+    expect(await pre("Bash", "sub-1")).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: "no git here",
+      },
+    });
+    expect(await pre("Edit")).toEqual({ continue: true });
+    expect(guarded).toEqual(["Bash:sub-1", "Edit:main"]);
+
+    const canUseTool = o.canUseTool as CanUseTool;
+    const opts = { signal: new AbortController().signal, toolUseID: "t1", requestId: "r1" };
+    expect(await canUseTool("Write", { file_path: "a" }, opts)).toEqual({
+      behavior: "allow",
+      updatedInput: { file_path: "a" },
+    });
+    expect(await canUseTool("WebFetch", {}, opts)).toMatchObject({ behavior: "deny" });
+    await runtime.dispose();
+  });
+
+  test("turn outcomes: each result once, in order, then ended", async () => {
+    const { q, runtime } = setup();
+    const first = runtime.nextTurn();
+    q.emit(
+      {
+        type: "result",
+        subtype: "success",
+        uuid: "r1",
+        is_error: false,
+        total_cost_usd: 0.4,
+        num_turns: 3,
+        structured_output: { goal: "x" },
+      } as unknown as SDKMessage,
+      {
+        type: "result",
+        subtype: "error_max_budget_usd",
+        uuid: "r2",
+        is_error: true,
+        total_cost_usd: 1,
+        errors: ["over budget"],
+      } as unknown as SDKMessage,
+    );
+    expect(await first).toEqual({
+      kind: "result",
+      subtype: "success",
+      isError: false,
+      structuredOutput: { goal: "x" },
+      totalCostUsd: 0.4,
+      numTurns: 3,
+      errors: [],
+    });
+    expect(await runtime.nextTurn()).toMatchObject({
+      subtype: "error_max_budget_usd",
+      errors: ["over budget"],
+    });
+    const pending = runtime.nextTurn();
+    q.end();
+    expect(await pending).toEqual({ kind: "ended", reason: "closed" });
+    expect(await runtime.nextTurn()).toEqual({ kind: "ended", reason: "closed" });
+
+    const b = setup();
+    const waiting = b.runtime.nextTurn();
+    await b.runtime.dispose();
+    expect(await waiting).toEqual({ kind: "ended", reason: "disposed" });
+  });
 });

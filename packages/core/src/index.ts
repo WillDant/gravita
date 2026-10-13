@@ -1,7 +1,7 @@
 export * from "./projection";
 export * from "./squad/estimate";
 export * from "./squad/paths";
-export { squadOfSession } from "./squad/projection";
+export { roleBudget, squadOfSession, squadPlan } from "./squad/projection";
 export * from "./squad/scheduler";
 export * from "./squad/state";
 export * from "./squad/validate-plan";

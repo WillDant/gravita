@@ -16,6 +16,7 @@ import { MergeQueue } from "../application/services/merge-queue";
 import { ProjectionService } from "../application/services/projection-service";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
+import type { SquadOrchestrator } from "../application/squad/squad-orchestrator";
 import { AnnounceProject } from "../application/usecases/announce-project";
 import { AnswerQuestion } from "../application/usecases/answer-question";
 import { CleanupSquadWorkspace } from "../application/usecases/cleanup-squad-workspace";
@@ -72,6 +73,7 @@ import { SystemClock } from "../infrastructure/system/system-clock";
 import { createRouter, type RpcRouter, rpcHandlers } from "../interface/rpc/router";
 import { startTransport } from "../interface/rpc/transport";
 import type { EngineArgs } from "./args";
+import { createSquadOrchestrator } from "./squads";
 
 // The composition root: the only place that creates concrete classes and wires them.
 
@@ -119,12 +121,11 @@ export interface SquadOptions {
   checkEnv?: () => Env | Promise<Env>;
   /** Lockfile name → regeneration command (default: LOCKFILE_COMMANDS); tests fake them. */
   lockfileCommands?: Readonly<Record<string, LockfileCommand>>;
+  /** Squads with work in flight at once (default MAX_RUNNING_SQUADS). */
+  maxRunning?: number;
 }
 
-/**
- * M2b: the git and check building blocks of squads. Constructed and exposed for the
- * orchestration (M2c); nothing calls them yet, so the engine behaves as before.
- */
+/** The git and check building blocks of squads, used by the orchestration. */
 export interface SquadToolkit {
   worktreesRoot: string;
   git: GitWorkspace;
@@ -209,6 +210,8 @@ export interface EngineCore {
   router: RpcRouter;
   /** Squads' git and checks (real mode). */
   squad?: SquadToolkit;
+  /** Runs squads (real mode with Claude Code); absent in the demo. */
+  squads?: SquadOrchestrator;
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
   disposeRuntimes(capMs?: number): Promise<void>;
   close(): void;
@@ -248,20 +251,40 @@ export function createCore(o: CoreOptions): EngineCore {
   });
 
   let startChat: StartChat | undefined;
+  let squads: SquadOrchestrator | undefined;
+  const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
-    startChat = new StartChat({
-      workspace: o.chat.workspace ?? new NodeWorkspace(),
-      claude: o.chat.environment,
-      factory: new ClaudeSdkRuntimeFactory({
-        ingest,
+    const workspace = o.chat.workspace ?? new NodeWorkspace();
+    const factory = new ClaudeSdkRuntimeFactory({
+      ingest,
+      runtimes,
+      status: broadcaster,
+      clock,
+      logger,
+      clientApp: CLIENT_APP,
+      ...(o.chat.queryFn ? { queryFn: o.chat.queryFn } : {}),
+      ...(o.chat.debug ? { debug: true } : {}),
+    });
+    if (squadKit)
+      squads = createSquadOrchestrator({
+        kit: squadKit,
+        factory,
+        claude: o.chat.environment,
         runtimes,
-        status: broadcaster,
+        ingest,
+        projection,
+        projects,
+        workspace,
+        ids,
         clock,
         logger,
-        clientApp: CLIENT_APP,
-        ...(o.chat.queryFn ? { queryFn: o.chat.queryFn } : {}),
-        ...(o.chat.debug ? { debug: true } : {}),
-      }),
+        settings,
+        ...(o.squad?.maxRunning ? { maxRunning: o.squad.maxRunning } : {}),
+      });
+    startChat = new StartChat({
+      workspace,
+      claude: o.chat.environment,
+      factory,
       runtimes,
       projects,
       ingest,
@@ -287,6 +310,7 @@ export function createCore(o: CoreOptions): EngineCore {
       getConversation: new GetConversation(o.transcripts ?? noTranscripts),
       listModels: new ListModels(runtimes, clock, logger),
       stopAll,
+      ...(squads ? { squads } : {}),
     }),
     logger,
   );
@@ -303,11 +327,15 @@ export function createCore(o: CoreOptions): EngineCore {
     hooks,
     stopAll,
     router,
-    ...(o.squad ? { squad: createSquadToolkit(o.squad, { ingest, clock }) } : {}),
+    ...(squadKit ? { squad: squadKit } : {}),
+    ...(squads ? { squads } : {}),
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
+      // First: a squad must not mistake shutdown for the kill switch and record a pause.
+      squads?.close();
       await stopAll.execute(capMs);
     },
     close() {
+      squads?.close();
       void hooks.close();
       broadcaster.close();
       db.close();
@@ -380,6 +408,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   // Previews of transcripts live here: owner-only.
   if (!opts.demo) chmodSync(dbPath, 0o600);
   const { clock, logger, broadcaster, ingest, projection, runtimes } = core;
+  // Squads that were working when the engine last stopped wait, paused, for the user.
+  core.squads?.recover();
   const stops: (() => void)[] = [];
   // Separate from the engine token: hooks can read it from disk, the UI's token never is.
   const hookToken = opts.hookToken ?? randomBytes(32).toString("hex");

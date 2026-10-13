@@ -57,14 +57,35 @@ export class InvalidAnswerError extends Error {
   }
 }
 
-/**
- * M2c: squads are in the protocol but not yet run by the engine. Every squad method
- * answers this until the orchestration lands; then this error goes away.
- */
+/** This engine doesn't run squads (the demo plays a scripted one instead). */
 export class SquadsUnavailableError extends Error {
   constructor() {
-    super("Squads arrive in a later version");
+    super("Squads run with Claude Code; the demo only plays a scripted one");
     this.name = "SquadsUnavailableError";
+  }
+}
+
+/** No squad has this id. */
+export class SquadNotFoundError extends Error {
+  constructor(readonly squadId: string) {
+    super(`No squad ${squadId}`);
+    this.name = "SquadNotFoundError";
+  }
+}
+
+/** The action doesn't fit where the squad is (approving while it builds, delivering early…). */
+export class SquadPhaseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SquadPhaseError";
+  }
+}
+
+/** Starting (or resuming) one more squad would exceed how many may run at once. */
+export class TooManySquadsError extends Error {
+  constructor(readonly limit: number) {
+    super(`At most ${limit} squads can run at once; pause or finish one first`);
+    this.name = "TooManySquadsError";
   }
 }
 

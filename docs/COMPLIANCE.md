@@ -16,6 +16,7 @@ What it does:
 - Starts Claude Code through the official Agent SDK for sessions you start in Gravita, so usage comes from your own account.
 - Offers an optional Claude Code plugin, [Deep Observe](deep-observe.md), that you install yourself through Claude Code's own `/plugin` flow (Gravita never installs it or edits Claude Code's settings). Its hooks only observe: they run async, print nothing, always exit 0, and send each hook's JSON to Gravita on 127.0.0.1 (or to `~/.gravita/spool` while Gravita is closed). They never allow, deny or change anything; you still answer every permission dialog in Claude Code.
 - Writes its own state only under `~/.gravita` (database, `runtime.json` with the port and a per-run hook token, mode 0600).
+- Runs a [squad](squad.md)'s team only after you approve its plan (before that only a read-only planner runs). A squad works in git worktrees under `~/.gravita/worktrees` and on branches named `gravita/<squad>/*` in your repository; Gravita makes its commits there (git hooks off, your git config never written), touches your own branch only when you choose to merge the result into it, and pushes only when you choose to open a pull request. It turns an empty folder into a repository, but never stashes or commits anything of yours in an existing one.
 - Has a kill switch (tray, or `engine.stopAll`) that stops every session Gravita started. Sessions you run in a terminal are never touched.
 - For OpenAI (planned), uses the official "Sign in with ChatGPT" program for open-source apps, or the Codex CLI's own login.
 

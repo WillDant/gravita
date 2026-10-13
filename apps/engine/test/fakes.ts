@@ -8,6 +8,7 @@ import type {
   ChatRuntime,
   ChatRuntimeFactory,
   ChatRuntimeSpec,
+  TurnOutcome,
 } from "../src/application/ports/chat-runtime";
 import type { CheckpointStore, SavedTail } from "../src/application/ports/checkpoint-store";
 import type {
@@ -214,9 +215,25 @@ export class FakeChatRuntime extends FakeRuntime implements ChatRuntime {
     super(spec.sessionId, spec.projectId);
   }
 
+  private readonly turns: TurnOutcome[] = [];
+  private readonly waiters: ((o: TurnOutcome) => void)[] = [];
+
   start() {
     this.started = true;
     this.registeredAtStart = this.runtimes.get(this.sessionId) === this;
+  }
+
+  /** Scripts the outcome of the next turn. */
+  pushTurn(o: TurnOutcome) {
+    const w = this.waiters.shift();
+    if (w) w(o);
+    else this.turns.push(o);
+  }
+
+  nextTurn(): Promise<TurnOutcome> {
+    const next = this.turns.shift();
+    if (next) return Promise.resolve(next);
+    return new Promise((resolve) => this.waiters.push(resolve));
   }
 }
 

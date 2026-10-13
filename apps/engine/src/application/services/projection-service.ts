@@ -1,6 +1,13 @@
-import { apply, emptyState, type GravitaState, type SessionState } from "@gravita/core";
+import {
+  apply,
+  emptyState,
+  type GravitaState,
+  type SessionState,
+  type SquadState,
+} from "@gravita/core";
 import type { GravitaEvent } from "@gravita/protocol";
 import type { ProjectionReader } from "../ports/projection-reader";
+import type { SquadReader } from "../ports/squad-reader";
 
 export interface Snapshot {
   seq: number;
@@ -11,7 +18,7 @@ export interface Snapshot {
  * Owns the engine's in-memory GravitaState, built with the same reducer the UI uses.
  * Only `IngestEvents` mutates it; every read hands out a copy.
  */
-export class ProjectionService implements ProjectionReader {
+export class ProjectionService implements ProjectionReader, SquadReader {
   private readonly state: GravitaState = emptyState();
 
   /** Rebuilds the projection from stored events (on start). */
@@ -38,5 +45,14 @@ export class ProjectionService implements ProjectionReader {
   session(sessionId: string): SessionState | undefined {
     const s = this.state.sessions[sessionId];
     return s ? structuredClone(s) : undefined;
+  }
+
+  squad(squadId: string): SquadState | undefined {
+    const q = this.state.squads?.[squadId];
+    return q ? structuredClone(q) : undefined;
+  }
+
+  squads(): SquadState[] {
+    return structuredClone(Object.values(this.state.squads ?? {}));
   }
 }
