@@ -1,11 +1,11 @@
-import { readFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type GravitaEvent, keys, MAIN_AGENT } from "@gravita/protocol";
 import { isAgentTool } from "../tools";
+import { nodeTranscriptFs, type TranscriptFs } from "./fs";
 import type { RawRecord } from "./records";
 
-// Subagent files and the spawn logic shared by the one-shot reader (session.ts) and the
-// incremental tailer (tail.ts), so both resolve parents the same way.
+// Subagent files and the spawn logic used by the tail state machine (tail-state.ts), which
+// both the incremental tail and the one-shot reader (session.ts) run.
 
 /** Undocumented `subagents/agent-<id>.meta.json`, read through an allowlist. */
 export interface SubagentMeta {
@@ -52,9 +52,12 @@ export function parseMeta(raw: unknown): SubagentMeta {
 }
 
 /** Reads a meta file. `null` when it is missing or not (yet) valid JSON. */
-export async function readMeta(path: string): Promise<SubagentMeta | null> {
+export async function readMeta(
+  path: string,
+  fs: TranscriptFs = nodeTranscriptFs,
+): Promise<SubagentMeta | null> {
   try {
-    return parseMeta(JSON.parse(await readFile(path, "utf8")));
+    return parseMeta(JSON.parse(await fs.readText(path)));
   } catch {
     return null;
   }
