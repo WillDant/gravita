@@ -1,4 +1,5 @@
 import type { PermissionMode, Question, SessionKind, ToolKind } from "@gravita/protocol";
+import type { SquadState } from "./squad/state";
 
 /**
  * Persistent lifecycle of an agent node. Activity (what it's doing right now) is
@@ -98,6 +99,10 @@ export interface SessionState {
   permissionMode?: PermissionMode;
   ended: boolean;
   costUsd?: number;
+  /** Set on a squad role's session: the squad, role and task it works for. */
+  squadId?: string;
+  roleId?: string;
+  taskId?: string;
   agents: Record<string, AgentNode>;
   /** Per agent → per message usage, so repeated usage records are counted once (max). */
   usage: Record<string, Record<string, Tokens>>;
@@ -115,9 +120,10 @@ export interface ProjectState {
 export interface GravitaState {
   projects: Record<string, ProjectState>;
   sessions: Record<string, SessionState>;
+  squads: Record<string, SquadState>;
   seq: number;
 }
 
 export function emptyState(): GravitaState {
-  return { projects: {}, sessions: {}, seq: 0 };
+  return { projects: {}, sessions: {}, squads: {}, seq: 0 };
 }
