@@ -54,6 +54,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "status.detached": "Encerrada",
 
   "session.lens.lines": "Linhas",
+  "session.lens.orbit": "Órbita",
   "session.lens.tree": "Árvore",
   "session.happening": "O que está acontecendo",
   "session.happeningEmpty": "Nada rodando. O último resultado está no mapa.",
@@ -190,6 +191,10 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "conversation.retry": "Tentar de novo",
   "conversation.openAgent": "Abrir {agent}",
 
+  "orbit.label": "Agentes em órbita de {project}",
+  "orbit.swarm.one": "Mais {count} subagente ({parent})",
+  "orbit.swarm.other": "Mais {count} subagentes ({parent})",
+
   "question.reply": "Ou responda com suas palavras",
   "question.replyPlaceholder": "Opcional",
   "question.send": "Enviar resposta",
@@ -213,6 +218,15 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "connect.step.login": "Depois entre e siga os passos",
   "connect.copy": "Copiar {command}",
   "connect.copied": "Copiado",
+
+  "gallery.title": "Galeria de personas",
+  "gallery.intro": "Cada persona que um agente pode mostrar, em SVG e no canvas.",
+  "gallery.dark": "Tema escuro",
+  "gallery.reducedMotion": "Movimento reduzido",
+  "gallery.svg": "SVG",
+  "gallery.canvas": "Canvas",
+  "gallery.budget": "Orçamento de movimento",
+  "gallery.budgetNote": "Nove agentes esperam por você: três pulam, todos mantêm o halo.",
 
   "error.notControllable": "Esta sessão roda no seu terminal. Responda por lá.",
   "error.claudeUnavailable": "O Claude Code não está disponível neste Mac.",
