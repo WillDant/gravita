@@ -2,19 +2,21 @@
 
 **See and steer every AI coding agent and subagent, across all your projects.**
 
-When Claude Code fans out into subagents, it gets hard to tell who is doing what, how many are running, and which one is waiting for you. Gravita draws your sessions as a live transit map: each agent is a coloured line, every tool call is a station, and a subagent is a branch line that leaves its parent and merges back when it's done. The agent itself rides at the head of its line as a small orb with eyes that react to what it's doing.
+When Claude Code or Codex fans out into subagents, it gets hard to tell who is doing what, how many are running, and which one is waiting for you. Gravita draws your sessions as a live transit map: each agent is a coloured line, every tool call is a station, and a subagent is a branch line that leaves its parent and merges back when it's done. The agent itself rides at the head of its line as a small orb with eyes that react to what it's doing.
 
-> Status: **v0.2.0-beta**, a preview for macOS with Squads. Works with Claude Code today; Codex is next. Open source under Apache-2.0.
+> Status: **v0.3.0-beta**, a preview for macOS. Works with Claude Code and Codex, and squads can mix both. Open source under Apache-2.0.
 
 ## What it does
 
 - **Home:** every project with agents running, like a service status board, plus a "Needs you" list that says exactly which subagent of which session is asking.
 - **Project:** all sessions in a repo (worktrees included), with their lines, status and token use.
-- **Session:** the live line map, an Orbit lens (the project as a sun, agents as planets, subagents as moons), the conversation, a plain-language "What's happening" column, and a tree lens. Start and steer Claude Code chats right there: approve tools, answer questions, interrupt, switch model or mode.
-- **Squads:** describe a goal and a team of role agents (backend, frontend, tests…) builds it in parallel git worktrees. You approve the plan first; each role can only change its own paths; Gravita commits, merges and runs the checks; a budget caps the spend; you deliver by merge, pull request or branch. See [docs/squad.md](docs/squad.md).
+- **Session:** the live line map, an Orbit lens (the project as a sun, agents as planets, subagents as moons), the conversation, a plain-language "What's happening" column, and a tree lens. Start and steer Claude Code or Codex chats right there: approve tools, answer questions, interrupt, switch model or mode.
+- **Squads:** describe a goal and a team of role agents (backend, frontend, tests…) builds it in parallel git worktrees. You approve the plan first; each role can only change its own paths; Gravita commits, merges and runs the checks; a budget caps the spend; you deliver by merge, pull request or branch. Each role runs on Claude Code or Codex. See [docs/squad.md](docs/squad.md).
 - **Tray and notifications:** close the window and agents keep running; the menu-bar icon shows who is waiting and stops every Gravita agent at once, and the OS tells you when someone needs you.
 - **Agent panel:** what the agent is doing now, what it did (Story → Steps → Raw), its subagents and the files it touched.
-- Sessions you start in your own terminal show up on their own. Gravita reads Claude Code's transcripts (read-only) and its live session registry.
+- **Codex:** your Codex sessions show up live, Codex chats run in Gravita, and squad roles can run on Codex. See [docs/codex.md](docs/codex.md).
+- **Plan usage:** squad budgets are a share of your plan's 5-hour or weekly limit, for Claude and Codex alike; Home shows how much of each is used.
+- Sessions you start in your own terminal show up on their own. Gravita reads Claude Code's transcripts and Codex's session files (read-only) and Claude Code's live session registry.
 
 ## Deep Observe (optional plugin)
 
@@ -27,11 +29,11 @@ Transcripts don't say when a terminal session is waiting on a permission dialog.
 
 On Claude Code 2.1.275 or later: `/plugin install deep-observe --marketplace WillDant/gravita`. The hooks never block or answer anything, and never send your prompts. See [docs/deep-observe.md](docs/deep-observe.md).
 
-Coming next: **Codex support** (OpenAI's coding agent, with "Sign in with ChatGPT"), then polish and a public launch. See [docs/ROADMAP.md](docs/ROADMAP.md).
+Coming next: polish and a public launch. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Your account, your machine
 
-Gravita runs the `claude` you already installed and logged into. It never offers its own Claude login, never reads your credentials, and never sends telemetry. See [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
+Gravita runs the `claude` and `codex` you already installed and logged into. It never offers its own Claude login, never reads your credentials, and never sends telemetry. Codex squads use a separate profile you sign in to once, through Codex itself. See [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
 
 ## Develop
 
@@ -71,6 +73,7 @@ apps/engine           Bun sidecar: ingest, SQLite event store, local WebSocket A
 packages/protocol     The normalized event model (zod) and the RPC contract
 packages/core         Reducer, status machine, personas, line-map model (pure TS)
 packages/adapter-claude  Claude Code transcripts and hooks → events
+packages/adapter-codex   Codex session files and app-server → events
 packages/adapter-fake    Scripted demo agents
 plugins/deep-observe  Optional Claude Code plugin (observe-only hooks)
 fixtures/             Recorded/synthetic transcripts used by tests

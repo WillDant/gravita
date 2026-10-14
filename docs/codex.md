@@ -9,10 +9,18 @@ Gravita works with [Codex](https://github.com/openai/codex), OpenAI's coding age
 - **Approvals and questions.** When Codex wants to run a command, change files or widen its sandbox, Gravita shows the request with the command or the files; Allow and Deny answer Codex. When Codex asks you a question, you answer it in Gravita.
 - **Models.** The model list is Codex's own (`model/list`); changing the model applies from the next turn.
 - **The kill switch** (tray, or `engine.stopAll`) stops Codex chats too, and they count toward the six chats Gravita runs at once.
+- **Code mode.** Codex 0.160 runs most calls inside a small JavaScript script (its `exec` tool calling `tools.exec_command`, `tools.apply_patch`, MCP tools and `tools.web__run`). Gravita reads the script's tool calls, literal strings only, so the map shows the command, the files a patch edits, or the MCP or web tool, with "(+N)" when the script makes more calls. A script whose command is built at run time shows its first line.
 
 - **Codex roles in squads.** A squad can be built by Claude Code only, Codex only, or a mix (see [Squads › Codex roles](squad.md#codex-roles)).
 
 Not yet: stopping a single Codex subagent (interrupt stops the whole turn), and MCP servers' forms (declined).
+
+## Tested
+
+With Codex 0.160.0 on a ChatGPT Team plan (2026-10-13):
+- A Codex chat (gpt-6-luna, Ask before acting): one approval answered in Gravita, and an interrupt during a 30-second command, which ended the turn 0.3 s later.
+- A mixed squad on an empty folder (a pnpm todo app): the backend on Codex, the frontend and tests on Claude Code. Four tasks done on the first attempt, every check green, no ownership violation, in under six minutes, using 3 points of Codex's 5-hour window and less than 1 of Claude's, under a 10% cap.
+- A Codex-only plan: the briefing and the planner on Codex, through `outputSchema`.
 
 ## Requirements
 
@@ -41,7 +49,9 @@ Squad agents run unattended, so they must not inherit your personal setup (your 
 
 **Role tools over loopback MCP.** Claude Code gets Gravita's role tools as an in-process MCP server; Codex can't, so the engine serves the same tools as an MCP server over HTTP on its own loopback port, `http://127.0.0.1:<port>/mcp`. Each squad session mounts its tool set (bound to its squad, role, task and attempt) under a random 256-bit token; the app-server reads the token from its environment (`-c mcp_servers.gravita.bearer_token_env_var="GRAVITA_MCP_TOKEN"`, so it never appears on a command line) and sends it as a Bearer header. A request without a known token is refused (401), and so is any request with an `Origin` header (403), so a web page can't reach it; the token dies with the session. The server is required (the session doesn't start without it) and its tools are pre-approved (`default_tools_approval_mode="approve"`), as Claude Code's role tools are always allowed.
 
-**Structured plan.** In a Codex-only squad the planner answers through `outputSchema` on `turn/start`: the SquadPlan schema in the strict form OpenAI's structured outputs take (every object closed, optional fields as nullable). Gravita reads the final message as JSON, drops the nulls and checks it like any plan.
+**Structured plan.** In a Codex-only squad the planner answers through `outputSchema` on `turn/start`: the SquadPlan schema in the strict form OpenAI's structured outputs take (every object closed, optional fields as nullable). Strict mode refuses length limits, so they move into each field's description ("At most 200 characters."). Gravita reads the final message as JSON, drops the nulls and checks it like any plan.
+
+**Conversations.** A squad's Codex sessions write their rollouts in Gravita's Codex home; the Conversation lens reads them there when a thread isn't in your `~/.codex`.
 
 **Not yet on Codex roles:** a per-session dollar cap and a turn limit (Codex has neither; the squad's plan share bounds them), and bounds on Codex's own subagents (Claude Code roles get at most four at once, two levels deep). Package installs that write outside the worktree (a global package store) fail in the sandbox; under Guarded Codex asks to go beyond it and the request comes to you.
 

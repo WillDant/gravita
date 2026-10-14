@@ -30,7 +30,7 @@ It never:
 - **Reads archived sessions** (`archived_sessions/`), or follows a symbolic link out of `sessions/`.
 - **Writes anything under `~/.codex` itself.** Observing is read-only. A chat you start is Codex's own session: Codex writes its rollout there, as it does for any session you run. Squads never use `~/.codex` at all.
 - **Handles Codex tokens, or logs you in to your own Codex.** It never runs `codex login`, never calls the app-server's login methods on your Codex home, and never sees a token: Codex keeps its credentials and uses them itself. The one sign-in Gravita starts is for its own Codex profile for squads, and Codex runs it (below).
-- **Reads its own Codex profile's login.** In `~/.gravita/codex-home` Gravita reads and writes only its `config.toml`; the login Codex stores there (and the squads' rollouts) are Codex's.
+- **Reads its own Codex profile's login.** In `~/.gravita/codex-home` Gravita writes only its `config.toml`, and reads only that and the squads' rollouts under `sessions/` (for the Conversation lens); the login Codex stores there is Codex's.
 - **Keeps your account's identity.** Codex's account read also returns your email and account id; Gravita keeps only the kind of login (ChatGPT or API key) and the plan type.
 
 What it does:
