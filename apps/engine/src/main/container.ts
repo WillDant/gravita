@@ -112,6 +112,9 @@ export const SPOOL_DRAIN_MS = 30_000;
 /** How long shutdown waits for the hook being ingested. */
 const HOOKS_CAP_MS = 1_000;
 
+/** How long shutdown waits for a sign-in to Gravita's Codex profile to stop its app-server. */
+const PROFILE_CAP_MS = 3_000;
+
 function withCap(p: Promise<void>, ms: number): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([p, new Promise<void>((r) => (timer = setTimeout(r, ms)))]).finally(() =>
@@ -775,8 +778,13 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         if (!opts.demo) runtimeFile.removeIfOwned(process.pid);
         for (const stop of stops) stop();
         server.stop();
-        // A hook mid-way (resolving its project) still writes; let it, briefly.
-        await Promise.all([core.disposeRuntimes(), withCap(core.hooks.close(), HOOKS_CAP_MS)]);
+        // A hook mid-way (resolving its project) still writes; let it, briefly. A sign-in to
+        // Gravita's Codex profile stops its app-server, which must not outlive the engine.
+        await Promise.all([
+          core.disposeRuntimes(),
+          withCap(core.hooks.close(), HOOKS_CAP_MS),
+          withCap(core.codexProfile?.close() ?? Promise.resolve(), PROFILE_CAP_MS),
+        ]);
         core.close();
       })();
       return stopping;

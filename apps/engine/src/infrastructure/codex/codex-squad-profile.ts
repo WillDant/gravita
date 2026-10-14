@@ -121,6 +121,8 @@ interface PendingSignIn {
 export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
   private last: { at: number; status: CodexProfileStatus } | undefined;
   private pending: PendingSignIn | undefined;
+  /** A sign-in starting (its app-server not yet answering with the link). */
+  private starting: Promise<{ authUrl: string }> | undefined;
   private reading: Promise<CodexProfileStatus> | undefined;
 
   constructor(private readonly d: CodexSquadProfileDeps) {}
@@ -171,9 +173,16 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
     return this.reading;
   }
 
-  async signIn(): Promise<{ authUrl: string }> {
-    // A second click while the browser step is open gets the same link.
-    if (this.pending) return { authUrl: this.pending.authUrl };
+  signIn(): Promise<{ authUrl: string }> {
+    // A second click while the browser step is open (or still starting) gets the same link.
+    if (this.pending) return Promise.resolve({ authUrl: this.pending.authUrl });
+    this.starting ??= this.startSignIn().finally(() => {
+      this.starting = undefined;
+    });
+    return this.starting;
+  }
+
+  private async startSignIn(): Promise<{ authUrl: string }> {
     this.prepare();
     const { client, proc } = await this.connect((n) => this.notified(n));
     try {
@@ -199,6 +208,7 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
   }
 
   async signOut(): Promise<void> {
+    await this.starting?.catch(() => {});
     await this.giveUp();
     if (!existsSync(this.d.home)) {
       this.publish({ loggedIn: false });
@@ -214,8 +224,9 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
     }
   }
 
-  /** Stops a sign-in in progress (the engine is closing, or the user signs out). */
+  /** Stops a sign-in in progress, one still starting included (the engine is closing). */
   async close(): Promise<void> {
+    await this.starting?.catch(() => {});
     await this.giveUp();
   }
 
@@ -304,7 +315,9 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
   private async giveUp(error?: string): Promise<void> {
     const pending = this.pending;
     if (!pending) return;
-    await pending.client
+    // Codex is asked to cancel, but stopping its app-server doesn't wait on the answer (its
+    // callback listener ends with the process anyway).
+    void pending.client
       .call("account/login/cancel", { loginId: pending.loginId }, { timeoutMs: 2_000 })
       .catch(() => {});
     await this.finish(pending);
