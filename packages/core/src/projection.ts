@@ -1,6 +1,12 @@
 import type { GravitaEvent } from "@gravita/protocol";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
-import { advanceMeter, isCounting, isPlanWindow, meterKey } from "./squad/plan-usage";
+import {
+  advanceMeter,
+  isCounting,
+  isPlanWindow,
+  meterKey,
+  squadAccountOf,
+} from "./squad/plan-usage";
 import { applySquad, linkSquadSession, recomputeSpend } from "./squad/projection";
 import {
   type AgentNode,
@@ -364,16 +370,18 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
 
 /**
  * Keeps the latest reading of a plan window and moves every plan squad's meter of that
- * provider and window. Account-wide: it belongs to no session or project. An older reading
- * than the one kept changes nothing.
+ * provider and window, when the reading is of the account the squad's sessions run on (a
+ * Codex squad counts Gravita's Codex profile, never the user's own Codex). Account-wide: it
+ * belongs to no session or project. An older reading than the one kept changes nothing.
  */
 function applyUsage(state: GravitaState, e: Extract<GravitaEvent, { type: "usage.limits" }>) {
   const d = e.data;
-  const key = usageKey(d.provider, d.window, d.model);
+  const key = usageKey(d.provider, d.window, d.model, d.account);
   const prev = state.usage[key];
   if (prev && prev.ts > e.ts) return;
   state.usage[key] = {
     provider: d.provider,
+    ...(d.account ? { account: d.account } : {}),
     window: d.window,
     ...(d.model ? { model: d.model } : {}),
     usedPercent: d.usedPercent,
@@ -382,7 +390,7 @@ function applyUsage(state: GravitaState, e: Extract<GravitaEvent, { type: "usage
     ...(d.status ? { status: d.status } : {}),
     ts: e.ts,
   };
-  if (d.model || !isPlanWindow(d.window)) return;
+  if (d.model || !isPlanWindow(d.window) || d.account !== squadAccountOf(d.provider)) return;
   const sample = {
     usedPercent: d.usedPercent,
     ts: e.ts,

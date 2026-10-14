@@ -33,12 +33,18 @@ function sq(min: number, key: string, e: Pick<GravitaEvent, "type" | "data">): G
 function usage(
   min: number,
   usedPercent: number,
-  o: { provider?: "claude" | "codex"; window?: string; resetsAt?: string; model?: string } = {},
+  o: {
+    provider?: "claude" | "codex";
+    window?: string;
+    resetsAt?: string;
+    model?: string;
+    account?: "squadProfile";
+  } = {},
 ): GravitaEvent {
   const provider = o.provider ?? "claude";
   const window = o.window ?? "five_hour";
   return {
-    key: keys.usageLimits(provider, window, o.model, `${min}`),
+    key: keys.usageLimits(provider, window, o.model, `${o.account ?? ""}${min}`),
     ts: t(min),
     source: "sdk",
     provider,
@@ -49,6 +55,7 @@ function usage(
       window,
       usedPercent,
       ...(o.model ? { model: o.model } : {}),
+      ...(o.account ? { account: o.account } : {}),
       ...(o.resetsAt !== null ? { resetsAt: o.resetsAt ?? RESET } : {}),
     },
   } as GravitaEvent;
@@ -261,13 +268,35 @@ describe("a plan squad's share", () => {
       ...building,
       baseline(2, { baseline: 10, provider: "codex" }),
       usage(3, 33),
-      usage(3, 19, { provider: "codex" }),
+      usage(3, 19, { provider: "codex", account: "squadProfile" }),
     ]);
     expect(planShareUsed(squadOf(s), s.usage)).toEqual({
       points: 9,
       byProvider: { claude: 3, codex: 9 },
       provider: "codex",
     });
+  });
+
+  test("a Codex meter counts Gravita's Codex profile: the user's own Codex never moves it", () => {
+    const s = applyAll(emptyState(), [
+      ...building,
+      baseline(2, { baseline: 10, provider: "codex" }),
+      // The user's own Codex (their CLI, their rollouts) on another account.
+      usage(3, 70, { provider: "codex" }),
+      usage(4, 2, { provider: "codex", resetsAt: NEXT_RESET }),
+      usage(5, 14, { provider: "codex", account: "squadProfile" }),
+    ]);
+    expect(planShareUsed(squadOf(s), s.usage).byProvider.codex).toBe(4);
+    expect(squadOf(s).budget.meters?.["codex:five_hour"]).toMatchObject({ round: 1, last: 14 });
+    // Both readings are kept, apart: Home shows the user's, the squad counts its profile's.
+    expect(s.usage["codex:five_hour"]?.usedPercent).toBe(2);
+    expect(s.usage["codex:squadProfile:five_hour"]).toMatchObject({
+      account: "squadProfile",
+      usedPercent: 14,
+    });
+    // A later user reading changes nothing for the squad either.
+    applyAll(s, [usage(6, 95, { provider: "codex" })]);
+    expect(planShareUsed(squadOf(s), s.usage).byProvider.codex).toBe(4);
   });
 
   test("a window reset mid-squad carries what was used and counts the new window from 0", () => {
@@ -294,6 +323,34 @@ describe("a plan squad's share", () => {
       baseline(71, { round: 2, baseline: 0, carried: 12, current: 5 }),
     ]);
     expect(planShareUsed(squadOf(replay), replay.usage).points).toBe(17);
+  });
+
+  test("replayed from stored facts alone (no usage readings), the points used are restored", () => {
+    const measured = (min: number, last: number, round = 1) =>
+      sq(min, keys.budgetMeasured(Q, "claude", "five_hour", round, last), {
+        type: "budget.measured",
+        data: { squadId: Q, provider: "claude", window: "five_hour", round, last },
+      } as Pick<GravitaEvent, "type" | "data">);
+    // Live: readings moved the meter to 41; the guard noted 38 and then 41.
+    const live = applyAll(emptyState(), [...building, usage(5, 38), measured(5, 38), usage(9, 41)]);
+    applyAll(live, [measured(9, 41)]);
+    expect(planShareUsed(squadOf(live), live.usage).points).toBe(11);
+    // A restart replays the stored events only: usage.limits are never stored.
+    const replay = applyAll(emptyState(), [...building, measured(5, 38), measured(9, 41)]);
+    expect(planShareUsed(squadOf(replay), replay.usage).points).toBe(11);
+    expect(squadOf(replay).budget.meters?.["claude:five_hour"]).toMatchObject({
+      round: 1,
+      last: 41,
+      savedLast: 41,
+    });
+    // Out of order, or a measure of another round, changes nothing more.
+    const odd = applyAll(emptyState(), [
+      ...building,
+      measured(9, 41),
+      measured(5, 38),
+      measured(10, 4, 2),
+    ]);
+    expect(planShareUsed(squadOf(odd), odd.usage).points).toBe(11);
   });
 
   test("readings while the squad is paused or finished don't count", () => {

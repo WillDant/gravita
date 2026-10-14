@@ -61,7 +61,7 @@ Squad agents run unattended, so they must not inherit your personal setup (your 
 
 On a ChatGPT plan, Codex reports how much of your 5-hour and weekly limits is used. Gravita reads it from a running chat, or else from a short-lived `codex app-server` that only reads the account (no session, nothing spent), at most once a minute. The numbers are account-wide: any use of the same account moves them. With an API key there are no plan limits.
 
-Squads read plan usage from their own Codex sessions (`account/rateLimits/updated`, and `account/rateLimits/read` through a running one). Gravita's Codex profile is a separate login to the same ChatGPT account, so its windows are the same ones your own Codex moves.
+Squads count the plan of Gravita's Codex profile, which may be signed in to another ChatGPT account than your own Codex. Its readings come from the squad's own Codex sessions (`account/rateLimits/updated`, and `account/rateLimits/read` through a running one), or else from a short-lived `codex app-server` on the profile (at most once a minute), and are kept apart from your own account's (`usage.limits` with `account: "squadProfile"`): Home shows only your own Codex, and your own Codex's readings never move a squad's meter. Signed in to the same account, both move together, as any use of the account does.
 
 ## Compliance
 

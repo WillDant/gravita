@@ -10,11 +10,12 @@ import type { AgentEnvironmentSource } from "../../application/ports/agent-envir
 import type { Clock } from "../../application/ports/clock";
 import type { StatusReporter } from "../../application/ports/event-publisher";
 import type { Logger } from "../../application/ports/logger";
+import type { PlanUsageReading } from "../../application/ports/plan-usage-source";
 import type { CodexProfileControl, SquadProfiles } from "../../application/ports/squad-profile";
 import { SquadProfileError } from "../../domain/errors";
 import { filterCodexEnv } from "../system/login-shell-env";
 import { type AppServerLauncher, type AppServerProcess, stopAppServer } from "./app-server-process";
-import { accountStatusOf } from "./codex-account";
+import { accountStatusOf, readingOf, squadProfileReading } from "./codex-account";
 import { CODEX } from "./provider";
 
 // Gravita's own Codex profile, which every Codex squad session runs in: a Codex home under
@@ -124,6 +125,8 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
   /** A sign-in starting (its app-server not yet answering with the link). */
   private starting: Promise<{ authUrl: string }> | undefined;
   private reading: Promise<CodexProfileStatus> | undefined;
+  private lastUsage: { at: number; reading: PlanUsageReading | undefined } | undefined;
+  private readingUsage: Promise<PlanUsageReading | undefined> | undefined;
 
   constructor(private readonly d: CodexSquadProfileDeps) {}
 
@@ -228,6 +231,48 @@ export class CodexSquadProfile implements CodexProfileControl, SquadProfiles {
   async close(): Promise<void> {
     await this.starting?.catch(() => {});
     await this.giveUp();
+  }
+
+  /**
+   * The profile's plan windows, through a short-lived app-server (nothing spent on the
+   * plan), for when no squad session is running to read through. At most one read a
+   * minute; nothing while the profile isn't signed in or a sign-in is open.
+   */
+  readPlanUsage(): Promise<PlanUsageReading | undefined> {
+    const last = this.lastUsage;
+    if (last && this.d.clock.now() - last.at < PROFILE_STATUS_TTL_MS)
+      return Promise.resolve(last.reading);
+    this.readingUsage ??= this.readUsage().finally(() => {
+      this.readingUsage = undefined;
+    });
+    return this.readingUsage;
+  }
+
+  private async readUsage(): Promise<PlanUsageReading | undefined> {
+    if (!existsSync(this.d.home) || this.pending || this.last?.status.loggedIn === false)
+      return undefined;
+    let conn: { client: CodexAppServerClient; proc: AppServerProcess } | undefined;
+    try {
+      conn = await this.connect();
+      const res = await conn.client.call(
+        "account/rateLimits/read",
+        {},
+        { timeoutMs: HANDSHAKE_TIMEOUT_MS },
+      );
+      const read = readingOf(res, this.d.clock.now());
+      const reading = read && squadProfileReading(read);
+      this.lastUsage = { at: this.d.clock.now(), reading };
+      return reading;
+    } catch (err) {
+      this.d.logger.log("reading the plan usage of Gravita's codex profile failed", err);
+      this.lastUsage = { at: this.d.clock.now(), reading: undefined };
+      return undefined;
+    } finally {
+      if (conn) {
+        conn.client.close();
+        await stopAppServer(conn.proc, 2_000);
+      }
+    }
   }
 
   private async read(): Promise<CodexProfileStatus> {

@@ -56,7 +56,12 @@ import {
 } from "../../domain/errors";
 import type { LoopbackMcpServer, McpMount } from "../mcp/loopback-mcp-server";
 import { type AppServerLauncher, type AppServerProcess, stopAppServer } from "./app-server-process";
-import { accountStatusOf, readingOf } from "./codex-account";
+import {
+  accountStatusOf,
+  asSquadProfileUsage,
+  readingOf,
+  squadProfileReading,
+} from "./codex-account";
 import { codexChatEnv } from "./codex-environment";
 import { type CodexSquadProfile, codexSquadEnv } from "./codex-squad-profile";
 import { CODEX } from "./provider";
@@ -395,7 +400,10 @@ export class CodexAppServerRuntime implements ChatRuntime {
     return this.models;
   }
 
-  /** The account's plan windows, read through this chat's app-server (no new process). */
+  /**
+   * The account's plan windows, read through this session's app-server (no new process): a
+   * chat's are the user's own, a squad session's Gravita's Codex profile's.
+   */
   async readPlanUsage(): Promise<PlanUsageReading | undefined> {
     const client = this.client;
     if (!client?.isOpen || this.ended || this.disposing) return undefined;
@@ -404,7 +412,8 @@ export class CodexAppServerRuntime implements ChatRuntime {
       {},
       { timeoutMs: HANDSHAKE_TIMEOUT_MS },
     );
-    return readingOf(res, this.d.clock.now());
+    const reading = readingOf(res, this.d.clock.now());
+    return this.isSquad && reading ? squadProfileReading(reading) : reading;
   }
 
   nextTurn(): Promise<TurnOutcome> {
@@ -614,7 +623,9 @@ export class CodexAppServerRuntime implements ChatRuntime {
       return;
     }
     try {
-      const events = this.mapper.map(n);
+      const mapped = this.mapper.map(n);
+      // A squad session's rate limits are Gravita's Codex profile's, not the user's.
+      const events = this.isSquad ? asSquadProfileUsage(mapped) : mapped;
       if (events.length) this.d.ingest.execute(events);
     } catch (err) {
       this.d.logger.log("mapping a codex notification failed", err);

@@ -4,6 +4,7 @@ import type {
   Question,
   SessionKind,
   ToolKind,
+  UsageAccount,
   UsageWindow,
 } from "@gravita/protocol";
 import type { SquadState } from "./squad/state";
@@ -127,6 +128,8 @@ export interface ProjectState {
 /** The latest reading of one plan usage window (see the `usage.limits` event). */
 export interface UsageLimitState {
   provider: AgentProvider;
+  /** Absent for the user's own account; `squadProfile` for Gravita's Codex profile. */
+  account?: UsageAccount;
   window: UsageWindow;
   model?: string;
   /** 0–100, account-wide. */
@@ -151,7 +154,16 @@ export function emptyState(): GravitaState {
   return { projects: {}, sessions: {}, squads: {}, usage: {}, seq: 0 };
 }
 
-/** The key of a plan usage window in `GravitaState.usage`. */
-export function usageKey(provider: string, window: string, model?: string): string {
-  return model ? `${provider}:${window}:${model}` : `${provider}:${window}`;
+/**
+ * The key of a plan usage window in `GravitaState.usage`: "claude:five_hour" for the user's
+ * own account, "codex:squadProfile:five_hour" for Gravita's Codex profile.
+ */
+export function usageKey(
+  provider: string,
+  window: string,
+  model?: string,
+  account?: UsageAccount,
+): string {
+  const head = account ? `${provider}:${account}` : provider;
+  return model ? `${head}:${window}:${model}` : `${head}:${window}`;
 }

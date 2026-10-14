@@ -3,6 +3,7 @@ import type {
   BudgetUnit,
   PlanWindow,
   SquadBudget,
+  UsageAccount,
   UsageWindow,
 } from "@gravita/protocol";
 import { type UsageLimitState, usageKey } from "../state";
@@ -30,6 +31,18 @@ export const PLAN_BUDGET_WINDOWS: readonly PlanWindow[] = ["five_hour", "seven_d
 
 export const isPlanWindow = (w: UsageWindow): w is PlanWindow =>
   (PLAN_BUDGET_WINDOWS as readonly string[]).includes(w);
+
+/**
+ * The account a provider's squad sessions run on, as plan usage names it: Codex squads run
+ * in Gravita's own Codex profile (maybe another ChatGPT account than the user's own Codex),
+ * Claude squads on the user's own login.
+ */
+export const squadAccountOf = (provider: string): UsageAccount | undefined =>
+  provider === "codex" ? "squadProfile" : undefined;
+
+/** The key of the readings a squad's meter of `provider`'s `window` counts. */
+export const squadUsageKey = (provider: string, window: string): string =>
+  usageKey(provider, window, undefined, squadAccountOf(provider));
 
 /** The key of a meter in `SquadSpend.meters`. */
 export const meterKey = (provider: string, window: string): string => `${provider}:${window}`;
@@ -118,7 +131,7 @@ export function advanceMeter(m: PlanMeter, sample: UsageSample): PlanMeter {
   const where = sampleWindow(m, sample);
   if (where === "stale") return m;
   if (where === "new") {
-    const { resetsAt: _old, ...rest } = m;
+    const { resetsAt: _old, savedLast: _saved, ...rest } = m;
     return {
       ...rest,
       carried: m.carried + Math.max(0, m.last - m.baseline),
@@ -153,7 +166,7 @@ export interface PlanShare {
 
 /**
  * How many points of its window a plan squad used: per provider, from its meter and the
- * latest reading in `usage`, and overall the most consumed provider. Nothing measured yet
+ * latest reading in `usage` of the account its sessions run on, and overall the most consumed provider. Nothing measured yet
  * (no meter) gives no points: the squad is still measuring.
  */
 export function planShareUsed(q: SquadState, usage: Record<string, UsageLimitState>): PlanShare {
@@ -165,7 +178,7 @@ export function planShareUsed(q: SquadState, usage: Record<string, UsageLimitSta
   let provider: AgentProvider | undefined;
   for (const m of Object.values(q.budget.meters ?? {})) {
     if (m.window !== plan.window) continue;
-    const used = meterPoints(m, counting ? usage[usageKey(m.provider, m.window)] : undefined);
+    const used = meterPoints(m, counting ? usage[squadUsageKey(m.provider, m.window)] : undefined);
     byProvider[m.provider] = used;
     if (points === undefined || used > points) {
       points = used;

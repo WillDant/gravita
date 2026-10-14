@@ -138,6 +138,11 @@ export interface PlanMeter {
   round: number;
   /** The highest round recorded as a `budget.baseline` fact (what a restart counts from). */
   savedRound: number;
+  /**
+   * The highest usage of the current round on record (its baseline's, or a
+   * `budget.measured` fact): what a restart knows the squad used.
+   */
+  savedLast?: number;
 }
 
 export interface SquadSpend {

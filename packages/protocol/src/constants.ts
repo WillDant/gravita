@@ -32,6 +32,13 @@ export type UsageWindow = (typeof USAGE_WINDOWS)[number];
 export const PLAN_WINDOWS = ["five_hour", "seven_day"] as const;
 export type PlanWindow = (typeof PLAN_WINDOWS)[number];
 
+/**
+ * Accounts whose plan usage is told apart from the user's own: Gravita's own Codex profile,
+ * which Codex squads run in (it may be signed in to another ChatGPT account).
+ */
+export const USAGE_ACCOUNTS = ["squadProfile"] as const;
+export type UsageAccount = (typeof USAGE_ACCOUNTS)[number];
+
 /** Whether plan limits apply to an account (`limited`) or it pays per token (`api`). */
 export const ACCOUNT_PLANS = ["limited", "api"] as const;
 export type AccountPlan = (typeof ACCOUNT_PLANS)[number];

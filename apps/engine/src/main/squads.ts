@@ -135,7 +135,7 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
   });
   w.usage?.bind({
     onUsage: () => orchestrator.checkBudgets(),
-    onPlanUnavailable: (provider) => orchestrator.planUnavailable(provider),
+    onPlanUnavailable: (provider, account) => orchestrator.planUnavailable(provider, account),
   });
   return orchestrator;
 }

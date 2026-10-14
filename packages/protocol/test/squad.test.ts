@@ -164,7 +164,7 @@ describe("plan budgets", () => {
     expect(resume.safeParse({ squadId: "q", budgetUsd: 30 }).success).toBe(true);
   });
 
-  test("usage.limits, budget levels in points and baselines validate; old USD events still do", () => {
+  test("usage.limits, budget levels in points, baselines and measures validate; old USD events still do", () => {
     const events = [
       {
         ...base,
@@ -220,6 +220,12 @@ describe("plan budgets", () => {
           carried: 0,
           current: 34,
         },
+      },
+      {
+        ...base,
+        key: keys.budgetMeasured("q1", "claude", "seven_day", 1, 41.5),
+        type: "budget.measured",
+        data: { squadId: "q1", provider: "claude", window: "seven_day", round: 1, last: 41.5 },
       },
       {
         ...base,

@@ -8,14 +8,15 @@ import {
   type SquadState,
   squadPlan,
   squadProvidersOf,
+  squadUsageKey,
   type UsageLimitState,
-  usageKey,
 } from "@gravita/core";
 import type { AgentProvider, BudgetScope, BudgetUnit, PlanWindow } from "@gravita/protocol";
 import {
   BUDGET_WARN_RATIO,
   briefingBudget,
   PLAN_BASELINE_MAX_AGE_MS,
+  PLAN_MEASURE_STEP_POINTS,
   planBriefingCap,
   plannerBudget,
   planPlannerCap,
@@ -133,8 +134,9 @@ export class BudgetGuard {
       ...(b.provider ? { provider: b.provider } : {}),
       ...(keyId ? { keyId } : {}),
     };
+    this.keepMeasures(q);
     if (b.spent >= b.limit) {
-      this.d.emitter.budget(ref, "exhausted", level);
+      if (this.d.emitter.budget(ref, "exhausted", level)) this.keepMeasures(q, true);
       return [
         {
           scope: "squad",
@@ -146,8 +148,29 @@ export class BudgetGuard {
         },
       ];
     }
-    if (b.spent >= b.limit * BUDGET_WARN_RATIO) this.d.emitter.budget(ref, "warned", level);
+    if (b.spent >= b.limit * BUDGET_WARN_RATIO && this.d.emitter.budget(ref, "warned", level))
+      this.keepMeasures(q, true);
     return [];
+  }
+
+  /**
+   * Keeps what a plan squad's meters reached on record, since usage readings aren't stored:
+   * each time a meter rose by a point since its last note, and with `settle` (it warned, ran
+   * out, or pauses) whatever it rose. A meter in a round not on record yet gets its baseline
+   * instead, which records its usage too.
+   */
+  keepMeasures(stale: SquadState, settle = false): void {
+    const q = this.d.sessions.squad(stale.id) ?? stale;
+    if (!q.budgetPlan) return;
+    const ref = { squadId: q.id, projectId: q.projectId };
+    for (const m of Object.values(q.budget.meters ?? {})) {
+      if (m.round > m.savedRound) {
+        this.d.emitter.baseline(ref, m);
+        continue;
+      }
+      const rise = m.last - (m.savedLast ?? m.baseline);
+      if (rise >= PLAN_MEASURE_STEP_POINTS || (settle && rise > 0)) this.d.emitter.measured(ref, m);
+    }
   }
 
   /**
@@ -166,7 +189,7 @@ export class BudgetGuard {
         if (m.round > m.savedRound) this.d.emitter.baseline(ref, m);
         continue;
       }
-      const reading = this.d.sessions.usage()[usageKey(provider, plan.window)];
+      const reading = this.d.sessions.usage()[squadUsageKey(provider, plan.window)];
       if (!reading || !this.freshForStart(q, reading)) continue;
       this.d.emitter.baseline(ref, {
         provider,
@@ -193,7 +216,7 @@ export class BudgetGuard {
     const usage = this.d.sessions.usage();
     for (const m of Object.values(q.budget.meters ?? {})) {
       if (m.window !== plan.window) continue;
-      const reading = usage[usageKey(m.provider, m.window)];
+      const reading = usage[squadUsageKey(m.provider, m.window)];
       if (!reading || this.d.clock.now() - Date.parse(reading.ts) > PLAN_BASELINE_MAX_AGE_MS)
         continue;
       this.d.emitter.baseline(ref, {

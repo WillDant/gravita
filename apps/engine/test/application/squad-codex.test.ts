@@ -616,13 +616,26 @@ describe("squads with Codex roles", () => {
 
   test("Codex's plan usage feeds the squad's share: over it, the squad pauses and its Codex sessions stop", async () => {
     await withTempDir(async (tmp) => {
+      // The user's own Codex (maybe another ChatGPT account) reports its own windows.
+      const userReading = (usedPercent: number) => ({
+        key: `usage:codex:five_hour:user:${usedPercent}`,
+        ts: h.clock.iso(),
+        source: "codex-rollout" as const,
+        provider: "codex" as const,
+        projectId: "",
+        type: "usage.limits" as const,
+        data: { provider: "codex" as const, window: "five_hour" as const, usedPercent },
+      });
       const h = squadCore(tmp, async () => {}, {
         codex: async (a) => {
           if (!a.isRole) return;
           await a.taskId();
           if (a.cwd.endsWith("/backend") && !a.received.some((m) => m.method === "thread/resume")) {
+            h.core.ingest.execute([userReading(5)]);
             a.usage(20);
             await until(() => h.events("budget.baseline").length > 0, "a baseline");
+            // Never counted for the squad, however much the user's own account uses.
+            h.core.ingest.execute([userReading(97)]);
             a.usage(28); // 8 points: 80% of a 10% share, a warning
             a.usage(31); // 11: over it
           }
@@ -655,12 +668,22 @@ describe("squads with Codex roles", () => {
         expect(h.squad(squadId).paused?.reason).toContain("share of your 5-hour window");
         const levels = h
           .events()
-          .filter((e) => e.type.startsWith("budget.") && e.type !== "budget.baseline");
+          .filter((e) => e.type === "budget.warned" || e.type === "budget.exhausted");
         expect(levels.map((e) => e.type)).toEqual(["budget.warned", "budget.exhausted"]);
-        expect(levels.map((e) => (e.data as { provider?: string }).provider)).toEqual([
-          "codex",
-          "codex",
+        expect(levels.map((e) => e.data)).toMatchObject([
+          { provider: "codex", used: 8 },
+          { provider: "codex", used: 11 },
         ]);
+        expect(h.events("budget.baseline").map((e) => e.data)).toMatchObject([
+          { provider: "codex", baseline: 20 },
+        ]);
+        // The squad sessions' readings are the profile's; the user's stay theirs (Home's).
+        const usage = h.core.projection.usage();
+        expect(usage["codex:squadProfile:five_hour"]).toMatchObject({
+          account: "squadProfile",
+          usedPercent: 31,
+        });
+        expect(usage["codex:five_hour"]?.usedPercent).toBe(97);
         await until(
           () =>
             h.codexAgents

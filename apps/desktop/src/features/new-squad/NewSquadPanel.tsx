@@ -1,5 +1,5 @@
 import type { ModelChoice } from "@gravita/core";
-import { usageKey } from "@gravita/core";
+import { squadUsageKey } from "@gravita/core";
 import type { PlanWindow, SquadAutonomy } from "@gravita/protocol";
 import { FolderOpen, UsersRound, X } from "lucide-react";
 import { type RefObject, useEffect, useId, useRef } from "react";
@@ -360,12 +360,13 @@ function PlanShareField({
 }) {
   const usage = useUsage();
   const now = useNow();
-  // The windows of every provider the squad runs on (a mixed squad counts the larger).
+  // The windows of every provider the squad runs on (a mixed squad counts the larger), of
+  // the account its sessions use: Codex's is Gravita's Codex profile, not the user's own.
   const providers =
     form.providers === "mixed"
       ? (["claude", "codex"] as const)
       : ([form.providers === "codex" ? "codex" : "claude"] as const);
-  const readings = providers.map((p) => ({ p, reading: usage[usageKey(p, form.window)] }));
+  const readings = providers.map((p) => ({ p, reading: usage[squadUsageKey(p, form.window)] }));
   const known = readings.filter((r) => r.reading);
   const invalid = form.invalid === "share";
   return (

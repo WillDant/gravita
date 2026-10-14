@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { budgetState } from "@gravita/core";
 import type { GravitaEvent, SquadPlan } from "@gravita/protocol";
 import { RpcErrors } from "@gravita/protocol";
 import type {
@@ -192,6 +193,118 @@ describe("plan budgets", () => {
     });
   });
 
+  test("after a restart the points used are still known: a squad that used its share needs a bigger one", async () => {
+    await withTempDir(async (tmp) => {
+      const dbPath = join(tmp, "gravita.db");
+      const first = squadCore(
+        tmp,
+        script(async (a) => {
+          await a.prompt(1);
+          if (roleOf(a) === "frontend") return never();
+          a.q.emit(
+            rateLimitEvent(0.4, { resetsAt: RESET_S }),
+            rateLimitEvent(0.46, { resetsAt: RESET_S }),
+            rateLimitEvent(0.51, { resetsAt: RESET_S }),
+          );
+          await never();
+        }),
+        { dbPath },
+      );
+      const squadId = await approved(first, tmp);
+      await until(() => first.squad(squadId).paused !== undefined, "pause");
+      await first.squads.idle(squadId);
+      // Usage readings aren't stored; what the meter reached is.
+      expect(dataOf(first.events("budget.measured"))).toEqual(
+        [40, 46, 51].map((last) => ({
+          squadId,
+          provider: "claude",
+          window: "five_hour",
+          round: 1,
+          last,
+        })),
+      );
+
+      // The engine restarts on the same database: no usage reading is known.
+      const second = squadCore(
+        tmp,
+        script(async (a) => {
+          await a.prompt(1);
+          await work(a);
+        }),
+        { dbPath },
+      );
+      second.clock.t = first.clock.t + 60_000;
+      second.squads.recover();
+      expect(second.core.projection.usage()).toEqual({});
+      const q = second.squad(squadId);
+      expect(budgetState(q, {})).toMatchObject({ spent: 21, limit: 20, measuring: false });
+      expect(() => second.squads.resume({ squadId })).toThrow(
+        "The squad used its share (21 of 20%); resume with a bigger share to go on.",
+      );
+      second.squads.resume({ squadId, maxPercent: 40 });
+      expect(second.squad(squadId)).toMatchObject({ budgetPlan: { maxPercent: 40 } });
+      expect(second.squad(squadId).paused).toBeUndefined();
+      await second.squads.idle(squadId);
+    });
+  });
+
+  test("a pause at start-up keeps what the meter reached since its last note", async () => {
+    await withTempDir(async (tmp) => {
+      const dbPath = join(tmp, "gravita.db");
+      const first = squadCore(
+        tmp,
+        script(async (a) => {
+          await a.prompt(1);
+          if (roleOf(a) === "backend")
+            a.q.emit(
+              rateLimitEvent(0.4, { resetsAt: RESET_S }), // 10 points: noted
+              rateLimitEvent(0.405, { resetsAt: RESET_S }), // half a point more: not yet
+            );
+          await never();
+        }),
+        { dbPath },
+      );
+      const squadId = await approved(first, tmp);
+      await until(
+        () => first.squad(squadId).budget.meters?.["claude:five_hour"]?.last === 40.5,
+        "the readings",
+      );
+      expect(dataOf(first.events("budget.measured"))).toMatchObject([{ last: 40 }]);
+      // The engine stops (nothing more is recorded) before anything paused the squad.
+      first.squads.close();
+      await first.core.disposeRuntimes();
+      first.core.close();
+
+      // A restart before any pause: a reading arrives before the squads are recovered.
+      const second = squadCore(tmp, script(never), { dbPath });
+      second.clock.t = first.clock.t + 60_000;
+      second.core.ingest.execute([
+        {
+          key: "usage:claude:five_hour:restart",
+          ts: second.clock.iso(),
+          source: "sdk",
+          provider: "claude",
+          projectId: "",
+          type: "usage.limits",
+          data: {
+            provider: "claude",
+            window: "five_hour",
+            usedPercent: 47,
+            resetsAt: new Date(RESET_S * 1000).toISOString(),
+          },
+        },
+      ]);
+      second.squads.recover();
+      expect(second.squad(squadId).paused).toBeDefined();
+      expect(
+        dataOf(second.events("budget.measured")).map((d) => (d as { last: number }).last),
+      ).toEqual([40, 47]);
+
+      const third = squadCore(tmp, script(never), { dbPath });
+      expect(budgetState(third.squad(squadId), {})).toMatchObject({ spent: 17 });
+    });
+  });
+
   test("with nothing measured yet a plan squad never pauses (it is measuring)", async () => {
     await withTempDir(async (tmp) => {
       const h = squadCore(tmp, async (a) => {
@@ -329,6 +442,62 @@ describe("the plan usage monitor", () => {
     expect(t.reads).toHaveLength(2);
     await t.monitor.refresh({ force: true });
     expect(t.reads).toHaveLength(3);
+  });
+
+  test("Gravita's Codex profile is read apart: its readings never stand for the user's account", async () => {
+    const t = setup([]);
+    const read = (account?: "squadProfile") => ({
+      provider: "codex" as const,
+      ...(account ? { account } : {}),
+      read: async () => ({
+        limited: true,
+        planType: account ? "team" : "plus",
+        limits: [
+          {
+            window: "five_hour" as const,
+            usedPercent: account ? 12 : 64,
+            ...(account ? { account } : {}),
+          },
+        ],
+      }),
+    });
+    const monitor = new PlanUsageMonitor({
+      sources: [read("squadProfile"), read()],
+      ingest: t.ingest,
+      status: t.status,
+      squads: t.projection,
+      clock: t.clock,
+      logger: new SilentLogger(),
+    });
+    // Both are read, neither waits on the other's last read.
+    expect(await monitor.refresh({ provider: "codex" })).toMatchObject({ planType: "team" });
+    const usage = t.projection.usage();
+    expect(usage["codex:squadProfile:five_hour"]?.usedPercent).toBe(12);
+    expect(usage["codex:five_hour"]?.usedPercent).toBe(64);
+    // The provider's account is the user's own.
+    expect(t.status.providerStatus("codex")?.account).toEqual({
+      plan: "limited",
+      planType: "plus",
+    });
+    // A squad session's rate limits don't speak for the user's account either.
+    t.ingest.execute([
+      {
+        key: "usage:codex:seven_day:rpc",
+        ts: t.clock.iso(),
+        source: "codex-rpc",
+        provider: "codex",
+        projectId: "p",
+        type: "usage.limits",
+        data: {
+          provider: "codex",
+          account: "squadProfile",
+          window: "seven_day",
+          usedPercent: 3,
+          planType: "team",
+        },
+      },
+    ]);
+    expect(t.status.providerStatus("codex")?.account?.planType).toBe("plus");
   });
 
   test("an API-key account turns the provider's plan to api and tells the squads", async () => {

@@ -142,6 +142,7 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
     case "budget.exhausted":
     case "squad.budget_changed":
     case "budget.baseline":
+    case "budget.measured":
     case "squad.paused":
     case "squad.resumed":
     case "task.added":
@@ -408,6 +409,7 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
       // A later round wins; the same round again (a replay) changes nothing it set.
       if (prev && e.data.round < prev.savedRound) return true;
       const keepLive = prev && prev.round > e.data.round;
+      const sameRound = prev !== undefined && prev.round === e.data.round;
       q.budget.meters[key] = keepLive
         ? { ...prev, savedRound: Math.max(prev.savedRound, e.data.round) }
         : {
@@ -415,15 +417,26 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
             window: e.data.window,
             baseline: e.data.baseline,
             carried: e.data.carried,
-            // Readings since this was recorded may already be higher.
-            last: Math.max(
-              e.data.current,
-              prev && prev.round === e.data.round ? prev.last : e.data.current,
-            ),
+            // Readings (and measures) since this was recorded may already be higher.
+            last: Math.max(e.data.current, sameRound ? prev.last : e.data.current),
             ...(e.data.resetsAt ? { resetsAt: e.data.resetsAt } : {}),
             round: e.data.round,
             savedRound: e.data.round,
+            savedLast: Math.max(e.data.current, sameRound ? (prev.savedLast ?? 0) : 0),
           };
+      return true;
+    }
+
+    case "budget.measured": {
+      const key = meterKey(e.data.provider, e.data.window);
+      const m = q.budget.meters?.[key];
+      // Only for the round it was measured in: another round counts another window.
+      if (!q.budget.meters || !m || m.round !== e.data.round) return true;
+      q.budget.meters[key] = {
+        ...m,
+        last: Math.max(m.last, e.data.last),
+        savedLast: Math.max(m.savedLast ?? 0, e.data.last),
+      };
       return true;
     }
 

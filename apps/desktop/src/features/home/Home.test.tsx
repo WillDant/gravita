@@ -176,6 +176,26 @@ describe("Home: plan usage", () => {
     expect(near.className).toContain("text-waiting-ink");
   });
 
+  it("shows the user's own Codex account, never Gravita's Codex profile for squads", async () => {
+    const codex = (usedPercent: number, account?: "squadProfile") =>
+      ev(
+        "usage.limits",
+        {
+          provider: "codex",
+          ...(account ? { account } : {}),
+          window: "five_hour",
+          usedPercent,
+          resetsAt: "2099-01-02T09:00:00.000Z",
+        },
+        { ts: ago(1), projectId: "" },
+      );
+    renderWithApp(<Home />, { state: stateOf([codex(23), codex(77, "squadProfile")]) });
+    await act(flush);
+    const line = screen.getByRole("group", { name: "Plan usage" });
+    expect(line.textContent).toContain("5-hour: 23% used");
+    expect(line.textContent).not.toContain("77%");
+  });
+
   it("shows nothing before any reading", async () => {
     renderWithApp(<Home />, { state });
     await act(flush);

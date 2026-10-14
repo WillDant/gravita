@@ -68,6 +68,9 @@ export const keys = {
   /** Where a plan squad's count of a provider's window starts, per round (resets add one). */
   budgetBaseline: (sq: string, provider: string, window: string, round: number) =>
     `squad:${sq}:baseline:${provider}:${window}:${round}`,
+  /** The highest usage a plan squad's count of a window reached in a round, as noted. */
+  budgetMeasured: (sq: string, provider: string, window: string, round: number, last: number) =>
+    `squad:${sq}:measured:${provider}:${window}:${round}:${last}`,
   /** A plan usage reading (ephemeral, never stored; keyed like a fact all the same). */
   usageLimits: (provider: string, window: string, model: string | undefined, tag: string) =>
     `usage:${provider}:${window}${model ? `:${model}` : ""}:${tag}`,

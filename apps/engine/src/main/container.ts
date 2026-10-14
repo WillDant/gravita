@@ -68,7 +68,10 @@ import { CodexAccountProbe } from "../infrastructure/codex/codex-account-probe";
 import { CodexAppServerRuntimeFactory } from "../infrastructure/codex/codex-app-server-runtime";
 import { CodexDetector } from "../infrastructure/codex/codex-detector";
 import { DetectedCodexEnvironment } from "../infrastructure/codex/codex-environment";
-import { CodexPlanUsageSource } from "../infrastructure/codex/codex-plan-usage";
+import {
+  CodexPlanUsageSource,
+  CodexSquadPlanUsageSource,
+} from "../infrastructure/codex/codex-plan-usage";
 import { CodexPresence } from "../infrastructure/codex/codex-presence";
 import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-discovery";
 import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
@@ -386,6 +389,10 @@ export function createCore(o: CoreOptions): EngineCore {
     usage = new PlanUsageMonitor({
       sources: [
         new ClaudePlanUsageSource({ runtimes, logger }),
+        // Gravita's Codex profile first: a squad asking for Codex's reading gets its own.
+        ...(codex && codexProfile
+          ? [new CodexSquadPlanUsageSource({ runtimes, profile: codexProfile, logger })]
+          : []),
         ...(codex
           ? [
               new CodexPlanUsageSource({

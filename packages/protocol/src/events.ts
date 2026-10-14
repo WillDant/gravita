@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { AGENT_PROVIDERS, CLAUDE_MODES, CODEX_MODES, USAGE_WINDOWS } from "./constants";
+import {
+  AGENT_PROVIDERS,
+  CLAUDE_MODES,
+  CODEX_MODES,
+  USAGE_ACCOUNTS,
+  USAGE_WINDOWS,
+} from "./constants";
 import {
   BudgetScope,
   BudgetUnit,
@@ -227,10 +233,16 @@ export const UsageWindowSchema = z.enum(USAGE_WINDOWS);
  * How much of a plan window the account has used, as its provider reports it (Claude's rate
  * limit events and usage reads, Codex's rate limits). Account-wide: every use of the same
  * account moves it, not only Gravita's. Ephemeral: the projection keeps the latest per
- * provider and window. It carries no session; `projectId` is the reporting session's, or "".
+ * provider, account and window. It carries no session; `projectId` is the reporting
+ * session's, or "".
  */
 export const UsageLimits = ev("usage.limits", {
   provider: AgentProviderSchema,
+  /**
+   * Whose plan it is: absent for the user's own account, `squadProfile` for Gravita's own
+   * Codex profile that Codex squads run in (possibly another ChatGPT account).
+   */
+  account: z.enum(USAGE_ACCOUNTS).optional(),
   window: UsageWindowSchema,
   /** For `seven_day_model` (and `other` when the provider names one): the model family. */
   model: z.string().optional(),
@@ -497,6 +509,19 @@ export const BudgetBaseline = squadEv("budget.baseline", {
   resetsAt: z.string().optional(),
 });
 
+/**
+ * The highest usage a plan squad's count of one provider's window reached in a round: noted
+ * as it rises (every point or so), when the squad warns or runs out, and when it pauses.
+ * Usage samples are ephemeral, so this is how a restarted engine knows what the squad used.
+ */
+export const BudgetMeasured = squadEv("budget.measured", {
+  provider: AgentProviderSchema,
+  window: PlanWindowSchema,
+  round: z.number().int().positive(),
+  /** The highest usage of the window seen in this round (0–100). */
+  last: z.number().min(0).max(100),
+});
+
 /** The squad stopped starting work and its sessions were interrupted; it waits for the user. */
 export const SquadPaused = squadEv("squad.paused", { reason: z.string() });
 export const SquadResumed = squadEv("squad.resumed", {});
@@ -570,6 +595,7 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   BudgetExhausted,
   SquadBudgetChanged,
   BudgetBaseline,
+  BudgetMeasured,
   SquadPaused,
   SquadResumed,
   TaskAdded,

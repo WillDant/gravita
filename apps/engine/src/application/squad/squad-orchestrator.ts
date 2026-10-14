@@ -6,6 +6,7 @@ import {
   outsideOwnership,
   plannerProviderOf,
   type SquadState,
+  squadAccountOf,
   squadPlan,
   squadProvidersOf,
   validatePlan,
@@ -18,6 +19,7 @@ import {
   type SquadBudget,
   type SquadPlan,
   type SquadProviders,
+  type UsageAccount,
 } from "@gravita/protocol";
 import {
   DirtyWorktreeError,
@@ -314,13 +316,15 @@ export class SquadOrchestrator {
 
   /**
    * The account turned out to pay per token: a plan squad can't be measured, so a working
-   * one waits for the user (who restarts it with a dollar budget).
+   * one waits for the user (who restarts it with a dollar budget). Only the account the
+   * squads' sessions run on counts: Codex squads run on Gravita's own profile, so the
+   * user's own Codex says nothing of them.
    */
-  planUnavailable(provider: AgentProvider) {
+  planUnavailable(provider: AgentProvider, account?: UsageAccount) {
+    if (account !== squadAccountOf(provider)) return;
     for (const q of this.d.squads.squads()) {
       if (!q.created || !isPlanSquad(q) || q.paused || !ACTIVE_PHASES.has(q.phase)) continue;
       if (!squadProvidersOf(q.providers, squadPlan(q)).includes(provider)) continue;
-      // Codex squads run on Gravita's own profile: the user's own Codex says nothing of it.
       if (this.d.profiles?.accountPlan(provider) === "limited") continue;
       this.d.scheduler.pause(
         this.run(q),
@@ -458,7 +462,12 @@ export class SquadOrchestrator {
           reason: "Gravita restarted while this ran; the next run continues it.",
         });
       }
-      if (!q.paused) this.d.emitter.paused(run, PAUSE_REASONS.restart);
+      if (!q.paused) {
+        // Usage readings aren't stored: what the meters reached since their last note (when
+        // a reading came in before this) goes on record before they stop counting.
+        this.d.budget.keepMeasures(q, true);
+        this.d.emitter.paused(run, PAUSE_REASONS.restart);
+      }
     }
   }
 
