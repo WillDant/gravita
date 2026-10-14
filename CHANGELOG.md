@@ -4,6 +4,10 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.4.0-beta] - 2026-10-14
+
+Terminal and conversation: run Claude Code or Codex in a terminal inside Gravita with the map beside it, and a conversation that shows the agent at work.
+
 ### Conversation
 - **A composer that feels like a chat:** one card with the message on top and a quiet toolbar under it (model, permissions, send). Return sends, shift-return breaks the line, and ⌘↩ still works. The send button fills once there is something to send.
 - **See the agent work:** a shimmering line under the conversation says what the main agent is doing now ("Main agent is editing auth.ts"), from the moment you send.
@@ -21,6 +25,12 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ### Terminals (engine)
 - **A terminal in the engine:** `terminal.spawn` opens your login shell, or your own `claude` or `codex`, in a pseudo-terminal in a project's folder. Output streams to the app as it's printed, and the newest 1 MB stays available when the app reconnects. A Claude Code terminal is linked to its session from the start. A Codex or shell terminal is linked to the first session that starts in it. See [ADR 007](docs/adr/007-embedded-terminal.md).
+
+### Fixed
+- A session resumed after it stopped (`claude --resume`, in Gravita or in your own terminal) no longer shows its main agent as "lost its session".
+
+### Tested for real
+- A Claude Code session started in Gravita's terminal: the map, the title and the conversation filled in from the start, a subagent branched off and merged back live, closing the terminal ended the process, and "Continue in a terminal" resumed it with its history.
 
 ## [0.3.0-beta] - 2026-10-14
 
@@ -105,6 +115,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.4.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta
 [0.3.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta
 [0.2.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.2.0-beta
 [0.1.0-alpha]: https://github.com/WillDant/gravita/releases/tag/v0.1.0-alpha

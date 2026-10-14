@@ -16,6 +16,9 @@ A team of role agents builds a goal in parallel git worktrees: a briefing conver
 ### Codex support — [v0.3.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta)
 OpenAI's Codex alongside Claude Code: observe Codex sessions, start and steer Codex chats with your own Codex login, squads whose roles run on Claude Code, Codex or both (with a Gravita profile of Codex you sign in to once), and budgets in plan usage for both providers.
 
+### Terminal and conversation — [v0.4.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta)
+Run Claude Code, Codex or your shell in a terminal inside Gravita, with the map beside it; resume a finished session in one. A chat-like composer, a live line saying what the agent is doing, and tool calls folded between messages.
+
 ## Next
 
 ### Polish and public launch
