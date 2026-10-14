@@ -18,9 +18,15 @@ export const DEFAULT_FALLBACKS: Readonly<Partial<Record<AgentProvider, readonly 
 
 const ASK_TIMEOUT_MS = 3_000;
 
+/** Where a provider's models can be read without a session of it running (Codex's probe). */
+export type ModelCatalogs = Readonly<
+  Partial<Record<AgentProvider, () => Promise<readonly ModelOption[]>>>
+>;
+
 /**
- * The models a provider offers, asked of a live session of that provider; the last answer
- * per provider is remembered, and the provider's fallbacks stand in until there is one.
+ * The models a provider offers, asked of a live session of that provider, else of its
+ * catalog; the last answer per provider is remembered, and the provider's fallbacks stand
+ * in until there is one.
  */
 export class ListModels {
   private readonly known = new Map<AgentProvider, ModelOption[]>();
@@ -32,6 +38,7 @@ export class ListModels {
     private readonly fallbacks: Readonly<
       Partial<Record<AgentProvider, readonly ModelOption[]>>
     > = DEFAULT_FALLBACKS,
+    private readonly catalogs: ModelCatalogs = {},
   ) {}
 
   async execute(provider: AgentProvider = DEFAULT_PROVIDER): Promise<{ models: ModelOption[] }> {
@@ -48,6 +55,15 @@ export class ListModels {
         }
       } catch (err) {
         this.logger.log("listing models failed", err);
+      }
+    }
+    const catalog = this.catalogs[provider];
+    if (!this.known.has(provider) && catalog) {
+      try {
+        const models = await this.withTimeout(catalog());
+        if (models?.length) this.known.set(provider, [...models]);
+      } catch (err) {
+        this.logger.log("reading the model catalog failed", err);
       }
     }
     return { models: this.known.get(provider) ?? [...(this.fallbacks[provider] ?? [])] };

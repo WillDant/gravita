@@ -11,6 +11,7 @@ import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { ProviderDetector } from "../application/ports/provider-detector";
+import type { ModelOption } from "../application/ports/session-runtime";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
@@ -36,7 +37,7 @@ import { GetSessionEvents } from "../application/usecases/get-session-events";
 import { GetSnapshot } from "../application/usecases/get-snapshot";
 import { IngestEvents } from "../application/usecases/ingest-events";
 import { InterruptSession } from "../application/usecases/interrupt-session";
-import { ListModels } from "../application/usecases/list-models";
+import { DEFAULT_FALLBACKS, ListModels } from "../application/usecases/list-models";
 import { PrepareSquadWorkspace } from "../application/usecases/prepare-squad-workspace";
 import { RegenerateShared } from "../application/usecases/regenerate-shared";
 import { RespondToPermission } from "../application/usecases/respond-to-permission";
@@ -62,7 +63,12 @@ import {
 } from "../infrastructure/claude/sdk/claude-sdk-runtime";
 import { TranscriptDiscovery } from "../infrastructure/claude/transcript-discovery";
 import { ClaudeTranscriptReader, noTranscripts } from "../infrastructure/claude/transcript-reader";
+import { type AppServerLauncher, spawnAppServer } from "../infrastructure/codex/app-server-process";
+import { CodexAccountProbe } from "../infrastructure/codex/codex-account-probe";
+import { CodexAppServerRuntimeFactory } from "../infrastructure/codex/codex-app-server-runtime";
 import { CodexDetector } from "../infrastructure/codex/codex-detector";
+import { DetectedCodexEnvironment } from "../infrastructure/codex/codex-environment";
+import { CodexPlanUsageSource } from "../infrastructure/codex/codex-plan-usage";
 import { CodexPresence } from "../infrastructure/codex/codex-presence";
 import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-discovery";
 import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
@@ -116,8 +122,14 @@ export const stderrLogger: Logger = new StderrLogger();
 
 /** What starting chat sessions needs (real mode only). */
 export interface ChatOptions {
-  /** Claude Code's environment (the only provider sessions run on so far). */
+  /** Claude Code's environment. */
   environment: AgentEnvironmentSource;
+  /** Codex's environment; without it, sessions don't run on Codex. */
+  codexEnvironment?: AgentEnvironmentSource;
+  /** Starts `codex app-server`; tests inject a scripted one. */
+  codexLaunch?: AppServerLauncher;
+  /** Codex's login, plan and models without a chat (one is made when absent). */
+  codexProbe?: CodexAccountProbe;
   /** The Agent SDK's `query`; tests inject a scripted one. */
   queryFn?: QueryFn;
   /** Log Claude Code's stderr. */
@@ -242,6 +254,16 @@ export interface EngineCore {
   close(): void;
 }
 
+/** Codex's models before any chat runs: the probe's last answer, else a probe now. */
+async function codexCatalog(
+  environment: AgentEnvironmentSource,
+  probe: CodexAccountProbe,
+): Promise<ModelOption[]> {
+  if (probe.models().length) return probe.models();
+  const env = await environment.load();
+  return (await probe.read(env.cliPath))?.models ?? [];
+}
+
 export function createCore(o: CoreOptions): EngineCore {
   const clock = o.clock ?? new SystemClock();
   const logger = o.logger ?? stderrLogger;
@@ -287,6 +309,7 @@ export function createCore(o: CoreOptions): EngineCore {
   let squads: SquadOrchestrator | undefined;
   let providers: RuntimeFactoryRegistry | undefined;
   let usage: PlanUsageMonitor | undefined;
+  let codexModels: (() => Promise<ModelOption[]>) | undefined;
   const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
     const workspace = o.chat.workspace ?? new NodeWorkspace();
@@ -300,11 +323,52 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(o.chat.queryFn ? { queryFn: o.chat.queryFn } : {}),
       ...(o.chat.debug ? { debug: true } : {}),
     });
+    const codexHome = o.codexHome ?? join(homedir(), ".codex");
+    const codexEnvironment = o.chat.codexEnvironment;
+    const codexLaunch = o.chat.codexLaunch ?? spawnAppServer(logger, o.chat.debug);
+    const codex = codexEnvironment && {
+      environment: codexEnvironment,
+      factory: new CodexAppServerRuntimeFactory({
+        ingest,
+        runtimes,
+        status: broadcaster,
+        clock,
+        logger,
+        launch: codexLaunch,
+        version: ENGINE_VERSION,
+        codexHome,
+      }),
+      probe:
+        o.chat.codexProbe ??
+        new CodexAccountProbe({
+          launch: codexLaunch,
+          shellEnv: async () => (await codexEnvironment.load()).env,
+          codexHome,
+          version: ENGINE_VERSION,
+          clock,
+          logger,
+        }),
+    };
+    codexModels = codex && (() => codexCatalog(codex.environment, codex.probe));
     providers = new RuntimeFactoryRegistry({
       claude: { factory: claude, environment: o.chat.environment },
+      ...(codex ? { codex: { factory: codex.factory, environment: codex.environment } } : {}),
     });
     usage = new PlanUsageMonitor({
-      sources: [new ClaudePlanUsageSource({ runtimes, logger })],
+      sources: [
+        new ClaudePlanUsageSource({ runtimes, logger }),
+        ...(codex
+          ? [
+              new CodexPlanUsageSource({
+                runtimes,
+                environment: codex.environment,
+                probe: codex.probe,
+                status: broadcaster,
+                logger,
+              }),
+            ]
+          : []),
+      ],
       ingest,
       status: broadcaster,
       squads: projection,
@@ -355,7 +419,13 @@ export function createCore(o: CoreOptions): EngineCore {
       setPermissionMode: new SetPermissionMode(runtimes, settings),
       answerQuestion: new AnswerQuestion(runtimes),
       getConversation: new GetConversation(transcripts),
-      listModels: new ListModels(runtimes, clock, logger),
+      listModels: new ListModels(
+        runtimes,
+        clock,
+        logger,
+        DEFAULT_FALLBACKS,
+        codexModels ? { codex: codexModels } : {},
+      ),
       stopAll,
       ...(squads ? { squads } : {}),
       ...(usage ? { usage } : {}),
@@ -407,6 +477,8 @@ export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHom
   detectClaude?: () => Promise<ProviderStatus>;
   /** Tests replace it, so a real-mode engine doesn't look for the user's `codex`. */
   detectCodex?: () => Promise<ProviderStatus>;
+  /** Tests replace it, so no real `codex app-server` is started. */
+  codexLaunch?: AppServerLauncher;
 }
 
 export interface RunningEngine {
@@ -434,14 +506,32 @@ export function startEngine(opts: EngineOptions): RunningEngine {
 
   // Real mode: each provider's CLI detection runs once at start; a session started before
   // it finished waits for it. The login shell's environment is captured once and cached.
-  const detectors: ProviderDetector[] = [
-    new ClaudeDetector(opts.detectClaude),
-    new CodexDetector(opts.detectCodex),
-  ];
   const detections = new Map<AgentProvider, Promise<ProviderStatus>>();
   const detected = (provider: AgentProvider) =>
     detections.get(provider) ?? Promise.resolve<ProviderStatus>({ found: false });
   const shellEnv = new LoginShellEnv();
+  const debug = process.env.GRAVITA_DEBUG === "1";
+  // Codex's sessions are read from <codexHome>/sessions only (see docs/COMPLIANCE.md).
+  const clock = new SystemClock();
+  const codexHome = opts.codexHome ?? join(homedir(), ".codex");
+  const codexLaunch = opts.codexLaunch ?? spawnAppServer(stderrLogger, debug);
+  // Codex's login and plan, asked of a short-lived app-server (no thread): at start-up by
+  // the detector, then when a screen asks for plan usage, at most once a minute.
+  const codexProbe = new CodexAccountProbe({
+    launch: codexLaunch,
+    shellEnv: () => shellEnv.load(),
+    codexHome,
+    version: ENGINE_VERSION,
+    clock,
+    logger: stderrLogger,
+  });
+  const detectors: ProviderDetector[] = [
+    new ClaudeDetector(opts.detectClaude),
+    new CodexDetector(
+      opts.detectCodex,
+      opts.demo ? undefined : async (cliPath) => (await codexProbe.read(cliPath))?.status,
+    ),
+  ];
   const chat: ChatOptions | undefined = opts.demo
     ? undefined
     : {
@@ -449,12 +539,15 @@ export function startEngine(opts: EngineOptions): RunningEngine {
           () => detected("claude"),
           () => shellEnv.load(),
         ),
-        debug: process.env.GRAVITA_DEBUG === "1",
+        codexEnvironment: new DetectedCodexEnvironment(
+          () => detected("codex"),
+          () => shellEnv.load(),
+        ),
+        codexLaunch,
+        codexProbe,
+        debug,
       };
 
-  // Codex's sessions are read from <codexHome>/sessions only (see docs/COMPLIANCE.md).
-  const clock = new SystemClock();
-  const codexHome = opts.codexHome ?? join(homedir(), ".codex");
   const codexDiscovery = new CodexSessionDiscovery({
     codexHome,
     lookbackDays: opts.lookbackDays,
@@ -603,6 +696,15 @@ export function startEngine(opts: EngineOptions): RunningEngine {
           .detect()
           .then((status) => {
             broadcaster.updateProvider(provider, status);
+            void detector
+              .account?.(status)
+              .then((account) => {
+                if (!account) return;
+                broadcaster.updateProvider(provider, account);
+                // The same read found the plan windows: publish them.
+                if (account.loggedIn) void core.usage?.refresh({ provider, force: true });
+              })
+              .catch((err) => logger.log(`${provider} account check failed`, err));
             // Warm the environment cache so the first session doesn't wait for the shell.
             if (status.found) shellEnv.load().catch(() => {});
             return status;

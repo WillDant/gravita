@@ -18,24 +18,28 @@ What it does:
 - Writes its own state only under `~/.gravita` (database, `runtime.json` with the port and a per-run hook token, mode 0600).
 - Runs a [squad](squad.md)'s team only after you approve its plan (before that only a read-only planner runs). A squad works in git worktrees under `~/.gravita/worktrees` and on branches named `gravita/<squad>/*` in your repository; Gravita makes its commits there (git hooks off, your git config never written), touches your own branch only when you choose to merge the result into it, and pushes only when you choose to open a pull request. It turns an empty folder into a repository, but never stashes or commits anything of yours in an existing one.
 - Has a kill switch (tray, or `engine.stopAll`) that stops every session Gravita started. Sessions you run in a terminal are never touched.
-- For OpenAI (planned), uses the official "Sign in with ChatGPT" program for open-source apps, or the Codex CLI's own login.
+- For Codex, relies on the Codex CLI's own login (`codex login`, run by you in a terminal); Gravita never logs anyone in for a chat.
 
 ## Codex
 
-Gravita observes Codex the same way it observes Claude Code: from the files Codex writes for itself, read-only.
+Gravita observes Codex the same way it observes Claude Code: from the files Codex writes for itself, read-only. Codex chats you start in Gravita run your own `codex`, with your own login.
 
 It never:
 
 - **Reads Codex credentials or secrets.** It doesn't open `~/.codex/auth.json`, `config.toml` (which can hold MCP server tokens), the SQLite state (`state_*.sqlite`, `thread_history_*.sqlite`, `sqlite/`), `history.jsonl` (your past prompts), logs, or anything else in the Codex home outside `sessions/`.
 - **Reads archived sessions** (`archived_sessions/`), or follows a symbolic link out of `sessions/`.
-- **Writes anything under `~/.codex`.** Observing is read-only.
-- **Runs a Codex login.** It runs `codex --version` to show whether Codex is installed and recent enough (0.160.0 or later), and nothing else.
+- **Writes anything under `~/.codex` itself.** Observing is read-only. A chat you start is Codex's own session: Codex writes its rollout there, as it does for any session you run.
+- **Runs a Codex login, or handles Codex tokens.** It never runs `codex login`, never calls the app-server's login methods for a chat, and never sees a token: Codex keeps its credentials and uses them itself.
+- **Keeps your account's identity.** Codex's account read also returns your email and account id; Gravita keeps only the kind of login (ChatGPT or API key) and the plan type.
 
 What it does:
 
 - Lists the date folders under `~/.codex/sessions` (or the `--codex-home` you pass) and reads the `rollout-*.jsonl` files there, read-only, to show your Codex sessions and their subagents live. Recent folders are checked every few seconds and older ones every few minutes (a resumed session keeps writing to its old file). Compressed rollouts (`.jsonl.zst`) are read when the runtime can decompress them, and skipped otherwise.
 - Keeps only previews of what it reads (240 characters at most) in its own database; the Conversation lens reads full message text from the rollout when you open a session, and stores none of it.
 - Leaves out the threads Codex runs for itself, such as the guardian that reviews approvals: they repeat their parent's context and aren't agents you started.
+- Runs `codex --version` to show whether Codex is installed and recent enough (0.160.0 or later).
+- For a chat you start, runs `codex app-server` (your installed `codex`, unmodified) in the chat's folder, in a process group of its own that the kill switch, closing the chat or quitting Gravita stops. It gets your login shell's environment reduced to an allowlist (`PATH`, `HOME`, locale, proxies, `OPENAI_*`, `CODEX_*`, `AWS_*`; never another tool's secrets, and never the sandbox variables of a Codex that Gravita itself may run inside), and your own `CODEX_HOME`. It identifies itself as `gravita` in the app-server's `clientInfo`. Every approval Codex asks for waits for your answer in Gravita.
+- To show whether Codex is logged in and how much of your plan is used, starts a short-lived `codex app-server` that only does the handshake and reads the account, the plan windows and the model list, then exits: no thread, no turn, nothing spent. It runs at start-up and when a screen asks for plan usage, at most once a minute; while a chat runs, its own app-server answers instead.
 
 Tests enforce this: a Codex home with decoy `auth.json`, `config.toml`, `state_5.sqlite`, `history.jsonl`, an archived rollout and a link to the credentials is observed through an audited file system, and every path touched must be under `sessions/`; the home must be byte-for-byte and mtime-for-mtime unchanged afterwards, including after a real engine ran on it (`apps/engine/test/infrastructure/codex-compliance.test.ts`).
 

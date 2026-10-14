@@ -119,8 +119,9 @@ describe("Codex sessions in the tail scheduler", () => {
       const root = lines[0]!;
       const rootPath = join(dir, root.name);
 
-      // Session meta, context and the prompt: the session appears, busy.
-      const prompt = root.lines.findIndex((l) => l.includes("Map the auth flow"));
+      // Session meta, context and the prompt (with the item_completed Codex writes right
+      // after it, which tells whose message it was): the session appears, busy.
+      const prompt = 1 + root.lines.findIndex((l) => l.includes("Map the auth flow"));
       await writeFile(rootPath, `${root.lines.slice(0, prompt + 1).join("\n")}\n`);
       await tails.discover();
       let s = core.projection.session(NESTED);
