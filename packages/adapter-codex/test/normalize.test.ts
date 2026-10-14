@@ -34,8 +34,11 @@ describe("every Codex fixture", () => {
         expect(e.sessionId).toStartWith("codex:");
         expect(e.agentId === "main" || e.agentId?.startsWith("codex:")).toBe(true);
         const d = e.data as Record<string, unknown>;
+        // A message a client (Gravita) sent keeps the id the client gave it.
+        const clientMessage = e.type === "message.user" && !e.key.startsWith("user:codex:");
         for (const id of ["toolUseId", "messageId", "uuid", "spawnToolUseId"])
-          if (d[id] !== undefined) expect(String(d[id])).toStartWith("codex:");
+          if (d[id] !== undefined && !(clientMessage && id === "uuid"))
+            expect(String(d[id])).toStartWith("codex:");
       }
       expect(ofType(events, "session.started")).toHaveLength(1);
     });
