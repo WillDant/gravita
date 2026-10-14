@@ -4,7 +4,7 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
-## [0.3.0-beta] - 2026-10-13
+## [0.3.0-beta] - 2026-10-14
 
 Codex support: OpenAI's Codex alongside Claude Code, in observation, chats and squads, and budgets in plan usage for both.
 
