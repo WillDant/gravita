@@ -49,8 +49,12 @@ export class SdkSessionMapper {
   private readonly calls = new Map<string, string>();
   /** Task ids that are subagents (not background shells or workflows). */
   private readonly agentTasks = new Set<string>();
-  /** This session's rate limit events gave a utilization above 1: they are percents. */
-  private utilizationInPercent = false;
+  /**
+   * The windows (rate limit types) whose events gave this session a utilization above 1:
+   * theirs are percents. Learnt per window, so an overage past 100% (1.05) doesn't make a
+   * five-hour fraction (0.45) read as 0.45%.
+   */
+  private readonly percentWindows = new Set<string>();
 
   constructor(private readonly o: SdkMapperOptions) {}
 
@@ -79,9 +83,9 @@ export class SdkSessionMapper {
   private rateLimit(m: SdkRateLimitMessage): GravitaEvent[] {
     const info = m.rate_limit_info;
     if (!info) return [];
-    if (typeof info.utilization === "number" && info.utilization > 1)
-      this.utilizationInPercent = true;
-    const limit = rateLimitUsage(info, this.utilizationInPercent);
+    const type = info.rateLimitType ?? "five_hour";
+    if (typeof info.utilization === "number" && info.utilization > 1) this.percentWindows.add(type);
+    const limit = rateLimitUsage(info, this.percentWindows.has(type));
     if (!limit) return [];
     const ts = this.o.now();
     return [

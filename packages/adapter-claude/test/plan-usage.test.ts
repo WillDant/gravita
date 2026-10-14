@@ -61,6 +61,18 @@ describe("rate_limit_event", () => {
     expect(later?.data).toMatchObject({ window: "seven_day", usedPercent: 0.5 });
   });
 
+  test("percents are learnt per window: an overage past 100% leaves a five-hour fraction alone", () => {
+    const m = mapper();
+    const [overage] = m.map(
+      rateLimit({ status: "allowed", rateLimitType: "overage", utilization: 1.05 }, "a"),
+    );
+    const [fiveHour] = m.map(
+      rateLimit({ status: "allowed", rateLimitType: "five_hour", utilization: 0.45 }, "b"),
+    );
+    expect(overage?.data).toMatchObject({ window: "other", model: "overage" });
+    expect(fiveHour?.data).toMatchObject({ window: "five_hour", usedPercent: 45 });
+  });
+
   test("weekly model windows, warnings, and a rejection without a number", () => {
     const events = [
       rateLimit(
