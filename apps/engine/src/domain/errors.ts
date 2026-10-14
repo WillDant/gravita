@@ -211,3 +211,26 @@ export class SquadProfileError extends Error {
     this.name = "SquadProfileError";
   }
 }
+
+/** Embedded terminals need a PTY, which the engine has on macOS and Linux only. */
+export class TerminalUnsupportedError extends Error {
+  constructor() {
+    super("Terminals aren't available on this platform");
+    this.name = "TerminalUnsupportedError";
+  }
+}
+
+/** Opening another terminal would exceed `MAX_TERMINALS`. */
+export class TooManyTerminalsError extends Error {
+  constructor(readonly limit: number) {
+    super(`At most ${limit} terminals can be open at once`);
+    this.name = "TooManyTerminalsError";
+  }
+}
+
+export class TerminalNotFoundError extends Error {
+  constructor(readonly terminalId: string) {
+    super(`No terminal ${terminalId}`);
+    this.name = "TerminalNotFoundError";
+  }
+}

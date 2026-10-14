@@ -12,6 +12,7 @@ import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { ProviderDetector } from "../application/ports/provider-detector";
 import type { ModelOption } from "../application/ports/session-runtime";
+import type { TerminalHost } from "../application/ports/terminal-host";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
@@ -22,6 +23,8 @@ import { ProjectionService } from "../application/services/projection-service";
 import { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
+import { TerminalManager } from "../application/services/terminal-manager";
+import { TerminalSessionLinker } from "../application/services/terminal-session-linker";
 import { TranscriptRouter } from "../application/services/transcript-router";
 import type { SquadOrchestrator } from "../application/squad/squad-orchestrator";
 import { AnnounceProject } from "../application/usecases/announce-project";
@@ -45,6 +48,7 @@ import { RunChecks } from "../application/usecases/run-checks";
 import { SendMessage } from "../application/usecases/send-message";
 import { SetModel } from "../application/usecases/set-model";
 import { SetPermissionMode } from "../application/usecases/set-permission-mode";
+import { SpawnTerminal } from "../application/usecases/spawn-terminal";
 import { StartChat } from "../application/usecases/start-chat";
 import { StopAgent } from "../application/usecases/stop-agent";
 import { StopAllSessions } from "../application/usecases/stop-all-sessions";
@@ -94,6 +98,8 @@ import { NodeWorkspace } from "../infrastructure/system/node-workspace";
 import { RandomIds } from "../infrastructure/system/random-ids";
 import { StderrLogger } from "../infrastructure/system/stderr-logger";
 import { SystemClock } from "../infrastructure/system/system-clock";
+import { BunPtyHost } from "../infrastructure/terminal/bun-pty-host";
+import { providerTerminalFlags } from "../infrastructure/terminal/provider-terminal-flags";
 import { createRouter, type RpcRouter, rpcHandlers } from "../interface/rpc/router";
 import { startTransport } from "../interface/rpc/transport";
 import type { EngineArgs } from "./args";
@@ -235,6 +241,16 @@ export interface CoreOptions {
   codexHome?: string;
   /** Absent: no squad toolkit (demo mode, most tests). */
   squad?: SquadOptions;
+  /** Embedded terminals; absent: the terminal methods answer that they're unsupported. */
+  terminal?: TerminalOptions;
+}
+
+export interface TerminalOptions {
+  host: TerminalHost;
+  /** The login shell's environment (allowlisted), captured once. */
+  shellEnv: () => Promise<Record<string, string>>;
+  /** The shell when the login environment names none. */
+  defaultShell: string;
 }
 
 /** Everything behind the transport: storage, projection, broadcasting and use cases. */
@@ -264,6 +280,8 @@ export interface EngineCore {
   codexProfile?: CodexSquadProfile;
   /** Plan usage reads (real mode); `startEngine` starts its polling. */
   usage?: PlanUsageMonitor;
+  /** Embedded terminals: the user's, so the kill switch leaves them; shutdown ends them. */
+  terminals?: TerminalManager;
   /** Where each provider keeps its files, for the sources that read them. */
   homes: { codex: string };
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
@@ -442,6 +460,29 @@ export function createCore(o: CoreOptions): EngineCore {
     });
   }
 
+  let terminals: { spawn: SpawnTerminal; manager: TerminalManager } | undefined;
+  if (o.terminal) {
+    const manager = new TerminalManager({ host: o.terminal.host, clock, ids, logger });
+    const linker = new TerminalSessionLinker(manager);
+    // Sessions that start in a terminal are linked to it as they're observed.
+    broadcaster.listen({ events: (n) => linker.observe(n.events) });
+    broadcaster.updateStatus({ terminal: manager.supported });
+    terminals = {
+      manager,
+      spawn: new SpawnTerminal({
+        terminals: manager,
+        workspace: o.chat?.workspace ?? new NodeWorkspace(),
+        projects,
+        shellEnv: o.terminal.shellEnv,
+        defaultShell: o.terminal.defaultShell,
+        ...(providers ? { providers } : {}),
+        flags: providerTerminalFlags,
+        ids,
+        clock,
+      }),
+    };
+  }
+
   const router = createRouter(
     rpcHandlers({
       getSnapshot: new GetSnapshot(broadcaster, projection),
@@ -467,6 +508,7 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(squads ? { squads } : {}),
       ...(usage ? { usage } : {}),
       ...(codexProfile ? { codexProfile } : {}),
+      ...(terminals ? { terminals } : {}),
     }),
     logger,
   );
@@ -489,6 +531,7 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(usage ? { usage } : {}),
     ...(mcp ? { mcp } : {}),
     ...(codexProfile ? { codexProfile } : {}),
+    ...(terminals ? { terminals: terminals.manager } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       // First: a squad must not mistake shutdown for the kill switch and record a pause.
@@ -610,6 +653,11 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     clock,
     codexHome,
     ...(chat ? { chat } : {}),
+    terminal: {
+      host: new BunPtyHost(),
+      shellEnv: () => shellEnv.load(),
+      defaultShell: process.env.SHELL || "/bin/zsh",
+    },
     ...(opts.demo
       ? {}
       : {
@@ -645,6 +693,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         status: () => broadcaster.status(),
         hooks: core.hooks,
         ...(core.mcp ? { mcp: core.mcp } : {}),
+        ...(core.terminals ? { terminals: core.terminals } : {}),
       },
       {
         port: opts.port,
@@ -789,6 +838,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         // Gravita's Codex profile stops its app-server, which must not outlive the engine.
         await Promise.all([
           core.disposeRuntimes(),
+          // Terminals end with the engine: their processes must not outlive it.
+          withCap(core.terminals?.disposeAll() ?? Promise.resolve(), DISPOSE_CAP_MS),
           withCap(core.hooks.close(), HOOKS_CAP_MS),
           withCap(core.codexProfile?.close() ?? Promise.resolve(), PROFILE_CAP_MS),
         ]);

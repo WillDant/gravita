@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACCOUNT_PLANS } from "./constants";
+import { ACCOUNT_PLANS, TERMINAL_COMMANDS } from "./constants";
 import { AgentProviderSchema, GravitaEvent, SessionModeSchema } from "./events";
 import {
   DeliverMode,
@@ -30,6 +30,8 @@ export {
   RpcErrors,
   SQUAD_PROVIDER_CHOICES,
   type SquadProviderChoice,
+  TERMINAL_COMMANDS,
+  type TerminalCommand,
   USAGE_ACCOUNTS,
   USAGE_WINDOWS,
   type UsageAccount,
@@ -105,6 +107,8 @@ export const EngineStatus = z.object({
   claude: ProviderStatus,
   indexing: z.object({ done: z.number(), total: z.number() }),
   demo: z.boolean(),
+  /** Whether embedded terminals can run here (not on Windows yet). Absent: an older engine. */
+  terminal: z.boolean().optional(),
 });
 export type EngineStatus = z.infer<typeof EngineStatus>;
 
@@ -224,6 +228,60 @@ export const CodexProfileSignInResult = z.object({ authUrl: z.string().url() });
  */
 export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
+// Embedded terminals: a PTY in the engine, running the user's shell or their own `claude` or
+// `codex` in a folder. Output streams as `terminal.output` notifications (not events: never
+// stored); `terminal.attach` returns what was printed so far, for a reconnecting client.
+
+const TerminalId = z.string().min(1).max(64);
+const Cols = z.number().int().min(2).max(1_000);
+const Rows = z.number().int().min(1).max(500);
+
+export const TerminalInfo = z.object({
+  terminalId: z.string(),
+  command: z.enum(TERMINAL_COMMANDS),
+  cwd: z.string(),
+  projectId: z.string(),
+  /** The session it runs (or that was started in it), once known. */
+  sessionId: z.string().optional(),
+  startedAt: z.string(),
+  running: z.boolean(),
+  /** Once it exited: the process's code, or null when a signal ended it. */
+  exitCode: z.number().int().nullable().optional(),
+});
+export type TerminalInfo = z.infer<typeof TerminalInfo>;
+
+export const TerminalSpawnParams = z.object({
+  cwd: z.string().min(1),
+  command: z.enum(TERMINAL_COMMANDS),
+  cols: Cols,
+  rows: Rows,
+  /** Claude Code or Codex: resume this session instead of starting a new one. */
+  resume: z.string().min(1).max(200).optional(),
+  /** Claude Code or Codex: the first message, typed in for the user. */
+  prompt: z.string().min(1).max(32_000).optional(),
+  model: z.string().min(1).max(200).optional(),
+  /** In the provider's own terms; the engine refuses a mode of another provider. */
+  permissionMode: SessionModeSchema.optional(),
+});
+export const TerminalRef = z.object({ terminalId: TerminalId });
+export const TerminalWriteParams = TerminalRef.extend({ data: z.string().min(1).max(64_000) });
+export const TerminalResizeParams = TerminalRef.extend({ cols: Cols, rows: Rows });
+export const TerminalListResult = z.object({ terminals: z.array(TerminalInfo) });
+export const TerminalAttachResult = z.object({
+  terminal: TerminalInfo,
+  /** What it printed so far (the newest part, when there was more than the engine keeps). */
+  scrollback: z.string(),
+});
+
+/** `terminal.output` params. */
+export interface TerminalOutput {
+  terminalId: string;
+  data: string;
+}
+
+/** `terminal.update` params: the terminal as it is now, or `closed` once it is gone. */
+export type TerminalUpdate = { terminal: TerminalInfo } | { closed: string };
+
 /**
  * Every method's params and result, in one place. The engine's router validates with
  * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
@@ -268,6 +326,13 @@ export const RpcContract = {
   "codexProfile.status": { params: z.object({}).optional(), result: CodexProfileStatus },
   "codexProfile.signIn": { params: z.object({}).optional(), result: CodexProfileSignInResult },
   "codexProfile.signOut": { params: z.object({}).optional(), result: OkResult },
+  "terminal.spawn": { params: TerminalSpawnParams, result: TerminalInfo },
+  "terminal.write": { params: TerminalWriteParams, result: OkResult },
+  "terminal.resize": { params: TerminalResizeParams, result: OkResult },
+  /** Ends the terminal's process (if it still runs) and forgets the terminal. */
+  "terminal.kill": { params: TerminalRef, result: OkResult },
+  "terminal.list": { params: z.object({}).optional(), result: TerminalListResult },
+  "terminal.attach": { params: TerminalRef, result: TerminalAttachResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;

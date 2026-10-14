@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import type { Workspace } from "../../application/ports/workspace";
 
@@ -9,6 +9,14 @@ export class NodeWorkspace implements Workspace {
       return (await stat(path)).isDirectory();
     } catch {
       return false;
+    }
+  }
+
+  async canonical(path: string): Promise<string> {
+    try {
+      return await realpath(path);
+    } catch {
+      return path;
     }
   }
 }

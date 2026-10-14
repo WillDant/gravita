@@ -12,6 +12,9 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 - **Copy** a message or a code block, and jump back to the latest message after scrolling up.
 - Fields inside a framed control no longer draw a second focus ring.
 
+### Terminals (engine)
+- **A terminal in the engine:** `terminal.spawn` opens your login shell, or your own `claude` or `codex`, in a pseudo-terminal in a project's folder. Output streams to the app as it's printed, and the newest 1 MB stays available when the app reconnects. A Claude Code terminal is linked to its session from the start. A Codex or shell terminal is linked to the first session that starts in it. See [ADR 007](docs/adr/007-embedded-terminal.md).
+
 ## [0.3.0-beta] - 2026-10-14
 
 Codex support: OpenAI's Codex alongside Claude Code, in observation, chats and squads, and budgets in plan usage for both.
