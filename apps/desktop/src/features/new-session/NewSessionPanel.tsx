@@ -13,8 +13,15 @@ import { t } from "@/shared/i18n/i18n";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY, tildify } from "@/shared/utils";
-import { useCanStartWith, useModels, useProviderProblem } from "@/state/hooks";
-import { useNewSession } from "./useNewSession";
+import {
+  useCanStartWith,
+  useModels,
+  useProviderProblem,
+  useTerminalSupported,
+} from "@/state/hooks";
+import { type RunIn, useNewSession } from "./useNewSession";
+
+const RUN_IN: readonly RunIn[] = ["terminal", "chat"];
 
 export interface RecentFolder {
   name: string;
@@ -65,6 +72,7 @@ export function NewSessionPanel({
   const canClaude = useCanStartWith("claude");
   const canCodex = useCanStartWith("codex");
   const chooses = canClaude && canCodex;
+  const canTerminal = useTerminalSupported();
   const models = useModels(form.provider);
   const statusProblem = useProviderProblem(form.provider);
   const pickFolder = usePickFolder();
@@ -193,7 +201,7 @@ export function NewSessionPanel({
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${fieldId}-message`} className="text-xs font-semibold text-ink-2">
-            {t("newSession.message")}
+            {form.runIn === "terminal" ? t("newSession.messageOptional") : t("newSession.message")}
           </label>
           <div className={cn(fieldFrame, "px-3 py-2")}>
             <AutoTextarea
@@ -219,6 +227,15 @@ export function NewSessionPanel({
         </div>
 
         <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+          {canTerminal && (
+            <Segmented
+              name={`${fieldId}-run-in`}
+              legend={t("newSession.runIn")}
+              options={RUN_IN.map((v) => ({ value: v, label: t(`newSession.runIn.${v}`) }))}
+              value={form.runIn}
+              onChange={form.setRunIn}
+            />
+          )}
           {chooses && (
             <ProviderChoice
               name={`${fieldId}-provider`}
@@ -275,10 +292,7 @@ export function NewSessionPanel({
   );
 }
 
-/**
- * Which agent runs the session, as a small segmented control: native radios (arrow keys
- * move between them), the chosen one a lifted ground tile, as the lens tabs.
- */
+/** Which agent runs the session. */
 function ProviderChoice({
   name,
   value,
@@ -289,28 +303,54 @@ function ProviderChoice({
   onChange: (provider: AgentProvider) => void;
 }) {
   return (
+    <Segmented
+      name={name}
+      legend={t("newSession.provider")}
+      options={AGENT_PROVIDERS.map((p) => ({ value: p, label: t(`newSession.provider.${p}`) }))}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/**
+ * One choice among a few, as a small segmented control: native radios (arrow keys move
+ * between them), the chosen one a lifted ground tile, as the lens tabs.
+ */
+function Segmented<T extends string>({
+  name,
+  legend,
+  options,
+  value,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-xs font-semibold text-ink-2">
-        {t("newSession.provider")}
-      </legend>
+      <legend className="mb-1.5 text-xs font-semibold text-ink-2">{legend}</legend>
       <div className="inline-flex h-8 gap-0.5 rounded-lg bg-panel p-0.5">
-        {AGENT_PROVIDERS.map((p) => (
+        {options.map((o) => (
           <label
-            key={p}
+            key={o.value}
             className={cn(
               "flex cursor-pointer items-center rounded-md px-3 text-sm font-medium transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-focus",
-              value === p ? "bg-ground text-ink shadow-panel" : "text-ink-2 hover:text-ink",
+              value === o.value ? "bg-ground text-ink shadow-panel" : "text-ink-2 hover:text-ink",
             )}
           >
             <input
               type="radio"
               name={name}
-              value={p}
-              checked={value === p}
-              onChange={() => onChange(p)}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
               className="sr-only"
             />
-            {t(`newSession.provider.${p}`)}
+            {o.label}
           </label>
         ))}
       </div>

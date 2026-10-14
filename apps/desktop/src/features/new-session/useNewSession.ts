@@ -3,10 +3,14 @@ import type { SessionMode } from "@gravita/protocol";
 import { type AgentProvider, DEFAULT_PROVIDER } from "@gravita/protocol/constants";
 import { useState } from "react";
 import { useNavigate } from "@/app/providers";
+import { START_SIZE } from "@/features/terminal/TerminalView";
 import { describeError, type ErrorView } from "@/shared/presenters/errors";
-import { useControl } from "@/state/hooks";
+import { useControl, useTerminalControl, useTerminalSupported } from "@/state/hooks";
 
 export type MissingField = "folder" | "message";
+
+/** Where the session runs: the agent's own CLI in a terminal here, or a chat Gravita drives. */
+export type RunIn = "terminal" | "chat";
 
 export interface NewSessionForm {
   folder: string;
@@ -17,6 +21,9 @@ export interface NewSessionForm {
   model: string;
   /** In the provider's own terms. */
   mode: SessionMode;
+  /** Only offered when the engine can open terminals. */
+  runIn: RunIn;
+  setRunIn: (v: RunIn) => void;
   setFolder: (v: string) => void;
   setMessage: (v: string) => void;
   /** Switches the agent, back to its default model and mode (models and modes are its own). */
@@ -33,6 +40,11 @@ export interface NewSessionForm {
 
 export function useNewSession(defaultFolder = ""): NewSessionForm {
   const { startSession } = useControl();
+  const terminals = useTerminalControl();
+  const canTerminal = useTerminalSupported();
+  const [chosenRunIn, setRunIn] = useState<RunIn>("terminal");
+  // A terminal is the first choice wherever the engine can open one.
+  const runIn: RunIn = canTerminal ? chosenRunIn : "chat";
   const navigate = useNavigate();
   const [folder, setFolder] = useState(defaultFolder);
   const [message, setMessage] = useState("");
@@ -47,11 +59,41 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
     if (busy) return;
     const cwd = folder.trim();
     const prompt = message.trim();
-    const empty: MissingField | undefined = !cwd ? "folder" : !prompt ? "message" : undefined;
+    // In a terminal the first message is optional: the user can type it there.
+    const empty: MissingField | undefined = !cwd
+      ? "folder"
+      : !prompt && runIn === "chat"
+        ? "message"
+        : undefined;
     setMissing(empty);
     setError(undefined);
     if (empty) return;
     setBusy(true);
+    if (runIn === "terminal") {
+      void terminals
+        .spawn({
+          cwd,
+          command: provider,
+          ...START_SIZE,
+          permissionMode: mode,
+          ...(prompt ? { prompt } : {}),
+          ...(model ? { model } : {}),
+        })
+        .then((r) => {
+          setBusy(false);
+          if (!r.ok) {
+            setError(describeError(r.error));
+            return;
+          }
+          const { projectId, sessionId, terminalId } = r.value;
+          navigate(
+            sessionId
+              ? { level: "session", projectId, sessionId }
+              : { level: "terminal", projectId, terminalId },
+          );
+        });
+      return;
+    }
     void startSession({
       cwd,
       prompt,
@@ -75,6 +117,8 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
     provider,
     model,
     mode,
+    runIn,
+    setRunIn,
     setFolder: (v) => {
       setFolder(v);
       if (missing === "folder") setMissing(undefined);

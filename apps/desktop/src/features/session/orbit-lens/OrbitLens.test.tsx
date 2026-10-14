@@ -104,10 +104,11 @@ describe("OrbitLens", () => {
 });
 
 describe("Session: Orbit tab", () => {
-  it("sits second among the lenses and opens the agent panel route", async () => {
+  it("sits second among the map's lenses and opens the agent panel route", async () => {
     const { navigate } = renderWithApp(<Session projectId="p1" sessionId="s1" />, { state });
     const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
-    expect(tabs).toEqual(["Lines", "Orbit", "Conversation", "Tree"]);
+    // The conversation isn't a lens any more: it is the talk pane beside the map.
+    expect(tabs).toEqual(["Lines", "Orbit", "Tree"]);
     expect(screen.getByRole("tab", { name: "Lines" }).getAttribute("aria-selected")).toBe("true");
 
     fireEvent.click(screen.getByRole("tab", { name: "Orbit" }));

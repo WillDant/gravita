@@ -12,6 +12,13 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 - **Copy** a message or a code block, and jump back to the latest message after scrolling up.
 - Fields inside a framed control no longer draw a second focus ring.
 
+### Terminal and map, side by side
+- **Start a session in a terminal:** the new-session panel now asks where to run it, and Terminal is the default. Your own `claude` or `codex` opens in an embedded terminal in the project's folder, with the model and permissions you picked and your first message, which is optional there.
+- **Talk on the left, the map on the right:** a session's screen shows its terminal (or its conversation) beside a resizable map column, with Lines, Orbit or Tree over "What's happening" or the agent panel. A switch in the header shows both, talk alone, or the map alone (the classic view). Hiding a side keeps its terminal running and on screen when it comes back.
+- **Open a terminal** in any project (your shell). Whatever Claude Code or Codex session you start in it shows up on the map beside it.
+- **Continue in a terminal:** an observed session that no longer runs can be resumed in a terminal here. A terminal whose process ended offers to resume its session or start again.
+- The conversation is no longer one of the lenses: it's the talk side of the screen.
+
 ### Terminals (engine)
 - **A terminal in the engine:** `terminal.spawn` opens your login shell, or your own `claude` or `codex`, in a pseudo-terminal in a project's folder. Output streams to the app as it's printed, and the newest 1 MB stays available when the app reconnects. A Claude Code terminal is linked to its session from the start. A Codex or shell terminal is linked to the first session that starts in it. See [ADR 007](docs/adr/007-embedded-terminal.md).
 

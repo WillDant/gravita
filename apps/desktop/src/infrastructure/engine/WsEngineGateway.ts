@@ -6,6 +6,8 @@ import type {
   RpcParams,
   RpcResponse,
   RpcResult,
+  TerminalOutput,
+  TerminalUpdate,
 } from "@gravita/protocol";
 import { Methods, Notifications, RPC_VERSION } from "@gravita/protocol/constants";
 import type {
@@ -52,6 +54,8 @@ export class WsEngineGateway implements EngineGateway {
   private readonly events = listeners<EventsNotification>();
   private readonly status = listeners<EngineStatus>();
   private readonly connection = listeners<GatewayConnection>();
+  private readonly terminalOutput = listeners<TerminalOutput>();
+  private readonly terminalUpdate = listeners<TerminalUpdate>();
 
   /** `endpoint` is resolved once, on first connect (Tauri asks the shell for it). */
   constructor(private readonly resolve: () => Promise<EngineEndpoint>) {}
@@ -199,8 +203,40 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.codexProfileSignOut, {});
   }
 
+  spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">> {
+    return this.call(Methods.terminalSpawn, params);
+  }
+
+  writeTerminal(params: RpcParams<"terminal.write">): Promise<RpcResult<"terminal.write">> {
+    return this.call(Methods.terminalWrite, params);
+  }
+
+  resizeTerminal(params: RpcParams<"terminal.resize">): Promise<RpcResult<"terminal.resize">> {
+    return this.call(Methods.terminalResize, params);
+  }
+
+  killTerminal(params: RpcParams<"terminal.kill">): Promise<RpcResult<"terminal.kill">> {
+    return this.call(Methods.terminalKill, params);
+  }
+
+  listTerminals(): Promise<RpcResult<"terminal.list">> {
+    return this.call(Methods.terminalList, {});
+  }
+
+  attachTerminal(params: RpcParams<"terminal.attach">): Promise<RpcResult<"terminal.attach">> {
+    return this.call(Methods.terminalAttach, params);
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
+  }
+
+  onTerminalOutput(listener: (output: TerminalOutput) => void): Unsubscribe {
+    return this.terminalOutput.add(listener);
+  }
+
+  onTerminalUpdate(listener: (update: TerminalUpdate) => void): Unsubscribe {
+    return this.terminalUpdate.add(listener);
   }
 
   onStatus(listener: (status: EngineStatus) => void): Unsubscribe {
@@ -276,6 +312,10 @@ export class WsEngineGateway implements EngineGateway {
     if ("method" in data) {
       if (data.method === Notifications.events) this.events.emit(data.params as EventsNotification);
       else if (data.method === Notifications.status) this.status.emit(data.params as EngineStatus);
+      else if (data.method === Notifications.terminalOutput)
+        this.terminalOutput.emit(data.params as TerminalOutput);
+      else if (data.method === Notifications.terminalUpdate)
+        this.terminalUpdate.emit(data.params as TerminalUpdate);
     }
   }
 

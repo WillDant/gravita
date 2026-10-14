@@ -54,4 +54,7 @@ export const KnownErrors = {
   dirtyWorktree: RpcErrors.dirtyWorktree.code,
   ghUnavailable: RpcErrors.ghUnavailable.code,
   codexProfileSignedOut: RpcErrors.codexProfileSignedOut.code,
+  terminalUnsupported: RpcErrors.terminalUnsupported.code,
+  tooManyTerminals: RpcErrors.tooManyTerminals.code,
+  terminalNotFound: RpcErrors.terminalNotFound.code,
 } as const;

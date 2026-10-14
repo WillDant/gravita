@@ -259,7 +259,13 @@ A cool, near-colourless frame around a set of saturated metro-line hues, with or
 
 ## Layout
 
-A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen is a 48px-ish header (breadcrumb, Lines · Orbit · Conversation · Tree segmented control, count chips pushed right), the map filling the centre, and a fixed 340px right column holding "What's happening" or the agent panel. Home and Project are a centred column (max 1080px, 32px side padding, 40px between sections).
+A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen has a header of about 48px: the breadcrumb, then the count chips and a three-way layout switch pushed right. Below it, the screen splits in two:
+- **Talk, on the left:** the session's terminal, or its conversation and composer. When a session has both, a Terminal · Conversation tab chooses.
+- **The map, on the right:** a resizable column, 440px by default and never under 360px, which is the narrowest Orbit fits. It holds the Lines · Orbit · Tree tabs, the lens, and "What's happening" or the agent panel under the lens.
+
+The layout switch picks side by side, talk alone, or the map alone. The map alone is the classic frame: the lens filling the centre and a fixed 340px agent column. Hiding a side never unmounts it, so a terminal keeps its screen.
+
+The terminal is a dark surface in both themes (the dark tokens, with the agent palette as its ANSI colours), because the CLIs in it assume a dark background. It uses DM Mono at 12.5px, under a hairline title bar that shows what runs and where. Home and Project are a centred column (max 1080px, 32px side padding, 40px between sections).
 
 The line map fits its frame like a printed diagram: columns flex between 16px and 96px, lanes between 56px and 104px, spare height lifts the diagram 30% off the top, and the map scrolls horizontally only when it cannot fit, following "now" like a departures board unless the user scrolls back. Spacing rides Tailwind's 4px grid; the recurring steps are 4, 8, 12, 16, 20, 24, 32, 40.
 
@@ -389,4 +395,4 @@ What a squad waits on the user for, one shape wherever it appears. On Home's Nee
 - **Don't** give resting cards or containers a shadow; use a hairline.
 - **Don't** use overshoot, bounce or wobble in chrome; those belong to the orbs.
 - **Don't** set uppercase tracked labels or eyebrow text above headings; signage is sentence case.
-- **Don't** fall back to terminal tabs, log feeds or a gray card grid as the primary view of a session.
+- **Don't** let a terminal, a log feed or a gray card grid be the only view of a session: the map is always one click away, and side by side by default. The terminal is a way to talk to the agent, not a replacement for seeing it.

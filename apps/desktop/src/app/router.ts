@@ -21,6 +21,9 @@ export function parseHash(hash: string): Route {
         ...(parts[4] ? { agentId: parts[4] } : {}),
       };
     }
+    if (parts[2] === "t" && parts[3]) {
+      return { level: "terminal", projectId: parts[1], terminalId: parts[3] };
+    }
     if (parts[2] === "q" && parts[3]) {
       return {
         level: "squad",
@@ -44,6 +47,8 @@ export function hashOf(route: Route): string {
       return `#/p/${encodeURIComponent(route.projectId)}`;
     case "squad":
       return `#/p/${encodeURIComponent(route.projectId)}/q/${encodeURIComponent(route.squadId)}${route.taskId ? `/t/${encodeURIComponent(route.taskId)}` : ""}`;
+    case "terminal":
+      return `#/p/${encodeURIComponent(route.projectId)}/t/${encodeURIComponent(route.terminalId)}`;
     case "session":
       return `#/p/${encodeURIComponent(route.projectId)}/s/${encodeURIComponent(route.sessionId)}${route.agentId ? `/${encodeURIComponent(route.agentId)}` : ""}`;
   }
