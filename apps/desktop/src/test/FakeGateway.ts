@@ -1,4 +1,12 @@
-import type { EngineStatus, EventsNotification, RpcParams, RpcResult } from "@gravita/protocol";
+import type {
+  EngineStatus,
+  EventsNotification,
+  RpcParams,
+  RpcResult,
+  TerminalInfo,
+  TerminalOutput,
+  TerminalUpdate,
+} from "@gravita/protocol";
 import type {
   EngineGateway,
   EngineSnapshot,
@@ -33,7 +41,13 @@ export type FakeCommand =
   | "refreshUsage"
   | "codexProfileStatus"
   | "codexProfileSignIn"
-  | "codexProfileSignOut";
+  | "codexProfileSignOut"
+  | "spawnTerminal"
+  | "writeTerminal"
+  | "resizeTerminal"
+  | "killTerminal"
+  | "listTerminals"
+  | "attachTerminal";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -68,6 +82,16 @@ export class FakeGateway implements EngineGateway {
   signInResult: RpcResult<"codexProfile.signIn"> = {
     authUrl: "https://auth.openai.com/oauth/authorize?client_id=codex",
   };
+  terminalInfo: TerminalInfo = {
+    terminalId: "t1",
+    command: "shell",
+    cwd: "/work/p1",
+    projectId: "p1",
+    startedAt: "2026-10-12T12:00:00.000Z",
+    running: true,
+  };
+  terminalsResult: RpcResult<"terminal.list"> = { terminals: [] };
+  scrollback = "";
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
   private pendingCalls: (() => void)[] = [];
@@ -76,6 +100,8 @@ export class FakeGateway implements EngineGateway {
     events: new Set<(b: EventsNotification) => void>(),
     status: new Set<(s: EngineStatus) => void>(),
     connection: new Set<(c: GatewayConnection) => void>(),
+    terminalOutput: new Set<(o: TerminalOutput) => void>(),
+    terminalUpdate: new Set<(u: TerminalUpdate) => void>(),
   };
 
   connect() {
@@ -214,6 +240,46 @@ export class FakeGateway implements EngineGateway {
   }
   codexProfileSignOut() {
     return this.run("codexProfileSignOut", {}, () => ({ ok: true }) as const);
+  }
+
+  spawnTerminal(params: RpcParams<"terminal.spawn">) {
+    return this.run("spawnTerminal", params, () => ({
+      ...this.terminalInfo,
+      command: params.command,
+    }));
+  }
+  writeTerminal(params: RpcParams<"terminal.write">) {
+    return this.run("writeTerminal", params, () => ({ ok: true }) as const);
+  }
+  resizeTerminal(params: RpcParams<"terminal.resize">) {
+    return this.run("resizeTerminal", params, () => ({ ok: true }) as const);
+  }
+  killTerminal(params: RpcParams<"terminal.kill">) {
+    return this.run("killTerminal", params, () => ({ ok: true }) as const);
+  }
+  listTerminals() {
+    return this.run("listTerminals", {}, () => this.terminalsResult);
+  }
+  attachTerminal(params: RpcParams<"terminal.attach">) {
+    return this.run("attachTerminal", params, () => ({
+      terminal: this.terminalInfo,
+      scrollback: this.scrollback,
+    }));
+  }
+
+  onTerminalOutput(l: (o: TerminalOutput) => void): Unsubscribe {
+    this.listeners.terminalOutput.add(l);
+    return () => this.listeners.terminalOutput.delete(l);
+  }
+  onTerminalUpdate(l: (u: TerminalUpdate) => void): Unsubscribe {
+    this.listeners.terminalUpdate.add(l);
+    return () => this.listeners.terminalUpdate.delete(l);
+  }
+  emitTerminalOutput(o: TerminalOutput) {
+    for (const l of this.listeners.terminalOutput) l(o);
+  }
+  emitTerminalUpdate(u: TerminalUpdate) {
+    for (const l of this.listeners.terminalUpdate) l(u);
   }
 
   onEvents(l: (b: EventsNotification) => void): Unsubscribe {

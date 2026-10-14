@@ -6,6 +6,7 @@ import { MiniLines } from "@/features/agents/MiniLines";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
 import { SquadRow } from "@/features/squad-row/SquadRow";
+import { OpenTerminalButton, TerminalList } from "@/features/terminal/ProjectTerminals";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
 import {
   projectSummaries,
@@ -52,6 +53,7 @@ export function Project({ projectId }: { projectId: string }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={counts} />
+          <OpenTerminalButton projectId={projectId} cwd={project.root} />
           <NewSquadButton
             open={creating === "squad"}
             onToggle={() => toggle("squad")}
@@ -79,6 +81,8 @@ export function Project({ projectId }: { projectId: string }) {
           onClose={() => setCreating(undefined)}
         />
       )}
+
+      <TerminalList projectId={projectId} />
 
       <section aria-labelledby="sessions">
         <h2 id="sessions" className="sr-only">

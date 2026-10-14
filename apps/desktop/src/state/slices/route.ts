@@ -4,6 +4,8 @@ export type Route =
   | { level: "home" }
   | { level: "project"; projectId: string }
   | { level: "session"; projectId: string; sessionId: string; agentId?: string }
+  /** A terminal not (yet) running a session; once one starts in it, its session's screen. */
+  | { level: "terminal"; projectId: string; terminalId: string }
   /** A squad's screen; `taskId` opens one task's panel. */
   | { level: "squad"; projectId: string; squadId: string; taskId?: string }
   /** Dev builds only: the persona gallery (#/gallery), or a squad fixture (#/gallery/squad/run). */

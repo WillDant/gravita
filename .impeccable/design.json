@@ -622,6 +622,7 @@
     "layout": {
       "sidebar": "232px (rail 56px)",
       "rightColumn": "340px",
+      "sessionMapColumn": "440px default, 360px min, resizable",
       "map": {
         "lineWidth": "5px",
         "knee": "12px",
@@ -841,7 +842,7 @@
       "**Don't** give resting cards or containers a shadow; use a hairline.",
       "**Don't** use overshoot, bounce or wobble in chrome; those belong to the orbs.",
       "**Don't** set uppercase tracked labels or eyebrow text above headings; signage is sentence case.",
-      "**Don't** fall back to terminal tabs, log feeds or a gray card grid as the primary view of a session."
+      "**Don't** let a terminal, a log feed or a gray card grid be the only view of a session: the map is always one click away, and side by side by default. The terminal is a way to talk to the agent, not a replacement for seeing it."
     ]
   }
 }

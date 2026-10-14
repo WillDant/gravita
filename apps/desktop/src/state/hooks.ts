@@ -5,6 +5,7 @@ import type {
   EngineStatus,
   GravitaEvent,
   ProviderStatus,
+  TerminalInfo,
 } from "@gravita/protocol";
 import type { AgentProvider } from "@gravita/protocol/constants";
 import { createContext, useContext, useEffect } from "react";
@@ -193,4 +194,40 @@ export function useCodexProfileRefresh(enabled: boolean) {
   useEffect(() => {
     if (enabled && connection === "online") void read();
   }, [read, connection, enabled]);
+}
+
+/** Whether this engine can open terminals (not on Windows yet, nor an older engine). */
+export const useTerminalSupported = (): boolean =>
+  useAppStore((s) => s.engineStatus?.terminal === true);
+
+export const useTerminal = (terminalId: string): TerminalInfo | undefined =>
+  useAppStore((s) => s.terminals[terminalId]);
+
+/** The terminal a session runs in: the running one, else the latest. */
+export function terminalOfSession(
+  terminals: Record<string, TerminalInfo>,
+  sessionId: string,
+): TerminalInfo | undefined {
+  let best: TerminalInfo | undefined;
+  for (const t of Object.values(terminals)) {
+    if (t.sessionId !== sessionId) continue;
+    if (
+      !best ||
+      (t.running && !best.running) ||
+      (t.running === best.running && t.startedAt > best.startedAt)
+    )
+      best = t;
+  }
+  return best;
+}
+
+export const useSessionTerminal = (sessionId: string): TerminalInfo | undefined =>
+  useAppStore((s) => terminalOfSession(s.terminals, sessionId));
+
+/** Store actions for terminals. */
+export function useTerminalControl() {
+  return {
+    spawn: useAppStore((s) => s.spawnTerminal),
+    kill: useAppStore((s) => s.killTerminal),
+  };
 }

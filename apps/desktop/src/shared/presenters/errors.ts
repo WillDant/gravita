@@ -63,6 +63,12 @@ export function describeError(error: GatewayError): ErrorView {
     case KnownErrors.codexProfileSignedOut:
       // The engine's words say which: the profile isn't signed in, or a dollar budget.
       return { text: error.message };
+    case KnownErrors.terminalUnsupported:
+      return { text: t("error.terminalUnsupported") };
+    case KnownErrors.tooManyTerminals:
+      return { text: t("error.tooManyTerminals") };
+    case KnownErrors.terminalNotFound:
+      return { text: t("error.terminalNotFound") };
     case LocalErrors.offline:
       return { text: t("error.offline") };
     case LocalErrors.timeout:

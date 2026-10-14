@@ -1,5 +1,12 @@
 import type { GravitaState } from "@gravita/core";
-import type { EngineStatus, EventsNotification, RpcParams, RpcResult } from "@gravita/protocol";
+import type {
+  EngineStatus,
+  EventsNotification,
+  RpcParams,
+  RpcResult,
+  TerminalOutput,
+  TerminalUpdate,
+} from "@gravita/protocol";
 
 /** Whether the link to the engine is up (authenticated) or down (retrying). */
 export type GatewayConnection = "online" | "offline";
@@ -71,7 +78,18 @@ export interface EngineGateway {
   codexProfileSignIn(): Promise<RpcResult<"codexProfile.signIn">>;
   codexProfileSignOut(): Promise<RpcResult<"codexProfile.signOut">>;
 
+  // Embedded terminals: a PTY in the engine. Output arrives through `onTerminalOutput`.
+  spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">>;
+  writeTerminal(params: RpcParams<"terminal.write">): Promise<RpcResult<"terminal.write">>;
+  resizeTerminal(params: RpcParams<"terminal.resize">): Promise<RpcResult<"terminal.resize">>;
+  killTerminal(params: RpcParams<"terminal.kill">): Promise<RpcResult<"terminal.kill">>;
+  listTerminals(): Promise<RpcResult<"terminal.list">>;
+  attachTerminal(params: RpcParams<"terminal.attach">): Promise<RpcResult<"terminal.attach">>;
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
+  /** What terminals print; high-frequency, so it never goes through the store. */
+  onTerminalOutput(listener: (output: TerminalOutput) => void): Unsubscribe;
+  onTerminalUpdate(listener: (update: TerminalUpdate) => void): Unsubscribe;
   onStatus(listener: (status: EngineStatus) => void): Unsubscribe;
   onConnection(listener: (connection: GatewayConnection) => void): Unsubscribe;
 }

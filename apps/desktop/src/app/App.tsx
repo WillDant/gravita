@@ -4,6 +4,7 @@ import { Sidebar } from "@/features/navigation/Sidebar";
 import { NoticeLine } from "@/features/notice/NoticeLine";
 import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
+import { TerminalScreen } from "@/features/terminal/TerminalScreen";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";
 
@@ -71,6 +72,12 @@ export function App() {
                 {...(route.taskId ? { taskId: route.taskId } : {})}
               />
             </Suspense>
+          ) : route.level === "terminal" ? (
+            <TerminalScreen
+              key={route.terminalId}
+              projectId={route.projectId}
+              terminalId={route.terminalId}
+            />
           ) : route.level === "gallery" ? (
             route.squad && SquadGallery ? (
               <Suspense>
