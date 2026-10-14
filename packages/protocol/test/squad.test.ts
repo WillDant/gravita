@@ -237,3 +237,50 @@ describe("plan budgets", () => {
     expect(RpcErrors.planUsageUnavailable.code).toBe(4014);
   });
 });
+
+describe("squads with Codex roles", () => {
+  test("a role may name its provider; anything else is refused", () => {
+    const withCodex = { ...plan, roles: [{ ...plan.roles[0]!, provider: "codex" }] };
+    expect(SquadPlan.safeParse(withCodex).success).toBe(true);
+    const other = { ...plan, roles: [{ ...plan.roles[0]!, provider: "gemini" }] };
+    expect(SquadPlan.safeParse(other).success).toBe(false);
+  });
+
+  test("squad.create takes who builds it; squad.created keeps it", () => {
+    const create = RpcContract["squad.create"].params;
+    const params = { cwd: "/w", brief: "b", budgetUsd: 5, autonomy: "auto" };
+    expect(create.safeParse({ ...params, providers: "mixed" }).success).toBe(true);
+    expect(create.safeParse({ ...params, providers: "both" }).success).toBe(false);
+    expect(create.safeParse(params).success).toBe(true);
+    const created = GravitaEvent.safeParse({
+      ...base,
+      key: keys.squadCreated("q"),
+      type: "squad.created",
+      data: {
+        squadId: "q",
+        cwd: "/w",
+        brief: "b",
+        models: { planner: "opus", roles: "sonnet" },
+        budget: { mode: "plan", maxPercent: 20, window: "five_hour" },
+        autonomy: "guarded",
+        providers: "codex",
+      },
+    });
+    expect(created.success).toBe(true);
+  });
+
+  test("Gravita's Codex profile: its status, its sign-in link, its error", () => {
+    expect(
+      RpcContract["codexProfile.signIn"].result.safeParse({ authUrl: "https://auth.openai.com/x" })
+        .success,
+    ).toBe(true);
+    expect(RpcContract["codexProfile.signIn"].result.safeParse({ authUrl: "nope" }).success).toBe(
+      false,
+    );
+    expect(
+      RpcContract["codexProfile.status"].result.safeParse({ loggedIn: true, planType: "team" })
+        .success,
+    ).toBe(true);
+    expect(RpcErrors.codexProfileSignedOut.code).toBe(4015);
+  });
+});

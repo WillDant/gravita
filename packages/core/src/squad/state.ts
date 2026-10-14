@@ -8,6 +8,7 @@ import type {
   SquadModels,
   SquadPhase,
   SquadPlan,
+  SquadProviders,
   TaskStatus,
 } from "@gravita/protocol";
 
@@ -161,6 +162,8 @@ export interface SquadState {
   /** Set when the budget is a share of a plan window instead of dollars. */
   budgetPlan?: { maxPercent: number; window: PlanWindow };
   autonomy: SquadAutonomy;
+  /** Who builds it (the Brief's choice); absent: Claude Code only. */
+  providers?: SquadProviders;
   baseBranch?: string;
   phase: SquadPhase;
   phaseReason?: string;
