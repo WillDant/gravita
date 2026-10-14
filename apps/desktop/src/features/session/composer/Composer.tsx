@@ -3,6 +3,7 @@ import { ArrowUp, Square } from "lucide-react";
 import { useId, useRef } from "react";
 import {
   BypassWarning,
+  isFullAccess,
   ModelSelect,
   ModeSelect,
 } from "@/features/session-settings/SettingsSelects";
@@ -28,7 +29,7 @@ export function Composer({
   placeholder?: string;
 }) {
   const c = useComposer(session);
-  const models = useModels();
+  const models = useModels(c.provider);
   const id = useId();
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -77,12 +78,14 @@ export function Composer({
                   models={models}
                   value={c.model}
                   onChange={c.changeModel}
+                  provider={c.provider}
                   label={t("composer.model")}
                   className="w-48"
                 />
                 <ModeSelect
                   value={c.mode}
                   onChange={c.changeMode}
+                  provider={c.provider}
                   allowBypass={false}
                   label={t("composer.mode")}
                   className="w-44"
@@ -116,7 +119,9 @@ export function Composer({
           {c.error}
         </p>
       )}
-      {settings && c.mode === "bypassPermissions" && <BypassWarning className="mt-2" />}
+      {settings && isFullAccess(c.provider, c.mode) && (
+        <BypassWarning provider={c.provider} className="mt-2" />
+      )}
     </div>
   );
 }

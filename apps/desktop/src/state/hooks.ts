@@ -75,6 +75,21 @@ export function useProviderProblem(
 }
 
 /**
+ * Whether a session can be started with `provider` from here: its CLI is installed and
+ * recent enough (a logged-out one still counts, its connect steps say how to log in).
+ * Demo mode only runs Claude Code.
+ */
+export function canStartWith(status: EngineStatus | undefined, provider: AgentProvider): boolean {
+  if (!status) return false;
+  if (status.demo) return provider === "claude";
+  const p = providerStatus(status, provider);
+  return Boolean(p?.found && !p.outdated);
+}
+
+export const useCanStartWith = (provider: AgentProvider): boolean =>
+  useAppStore((s) => canStartWith(s.engineStatus, provider));
+
+/**
  * What Gravita says about Codex: "missing" once the engine looked and found none, else
  * "outdated" when it is older than Gravita supports. Codex is optional, so unlike
  * `problemOf` an engine that doesn't look for it says nothing; never in demo mode.

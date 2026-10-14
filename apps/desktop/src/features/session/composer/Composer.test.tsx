@@ -1,3 +1,4 @@
+import type { PermissionMode } from "@gravita/protocol";
 import { RpcErrors } from "@gravita/protocol/constants";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -88,5 +89,54 @@ describe("Composer", () => {
 
     expect(gateway.callsOf("setModel")).toEqual([{ sessionId: "s", model: "default" }]);
     expect(gateway.callsOf("setPermissionMode")).toEqual([{ sessionId: "s", mode: "acceptEdits" }]);
+  });
+});
+
+/** A Codex chat Gravita runs; settings report its mode in Claude Code's terms. */
+function codexState(permissionMode: PermissionMode) {
+  return stateOf(
+    started("s", 5, "p1", "chat").map((e) => ({ ...e, provider: "codex" })),
+    [
+      ev("session.control", { controllable: true }, at),
+      ev("session.settings", { model: "gpt-5.5-codex", permissionMode }, at),
+    ],
+  );
+}
+
+describe("Composer of a Codex session", () => {
+  const renderCodex = (permissionMode: PermissionMode) => {
+    const codex = codexState(permissionMode);
+    return renderWithApp(<Composer session={codex.sessions.s!} />, { state: codex });
+  };
+
+  it("offers Codex's models and modes, and changes the mode in Codex's terms", async () => {
+    const { gateway } = renderCodex("acceptEdits");
+    gateway.modelsResult = { models: [{ value: "gpt-5.5-codex", displayName: "GPT-5.5 Codex" }] };
+    await settle();
+
+    expect(gateway.callsOf("models")).toEqual([{ provider: "codex" }]);
+    const model = screen.getByLabelText("Model") as HTMLSelectElement;
+    expect(model.value).toBe("gpt-5.5-codex");
+    const mode = screen.getByLabelText("Permissions") as HTMLSelectElement;
+    expect(mode.value).toBe("workspace");
+    // Full access, like Claude Code's bypass, can only be chosen when a session starts.
+    expect([...mode.options].map((o) => o.textContent)).toEqual([
+      "Ask before acting",
+      "Edit in this folder",
+    ]);
+    fireEvent.change(mode, { target: { value: "ask" } });
+    await settle();
+
+    expect(gateway.callsOf("setPermissionMode")).toEqual([{ sessionId: "s", mode: "ask" }]);
+  });
+
+  it("keeps full access on offer, with its warning, while the session runs in it", async () => {
+    renderCodex("bypassPermissions");
+    await settle();
+
+    const mode = screen.getByLabelText("Permissions") as HTMLSelectElement;
+    expect(mode.value).toBe("fullAccess");
+    expect([...mode.options].map((o) => o.value)).toEqual(["ask", "workspace", "fullAccess"]);
+    expect(screen.getByRole("note").textContent).toContain("Codex will run commands");
   });
 });

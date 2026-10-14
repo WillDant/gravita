@@ -169,6 +169,10 @@ export const en = {
   "newSession.messagePlaceholder": "What should the agent work on?",
   "newSession.model": "Model",
   "newSession.modelDefault": "Claude Code default",
+  "newSession.modelDefaultCodex": "Codex default",
+  "newSession.provider": "Agent",
+  "newSession.provider.claude": "Claude Code",
+  "newSession.provider.codex": "Codex",
   "newSession.mode": "Permissions",
   "newSession.start": "Start session",
   "newSession.starting": "Starting…",
@@ -182,6 +186,11 @@ export const en = {
   "mode.plan": "Plan first",
   "mode.bypassPermissions": "Don't ask",
   "mode.bypassWarning": "The agent will run commands and change files without asking you first.",
+  "mode.codex.ask": "Ask before acting",
+  "mode.codex.workspace": "Edit in this folder",
+  "mode.codex.fullAccess": "Full access",
+  "mode.codex.fullAccessWarning":
+    "Codex will run commands and change files anywhere on this Mac without asking you first, with no sandbox.",
 
   "composer.label": "Message the main agent",
   "composer.placeholder": "Reply to the main agent…",

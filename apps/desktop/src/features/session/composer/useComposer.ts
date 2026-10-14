@@ -1,8 +1,10 @@
-import type { SessionState } from "@gravita/core";
-import type { PermissionMode } from "@gravita/protocol";
+import { modeFor, type SessionState } from "@gravita/core";
+import type { SessionMode } from "@gravita/protocol";
+import type { AgentProvider } from "@gravita/protocol/constants";
 import { useEffect, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { describeError } from "@/shared/presenters/errors";
+import { sessionProvider } from "@/shared/presenters/selectors";
 import { type CommandResult, useControl } from "@/state/hooks";
 
 export interface ComposerModel {
@@ -14,22 +16,26 @@ export interface ComposerModel {
   error?: string;
   send: () => void;
   interrupt: () => void;
+  /** The agent running the session: its models and modes are the ones offered. */
+  provider: AgentProvider;
   model: string;
-  mode: PermissionMode;
+  /** In the provider's own terms. */
+  mode: SessionMode;
   changeModel: (model: string) => void;
-  changeMode: (mode: PermissionMode) => void;
+  changeMode: (mode: SessionMode) => void;
 }
 
 /** Messages, interrupt and settings for a session Gravita runs. */
 export function useComposer(session: SessionState): ComposerModel {
   const control = useControl();
+  const provider = sessionProvider(session);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [interrupting, setInterrupting] = useState(false);
   const [error, setError] = useState<string>();
   // A setting shows its new value until the session reports it (or the change fails).
   const [pendingModel, setPendingModel] = useState<string>();
-  const [pendingMode, setPendingMode] = useState<PermissionMode>();
+  const [pendingMode, setPendingMode] = useState<SessionMode>();
   // biome-ignore lint/correctness/useExhaustiveDependencies: the session caught up.
   useEffect(() => setPendingModel(undefined), [session.model]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the session caught up.
@@ -72,7 +78,7 @@ export function useComposer(session: SessionState): ComposerModel {
     });
   };
 
-  const changeMode = (mode: PermissionMode) => {
+  const changeMode = (mode: SessionMode) => {
     setPendingMode(mode);
     setError(undefined);
     void control.setPermissionMode(session.id, mode).then((r) => {
@@ -92,8 +98,10 @@ export function useComposer(session: SessionState): ComposerModel {
     error,
     send,
     interrupt,
+    provider,
     model: pendingModel ?? session.model ?? "",
-    mode: pendingMode ?? session.permissionMode ?? "default",
+    // Settings report the mode in Claude Code's terms, whichever agent runs the session.
+    mode: pendingMode ?? modeFor(provider, session.permissionMode ?? "default"),
     changeModel,
     changeMode,
   };
