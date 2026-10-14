@@ -209,17 +209,17 @@ export const SquadDeliverParams = SquadRef.extend({ mode: DeliverMode });
 export const SquadDeliverResult = z.object({ ref: z.string() });
 
 /**
- * Asks the engine to read plan usage again through a session that is already running (a
- * chat or a squad's). It never starts one, and reads at most every so often; the values
- * arrive as `usage.limits` events.
- */
-/**
  * Starts the profile's ChatGPT sign-in: the client opens `authUrl` in the browser, Codex
  * takes the callback and keeps the tokens in Gravita's Codex home; the end arrives as an
  * `engine.status` update.
  */
 export const CodexProfileSignInResult = z.object({ authUrl: z.string().url() });
 
+/**
+ * Asks the engine to read plan usage again through a session that is already running (a
+ * chat or a squad's). It never starts one, and reads at most every so often; the values
+ * arrive as `usage.limits` events.
+ */
 export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
 /**

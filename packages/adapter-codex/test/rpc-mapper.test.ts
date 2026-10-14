@@ -193,6 +193,69 @@ describe("CodexRpcMapper", () => {
 });
 
 describe("code mode", () => {
+  const scriptMapper = () => {
+    const t = thread(0x401);
+    const mapper = new CodexRpcMapper({
+      projectId: "p1",
+      sessionId: codexSessionId(t),
+      rootThreadId: t,
+      now: () => "2026-10-12T10:00:00.000Z",
+    });
+    const raw = (item: Record<string, unknown>) =>
+      ({
+        method: "rawResponseItem/completed",
+        params: { threadId: t, turnId: "turn-1", item },
+      }) as unknown as ServerNotification;
+    /** A script call and its output, mapped. */
+    return (callId: string, input: string, output = "Script completed\nOutput:") =>
+      [
+        raw({
+          type: "custom_tool_call",
+          status: "completed",
+          call_id: callId,
+          name: "exec",
+          input,
+        }),
+        raw({ type: "custom_tool_call_output", call_id: callId, output }),
+      ].flatMap((n) => mapper.map(n));
+  };
+
+  test("a script that applies a patch is an edit of its files", () => {
+    const run = scriptMapper();
+    const patch =
+      "*** Begin Patch\\n*** Add File: src/todo.ts\\n+export const x = 1;\\n*** End Patch";
+    const events = run("call_patch", `text(await tools.apply_patch("${patch}"));`);
+    expect(ofType(events, "tool.started")[0]?.data).toMatchObject({
+      name: "exec",
+      kind: "edit",
+      target: { path: "src/todo.ts" },
+      inputPreview: "src/todo.ts",
+    });
+    expect(ofType(events, "tool.completed")[0]?.data.fileChanges).toEqual([
+      { path: "src/todo.ts", added: 1, removed: 0 },
+    ]);
+  });
+
+  test("role tools and the web tool keep their kind; several calls are counted", () => {
+    const run = scriptMapper();
+    const role = run(
+      "call_role",
+      'text(await tools.mcp__gravita__complete_task({summary:"Built the API"}));',
+    );
+    expect(ofType(role, "tool.started")[0]?.data).toMatchObject({
+      kind: "mcp",
+      inputPreview: "mcp__gravita__complete_task",
+    });
+    const web = run(
+      "call_web",
+      'const r = await Promise.allSettled([tools.web__run({search_query:[{q:"hono"}]}), tools.exec_command({cmd:"ls"})]);',
+    );
+    expect(ofType(web, "tool.started")[0]?.data).toMatchObject({
+      kind: "web",
+      inputPreview: "web__run (+1)",
+    });
+  });
+
   test("a script shows its command, and an interrupt fails the call", () => {
     const t = thread(0x401);
     const mapper = new CodexRpcMapper({

@@ -6,8 +6,10 @@ import { codexCallId, codexItemId } from "../ids";
 import { fileChangesOf, parsePatch } from "../patch";
 import {
   APPLY_PATCH,
+  CODE_MODE,
+  codeModePatch,
   codexInputPreview,
-  codexToolKind,
+  codexToolKindOf,
   codexToolName,
   codexToolTarget,
   patchTextOf,
@@ -524,12 +526,17 @@ export class RolloutNormalizer {
   ) {
     const toolUseId = codexCallId(callId);
     const call: PendingCall = { name };
-    const patchText = name === APPLY_PATCH ? patchTextOf(input) : "";
-    // A code-mode script may carry a patch too; its files are the script's changes.
-    const patch = parsePatch(patchText || (typeof input === "string" ? input : ""));
+    // A code-mode script may apply patches too; their files are the script's changes.
+    const patchText =
+      name === APPLY_PATCH
+        ? patchTextOf(input)
+        : name === CODE_MODE && typeof input === "string"
+          ? codeModePatch(input)
+          : "";
+    const patch = parsePatch(patchText);
     if (patch.length) call.files = fileChangesOf(patch);
     this.state.calls[callId] = call;
-    const kind = codexToolKind(name);
+    const kind = codexToolKindOf(name, input);
     out.push({
       ...this.base(ts),
       key: keys.toolStarted(toolUseId),
