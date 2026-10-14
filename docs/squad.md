@@ -1,8 +1,8 @@
 # Squads
 
-A squad is a small team of Claude Code agents that builds something together in one repository. Each agent has a role (for example backend, frontend, tests) and owns its own part of the code, so the agents can work at the same time without overwriting each other. You describe what you want, review a plan, and Gravita runs the team and hands you the result.
+A squad is a small team of coding agents (Claude Code, Codex, or both) that builds something together in one repository. Each agent has a role (for example backend, frontend, tests) and owns its own part of the code, so the agents can work at the same time without overwriting each other. You describe what you want, review a plan, and Gravita runs the team and hands you the result.
 
-Squads use the Claude Code you installed, with your own login. Nothing changes in your repository until you approve the plan.
+Squads use the Claude Code you installed, with your own login; Codex roles run your installed `codex` in a profile of Gravita's own (see [Codex roles](#codex-roles)). Nothing changes in your repository until you approve the plan.
 
 ## How a squad works
 
@@ -15,6 +15,32 @@ Squads use the Claude Code you installed, with your own login. Nothing changes i
 7. **Deliver.** You choose what happens to the work (see [Delivery](#delivery)).
 
 You can pause, resume or stop a squad at any time. Anything that needs you (a permission, a question, a task an agent couldn't finish, a used-up budget) shows up in **Needs you**.
+
+## Codex roles
+
+When Codex is installed, the new-squad panel asks **who builds it**:
+
+- **Claude Code only** (the default): every role, the briefing and the planner on Claude Code.
+- **Codex only**: every role, the briefing and the planner on Codex.
+- **Mixed**: the planner (on Claude Code) gives each role Claude Code or Codex; a sensible default is Codex for backend and test work and Claude Code for frontend and design work. Each role on the Board shows who runs it, and you can switch a role between Claude Code and Codex before approving (the plan is checked again as you switch).
+
+A role on Codex works like any other role: same worktree, same paths, same role tools (`complete_task`, `request_change`…), same commit gate, merges and checks. The run map marks Codex roles ("Cx"), and the role panel and the Orbit say "Codex"; Claude Code roles stay unmarked.
+
+**Gravita's Codex profile.** Squad agents never inherit your personal setup. Codex reads all of it (config, MCP servers, hooks, plugins, login) from its home folder, so squads run Codex in a home of Gravita's own, `~/.gravita/codex-home`, never your `~/.codex`. You sign in to it **once**, from the new-squad panel ("Sign in to Codex for squads"): Gravita asks Codex to start a ChatGPT sign-in, opens the page Codex gives in your browser, and Codex takes the answer and keeps the tokens in that folder. Gravita writes only its own `config.toml` there (no MCP servers, hooks, plugins, apps or memories) and never reads the login. Sign in with the same ChatGPT account you use for Codex: plan usage is counted per account.
+
+**Budgets.** Codex reports plan usage, not dollars, so a squad with Codex roles takes a share of your plan (it can't have a dollar budget). Codex's 5-hour and weekly windows are counted like Claude Code's, from the squad's own sessions, and the squad's share is the larger of the two.
+
+**Models.** Codex's line-up is one model at three reasoning efforts: Automatic runs everyday tasks on your account's default Codex model at medium effort, foundation, contract and large tasks (and the plan, in a Codex-only squad) at high effort, and steps a struggling task up an effort level; "Opus everywhere" and "Sonnet everywhere" mean high and medium effort on Codex. The Board's estimate prices Codex runs at what the same tokens would cost on OpenAI's API, for comparison only.
+
+**Autonomy on Codex.** Codex is sandboxed to the role's worktree (the only folder it may write; no network unless the squad is Autonomous):
+
+| Autonomy | Codex asks Gravita about | Sandbox |
+| --- | --- | --- |
+| Ask | every edit and every command that isn't a known read-only one | the worktree, no network |
+| Guarded | what needs more than the sandbox (the network, writing outside the worktree) | the worktree, no network |
+| Autonomous | nothing | the worktree, with network |
+
+Whatever Codex asks about goes through the same ownership rules first (an edit of another role's folder, or git that changes the repository, is declined, and the agent is told why), then through your autonomy. Edits inside the worktree that Codex doesn't ask about are checked by the commit gate, as for Claude Code.
 
 ## What it costs
 
@@ -64,7 +90,7 @@ On a subscription, dollar amounts (the estimate, what each role spent) are what 
 
 Whatever you choose, a role can never edit another role's folders, the shared files (lockfiles, the root `package.json`, CI config), or anything outside its own copy of the repository, and it can't commit, push, merge or switch branches: Gravita does all of that.
 
-Squad agents also don't inherit your personal Claude Code setup. They load the repository's own `CLAUDE.md` and project settings, but not your user settings, MCP servers, plugins or skills: an autonomous agent shouldn't hold tools like sending messages on your behalf, and carrying a large personal setup into every call multiplies the cost. Chats you start in Gravita are your own Claude Code and keep all of it.
+Squad agents also don't inherit your personal Claude Code setup. They load the repository's own `CLAUDE.md` and project settings, but not your user settings, MCP servers, plugins or skills: an autonomous agent shouldn't hold tools like sending messages on your behalf, and carrying a large personal setup into every call multiplies the cost. Chats you start in Gravita are your own Claude Code and keep all of it. Codex roles are isolated the same way, in Gravita's own Codex profile: they read the repository's `AGENTS.md`, but no `.codex/` settings of the repository, and nothing of your `~/.codex`.
 
 ## What Gravita does to your repository
 
@@ -84,6 +110,6 @@ Squad agents also don't inherit your personal Claude Code setup. They load the r
 ## If something goes wrong
 
 - **A task fails.** Gravita retries once on its own (with what went wrong in the agent's instructions, and under Automatic on a stronger model); after that the task waits for you: retry it (optionally with another model), skip it, or give it to another role that owns its folders.
-- **You pause, or press the kill switch in the tray.** Running sessions stop and the squad waits; when you resume, each interrupted task continues in its own session.
+- **You pause, or press the kill switch in the tray.** Running sessions stop and the squad waits; when you resume, each interrupted task continues in its own session (a Codex role continues its own Codex thread).
 - **Gravita (or your computer) restarts during the brief.** The conversation so far is kept, but you can't write to the planner any more. Ask for the plan: a new planner session gets your brief and a summary of the conversation.
-- **Gravita (or your computer) restarts.** Squads that were working come back paused, so nothing spends money until you resume. A task that was interrupted before the restart starts over from its last committed state, so changes it hadn't committed yet may be lost.
+- **Gravita (or your computer) restarts.** Squads that were working come back paused, so nothing spends money until you resume. A task that was interrupted before the restart starts over from its last committed state, so changes it hadn't committed yet may be lost. (A Codex role's thread is kept in Gravita's Codex profile, so it continues that thread.)

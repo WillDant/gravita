@@ -1,10 +1,9 @@
-import { pickModel, type SquadState, validatePlan } from "@gravita/core";
+import { pickModel, plannerProviderOf, type SquadState, validatePlan } from "@gravita/core";
 import { SquadPlan, squadPlanJsonSchema } from "@gravita/protocol";
 import {
   MAX_PLAN_ATTEMPTS,
   PLANNER_MAX_TURNS,
   PLANNER_ROLE_ID,
-  SQUAD_PROVIDER,
   STOP_GRACE_MS,
   squadSubagents,
 } from "../../domain/squad-policy";
@@ -13,8 +12,8 @@ import type { SquadReader } from "../ports/squad-reader";
 import type { BudgetGuard } from "./budget-guard";
 import {
   type BriefingLine,
-  PLANNER_CHARTER,
   planFixPrompt,
+  plannerCharter,
   plannerPrompt,
   resumedPlannerPrompt,
 } from "./prompts";
@@ -47,8 +46,14 @@ export interface PlannerRun {
   briefing?: readonly BriefingLine[];
 }
 
-/** What's wrong with a structured output as a plan; empty when it is a valid plan. */
-export function judgePlan(output: unknown): { plan?: SquadPlan; errors: string[] } {
+/**
+ * What's wrong with a structured output as a plan; empty when it is a valid plan. `q` is the
+ * squad it is for (its choice of providers).
+ */
+export function judgePlan(
+  output: unknown,
+  q?: Pick<SquadState, "providers">,
+): { plan?: SquadPlan; errors: string[] } {
   if (output === undefined || output === null)
     return { errors: ["You didn't answer with a plan as structured output."] };
   const parsed = SquadPlan.safeParse(output);
@@ -58,7 +63,7 @@ export function judgePlan(output: unknown): { plan?: SquadPlan; errors: string[]
         .slice(0, 20)
         .map((i) => `${i.path.join(".") || "plan"}: ${i.message}`),
     };
-  const issues = validatePlan(parsed.data);
+  const issues = validatePlan(parsed.data, q?.providers ? { providers: q.providers } : {});
   return issues.length
     ? { errors: issues.map((i) => i.message) }
     : { plan: parsed.data, errors: [] };
@@ -86,23 +91,24 @@ export class RunPlanner {
     const resume = p.resumeSessionId;
     run.plannerStopRequested = false;
     if (q.phase !== "planning") this.d.emitter.phase(ref, "planning");
+    const provider = plannerProviderOf(q.providers);
     const session = await this.d.sessions.start({
       squadId: run.squadId,
       projectId: run.projectId,
       roleId: PLANNER_ROLE_ID,
       cwd,
       // Resuming the briefing may switch models (Sonnet talked, Opus plans): the model is
-      // passed on resume too, and Claude Code continues the transcript on it.
-      provider: SQUAD_PROVIDER,
-      model: pickModel({ models: q.models, phase: "planning" }),
-      subagents: squadSubagents(q.models),
+      // passed on resume too, and the agent continues the conversation on it.
+      provider,
+      model: pickModel({ models: q.models, phase: "planning", provider }),
+      subagents: squadSubagents(q.models, { provider }),
       permissionMode: "dontAsk",
       access: "read-only",
       prompt: resume
         ? resumedPlannerPrompt(q, p.feedback)
         : plannerPrompt(q, p.feedback, p.briefing),
       ...(resume ? { resumeSessionId: resume } : {}),
-      systemPromptAppend: PLANNER_CHARTER,
+      systemPromptAppend: plannerCharter(provider),
       outputSchema: squadPlanJsonSchema(),
       maxTurns: PLANNER_MAX_TURNS,
       maxBudgetUsd: this.d.budget.forPlanner(q, resume),
@@ -137,7 +143,7 @@ export class RunPlanner {
       if (session.stopping) return { kind: "interrupted" };
       if (o.kind === "ended") {
         if (o.reason === "disposed" && !session.disposedByGravita) return { kind: "killed" };
-        // Claude Code couldn't pick the conversation up: the caller starts afresh.
+        // The agent couldn't pick the conversation up: the caller starts afresh.
         if (resumed && tries === 1) return { kind: "unresumable" };
         return { kind: "failed", reason: "The planner's session stopped unexpectedly." };
       }
@@ -150,7 +156,7 @@ export class RunPlanner {
         };
 
       const attempt = this.current(run).planAttempts + 1;
-      const { plan, errors } = judgePlan(o.structuredOutput);
+      const { plan, errors } = judgePlan(o.structuredOutput, this.current(run));
       if (plan) {
         this.d.emitter.planProposed(ref, attempt, plan);
         this.d.emitter.phase(ref, "review");

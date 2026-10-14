@@ -19,10 +19,11 @@ import { INTERNAL_ERROR, type RpcError, type RpcRouter } from "./router";
 // rebinding), Origin allowlist on upgrade, then a token as the first message. Once
 // authenticated, every request goes to the router.
 //
-// Two plain HTTP routes serve callers that aren't the UI: the tray's kill switch
-// (`POST /control/stop-all`, engine token) and Deep Observe hooks (`POST /hooks`, hook
-// token). Neither is for browsers: any request with an Origin header is refused, so a web
-// page can't reach them even with a token, and the token travels as a Bearer header.
+// Plain HTTP routes serve callers that aren't the UI: the tray's kill switch
+// (`POST /control/stop-all`, engine token), Deep Observe hooks (`POST /hooks`, hook token)
+// and Gravita's role tools for Codex squad sessions (`/mcp`, a token per session). None is
+// for browsers: any request with an Origin header is refused, so a web page can't reach
+// them even with a token, and the token travels as a Bearer header.
 
 export const TAURI_ORIGINS = ["tauri://localhost", "http://tauri.localhost"];
 export const WS_PATH = "/ws";
@@ -43,11 +44,17 @@ export interface HookSink {
   submit(payload: unknown): void;
 }
 
+/** Answers the role tools' MCP route (it checks its own per-session tokens). */
+export interface McpRoute {
+  handle(req: Request): Promise<Response>;
+}
+
 export interface TransportDeps {
   router: RpcRouter;
   feed: EngineFeed;
   status: () => EngineStatus;
   hooks?: HookSink;
+  mcp?: McpRoute;
 }
 
 export interface RunningServer {
@@ -190,6 +197,7 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
       if (url.pathname === HttpPaths.stopAll) return stopAll(req);
       if (url.pathname === HttpPaths.hooks && deps.hooks && opts.hookToken)
         return hooks(req, deps.hooks, opts.hookToken);
+      if (url.pathname === HttpPaths.mcp && deps.mcp) return deps.mcp.handle(req);
       if (url.pathname === WS_PATH) {
         const origin = req.headers.get("origin");
         if (!origin || !origins.has(origin)) return new Response("Forbidden", { status: 403 });

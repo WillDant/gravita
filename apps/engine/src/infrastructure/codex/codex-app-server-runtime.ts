@@ -1,27 +1,35 @@
+import { randomUUID } from "node:crypto";
 import {
   CodexAppServerClient,
   type CodexProtocol,
   CodexRpcMapper,
   type CodexSessionMode,
+  type CodexSessionPolicy,
+  type CodexSquadAccess,
   codexAgentId,
   codexCallId,
   codexSessionId,
   codexSessionPolicy,
+  codexSquadPolicy,
   codexToolCall,
   HANDSHAKE_TIMEOUT_MS,
   JsonRpcError,
   type JsonRpcId,
+  resolveCodexModel,
   type ServerNotification,
   type ServerRequest,
+  strictOutputSchema,
   threadIdOf,
+  withoutNulls,
 } from "@gravita/adapter-codex";
-import { isCodexMode } from "@gravita/core";
-import { MAIN_AGENT, type SessionMode } from "@gravita/protocol";
+import { isCodexMode, parseCodexModel } from "@gravita/core";
+import { keys, MAIN_AGENT, type SessionMode } from "@gravita/protocol";
 import { type GuardedCall, inputPreview, preview } from "@gravita/protocol/tools";
 import type {
   ChatRuntime,
   ChatRuntimeFactory,
   ChatRuntimeSpec,
+  PermissionVerdict,
   TurnOutcome,
 } from "../../application/ports/chat-runtime";
 import type { Clock } from "../../application/ports/clock";
@@ -44,17 +52,27 @@ import {
   InvalidSessionModeError,
   NotControllableError,
   NotLoggedInError,
+  SquadProfileError,
 } from "../../domain/errors";
+import type { LoopbackMcpServer, McpMount } from "../mcp/loopback-mcp-server";
 import { type AppServerLauncher, type AppServerProcess, stopAppServer } from "./app-server-process";
 import { accountStatusOf, readingOf } from "./codex-account";
 import { codexChatEnv } from "./codex-environment";
+import { type CodexSquadProfile, codexSquadEnv } from "./codex-squad-profile";
 import { CODEX } from "./provider";
 
-// One Codex chat driven through `codex app-server`: one app-server per chat, one thread in
-// it. Messages become turns (or steer the running one), the stream is mapped to events
-// with the rollout's keys, and Codex's approvals and questions wait in the PermissionBroker
-// for the user's answer in Gravita. It runs the user's own `codex` with their own login and
-// CODEX_HOME; nothing here reads credentials or logs anyone in.
+// One Codex session driven through `codex app-server`: one app-server per session, one
+// thread in it. Messages become turns (or steer the running one), the stream is mapped to
+// events with the rollout's keys, and Codex's approvals and questions wait in the
+// PermissionBroker for the user's answer in Gravita. Nothing here reads credentials or logs
+// anyone in.
+//
+// A chat runs the user's own `codex` with their own login and CODEX_HOME. A squad session
+// (a role, or a Codex-only squad's briefing and planner) runs the same `codex` in Gravita's
+// own Codex profile instead (CODEX_HOME=<dataDir>/codex-home: no personal config, MCP
+// servers or hooks), sandboxed to its worktree, with Gravita's role tools served to it over
+// the engine's loopback MCP route under a token of its own. Every approval it asks for goes
+// through the ownership guard and the squad's autonomy policy before the user sees it.
 
 export interface CodexAppServerRuntimeDeps {
   ingest: IngestEvents;
@@ -69,6 +87,81 @@ export interface CodexAppServerRuntimeDeps {
   codexHome?: string;
   /** How long `dispose` waits for the app-server to exit. */
   disposeTimeoutMs?: number;
+  /** Squad sessions: Gravita's Codex profile, and where their role tools are served. */
+  squad?: { profile: CodexSquadProfile; mcp: LoopbackMcpServer };
+}
+
+/** The name Codex knows Gravita's role tools by (they appear as `mcp__gravita__<tool>`). */
+export const GRAVITA_MCP_NAME = "gravita";
+
+/** The variable the app-server reads its role-tool token from (kept out of commands). */
+export const MCP_TOKEN_ENV = "GRAVITA_MCP_TOKEN";
+
+/**
+ * How long one role-tool call may take: complete_task commits and runs the task's checks,
+ * which can take minutes (Codex's own default is a minute).
+ */
+export const ROLE_TOOL_TIMEOUT_SEC = 3_600;
+
+/** A TOML string (the value of a `-c key=value` override). */
+const toml = (s: string) => JSON.stringify(s);
+
+/**
+ * The app-server's `-c` overrides that add Gravita's role tools for one session: a
+ * streamable HTTP MCP server on the engine's loopback port, its token read from the
+ * process's environment (never on the command line), required (the session doesn't start
+ * without it) and pre-approved (Gravita's own tools are always allowed, as for Claude).
+ */
+export function roleToolArgs(url: string): string[] {
+  const key = (k: string) => `mcp_servers.${GRAVITA_MCP_NAME}.${k}`;
+  return [
+    ["url", toml(url)],
+    ["bearer_token_env_var", toml(MCP_TOKEN_ENV)],
+    ["required", "true"],
+    ["default_tools_approval_mode", toml("approve")],
+    ["startup_timeout_sec", "20"],
+    ["tool_timeout_sec", String(ROLE_TOOL_TIMEOUT_SEC)],
+  ].flatMap(([k, v]) => ["-c", `${key(k!)}=${v}`]);
+}
+
+/** A squad session's access in Codex's terms: its planning access, else the role's autonomy. */
+function squadAccess(s: ChatRuntimeSpec): CodexSquadAccess {
+  if (s.access) return s.access;
+  if (s.autonomy) return s.autonomy;
+  return s.permissionMode === "dontAsk" ? "read-only" : "guarded";
+}
+
+/**
+ * A planning session's answer to an approval (it has no policy of its own): reading is
+ * fine, a question goes to the user, anything else is refused (the sandbox is read-only).
+ */
+function accessVerdict(call: GuardedCall): PermissionVerdict {
+  if (call.kind === "read") return "allow";
+  if (call.kind === "ask") return "ask";
+  return "deny";
+}
+
+/** The text of an assistant message among the raw response items. */
+function assistantText(item: unknown): string | undefined {
+  if (!item || typeof item !== "object") return undefined;
+  const m = item as { type?: unknown; role?: unknown; content?: unknown };
+  if (m.type !== "message" || m.role !== "assistant" || !Array.isArray(m.content)) return undefined;
+  const parts = m.content.flatMap((c) =>
+    c && typeof c === "object" && typeof (c as { text?: unknown }).text === "string"
+      ? [(c as { text: string }).text]
+      : [],
+  );
+  return parts.length ? parts.join("") : undefined;
+}
+
+/** A structured answer: the final message as JSON, its nulls taken out (strict schemas). */
+function structuredOf(text: string | undefined): unknown {
+  if (!text) return undefined;
+  try {
+    return withoutNulls(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
 }
 
 /** How the user's answer reaches Codex. */
@@ -88,7 +181,7 @@ function startMode(mode: ChatRuntimeSpec["permissionMode"]): CodexSessionMode {
 }
 
 /** A turn's end as the session's next outcome. */
-function outcomeOf(turn: CodexProtocol.Turn): TurnOutcome {
+function outcomeOf(turn: CodexProtocol.Turn, structuredOutput?: unknown): TurnOutcome {
   return {
     kind: "result",
     subtype:
@@ -98,6 +191,7 @@ function outcomeOf(turn: CodexProtocol.Turn): TurnOutcome {
           ? "interrupted"
           : "error_during_execution",
     isError: turn.status === "failed",
+    ...(structuredOutput !== undefined ? { structuredOutput } : {}),
     errors: turn.error?.message ? [turn.error.message] : [],
   };
 }
@@ -125,6 +219,12 @@ export class CodexAppServerRuntime implements ChatRuntime {
   /** Sends run one after another, so a turn is started before the next message steers it. */
   private sending: Promise<void> = Promise.resolve();
   private model: string | undefined;
+  /** A squad session's reasoning effort (its tier); chats leave Codex's own. */
+  private effort: string | undefined;
+  /** A squad session's role tools, served on the engine's loopback port while it runs. */
+  private mount: McpMount | undefined;
+  /** The root thread's last assistant message in the current turn (structured output). */
+  private lastText: string | undefined;
   private defaultModel: string | undefined;
   private models: ModelOption[] | undefined;
   /** Settings for the next turn (a model or mode chosen since the last one started). */
@@ -144,12 +244,32 @@ export class CodexAppServerRuntime implements ChatRuntime {
     private readonly spec: ChatRuntimeSpec,
     private readonly d: CodexAppServerRuntimeDeps,
   ) {
-    if (spec.kind === "squad" || spec.roleTools || spec.toolGuard || spec.access)
-      throw new Error("Codex squad sessions are not supported yet");
     this.projectId = spec.projectId;
     this.kind = spec.kind ?? "chat";
-    this.model = spec.model && spec.model !== "default" ? spec.model : undefined;
-    startMode(spec.permissionMode);
+    if (this.kind === "squad") {
+      if (!d.squad) throw new Error("Codex squad sessions need Gravita's Codex profile");
+      // "<model>@<effort>", "default" for the account's default (resolved when it opens).
+      const wanted = parseCodexModel(spec.model ?? "");
+      this.model = wanted.model;
+      this.effort = wanted.effort;
+    } else {
+      if (spec.roleTools || spec.toolGuard || spec.access)
+        throw new Error("Role tools and guards are for squad sessions");
+      this.model = spec.model && spec.model !== "default" ? spec.model : undefined;
+      startMode(spec.permissionMode);
+    }
+  }
+
+  private get isSquad(): boolean {
+    return this.kind === "squad";
+  }
+
+  /** The sandbox and approvals the session starts with (a squad's: by its access). */
+  private policy(): CodexSessionPolicy {
+    const s = this.spec;
+    return this.isSquad
+      ? codexSquadPolicy(squadAccess(s), s.cwd)
+      : codexSessionPolicy(startMode(s.permissionMode), s.cwd);
   }
 
   /** Codex names the session: "codex:<thread id>" once `open` resolved. */
@@ -206,6 +326,8 @@ export class CodexAppServerRuntime implements ChatRuntime {
 
   async setPermissionMode(mode: SessionMode) {
     if (!isCodexMode(mode)) throw new InvalidSessionModeError(CODEX, mode);
+    // A squad session's sandbox follows the squad's autonomy, not a chat's modes.
+    if (this.isSquad) throw new NotControllableError(this.sessionId);
     // Like Claude Code's bypass: full access only for a session that started with it.
     if (mode === "fullAccess" && this.spec.permissionMode !== "fullAccess")
       throw new BypassLockedError(this.sessionId);
@@ -272,12 +394,34 @@ export class CodexAppServerRuntime implements ChatRuntime {
     return this.disposed;
   }
 
+  /** The process's environment and extra arguments: a chat's, or a squad session's. */
+  private launchSettings(): { env: Record<string, string>; args: string[] } {
+    const s = this.spec;
+    const squad = this.isSquad ? this.d.squad : undefined;
+    if (!squad) return { env: codexChatEnv(s.environment.env, this.d.codexHome, s.env), args: [] };
+    squad.profile.prepare();
+    const extra: Record<string, string> = { ...s.env };
+    let args: string[] = [];
+    if (s.roleTools?.length) {
+      const label = [s.squad?.squadId, s.squad?.roleId, s.squad?.taskId].filter(Boolean).join("/");
+      this.mount = squad.mcp.mount(s.roleTools, label);
+      extra[MCP_TOKEN_ENV] = this.mount.token;
+      args = roleToolArgs(this.mount.url);
+    }
+    return { env: codexSquadEnv(s.environment.env, squad.profile.home, extra), args };
+  }
+
   // Opening.
 
   private async connect() {
     const s = this.spec;
-    const env = codexChatEnv(s.environment.env, this.d.codexHome, s.env);
-    const proc = this.d.launch({ cliPath: s.environment.cliPath, cwd: s.cwd, env });
+    const { env, args } = this.launchSettings();
+    const proc = this.d.launch({
+      cliPath: s.environment.cliPath,
+      cwd: s.cwd,
+      env,
+      ...(args.length ? { args } : {}),
+    });
     this.process = proc;
     const client = new CodexAppServerClient(proc.transport, {
       onNotification: (n) => this.notified(n),
@@ -287,11 +431,21 @@ export class CodexAppServerRuntime implements ChatRuntime {
     });
     this.client = client;
     await client.handshake({ name: "gravita", title: "Gravita", version: this.d.version });
-    // Gravita never logs in for a chat: the user does, with `codex login`.
+    // Gravita never logs in for a chat: the user does, with `codex login`. A squad session
+    // runs on Gravita's profile, which the user signed in to once (its own status).
     const account = await client.call("account/read", {}, { timeoutMs: HANDSHAKE_TIMEOUT_MS });
     const status = accountStatusOf(account);
-    this.d.status.updateProvider(CODEX, status);
-    if (!status.loggedIn) throw new NotLoggedInError(CODEX);
+    if (this.isSquad) {
+      if (!status.loggedIn)
+        throw new SquadProfileError(
+          CODEX,
+          "Gravita's Codex profile isn't signed in. Sign in to Codex for squads, then resume.",
+        );
+      await this.resolveModel(client);
+    } else {
+      this.d.status.updateProvider(CODEX, status);
+      if (!status.loggedIn) throw new NotLoggedInError(CODEX);
+    }
     const thread = await this.openThread(client);
     this.threadId = thread.id.toLowerCase();
     this.mapper = new CodexRpcMapper({
@@ -313,9 +467,26 @@ export class CodexAppServerRuntime implements ChatRuntime {
     for (const n of this.early.splice(0)) this.notified(n);
   }
 
+  /** A squad tier's model and effort, checked against Codex's catalog. */
+  private async resolveModel(client: CodexAppServerClient) {
+    const catalog = await client
+      .call("model/list", { includeHidden: false }, { timeoutMs: HANDSHAKE_TIMEOUT_MS })
+      .then((r) => r.data.filter((m) => !m.hidden))
+      .catch(() => []);
+    const resolved = resolveCodexModel(
+      {
+        ...(this.model ? { model: this.model } : {}),
+        ...(this.effort ? { effort: this.effort } : {}),
+      },
+      catalog,
+    );
+    this.model = resolved.model;
+    this.effort = resolved.effort;
+  }
+
   private async openThread(client: CodexAppServerClient): Promise<Thread> {
     const s = this.spec;
-    const policy = codexSessionPolicy(startMode(s.permissionMode), s.cwd);
+    const policy = this.policy();
     const settings = {
       cwd: s.cwd,
       ...(this.model ? { model: this.model } : {}),
@@ -372,11 +543,35 @@ export class CodexAppServerRuntime implements ChatRuntime {
       threadId,
       input: textInput(text),
       clientUserMessageId: uuid,
+      ...this.squadTurn(),
       ...next,
     });
     // Its turn/started (and even turn/completed) may have arrived before this answer.
     if (res.turn.status === "inProgress" && this.lastEnded !== res.turn.id)
       this.activeTurn ??= res.turn.id;
+  }
+
+  /**
+   * What every turn of a squad session restates: its sandbox (the worktree as the one
+   * writable root) and approvals, its tier's effort, and the plan's schema for the planner.
+   */
+  private squadTurn(): Partial<CodexProtocol.TurnStartParams> {
+    if (!this.isSquad) return {};
+    const policy = this.policy();
+    const s = this.spec;
+    return {
+      approvalPolicy: policy.approvalPolicy,
+      sandboxPolicy: policy.sandboxPolicy,
+      ...(this.model ? { model: this.model } : {}),
+      ...(this.effort ? { effort: this.effort } : {}),
+      ...(s.outputSchema
+        ? {
+            outputSchema: strictOutputSchema(
+              s.outputSchema,
+            ) as CodexProtocol.TurnStartParams["outputSchema"],
+          }
+        : {}),
+    };
   }
 
   // The stream.
@@ -394,8 +589,20 @@ export class CodexAppServerRuntime implements ChatRuntime {
     }
     switch (n.method) {
       case "turn/started":
-        if (this.isRoot(n.params.threadId)) this.activeTurn = n.params.turn.id;
+        if (this.isRoot(n.params.threadId)) {
+          this.activeTurn = n.params.turn.id;
+          this.lastText = undefined;
+        }
         return;
+      case "item/completed":
+        if (this.isRoot(n.params.threadId) && n.params.item.type === "agentMessage")
+          this.lastText = n.params.item.text;
+        return;
+      case "rawResponseItem/completed": {
+        const text = this.isRoot(n.params.threadId) ? assistantText(n.params.item) : undefined;
+        if (text !== undefined) this.lastText = text;
+        return;
+      }
       case "turn/completed": {
         if (!this.isRoot(n.params.threadId)) return;
         const { turn } = n.params;
@@ -403,14 +610,26 @@ export class CodexAppServerRuntime implements ChatRuntime {
         if (this.activeTurn === turn.id) this.activeTurn = undefined;
         if (isUnauthorized(turn.error)) this.setLoggedIn(false);
         else if (turn.status === "completed") this.setLoggedIn(true);
+        const structured =
+          this.spec.outputSchema && turn.status === "completed"
+            ? structuredOf(this.lastText)
+            : undefined;
         // After the mapping, so the turn's events are in the projection when the caller looks.
-        this.deliver(outcomeOf(turn));
+        this.deliver(outcomeOf(turn, structured));
         return;
       }
+      case "mcpServer/startupStatus/updated":
+        if (n.params.name === GRAVITA_MCP_NAME && n.params.status === "failed")
+          this.d.logger.log(
+            `codex session ${this.short()}: Gravita's role tools didn't start (${n.params.error ?? "no reason given"})`,
+          );
+        return;
       case "error":
         if (isUnauthorized(n.params.error)) this.setLoggedIn(false);
         return;
       case "account/updated": {
+        // A squad session's account is Gravita's profile, not the user's Codex.
+        if (this.isSquad) return;
         const { authMode, planType } = n.params;
         this.d.status.updateProvider(CODEX, {
           loggedIn: authMode !== null,
@@ -488,7 +707,13 @@ export class CodexAppServerRuntime implements ChatRuntime {
                 .join(", "),
           ),
           input: { reason: p.reason },
-          call: { kind: "other", paths: writes, tool: "permissions", cwd: p.cwd },
+          // In a squad, write access is judged like the edits it is for (the guard).
+          call: {
+            kind: this.isSquad && writes.length ? "edit" : "other",
+            paths: writes,
+            tool: "permissions",
+            cwd: p.cwd,
+          },
         });
         // Allowed: what it asked, for this turn only. Otherwise nothing.
         const granted: CodexProtocol.PermissionsRequestApprovalResponse["permissions"] =
@@ -523,7 +748,18 @@ export class CodexAppServerRuntime implements ChatRuntime {
       call: GuardedCall;
     },
   ): Promise<Approval> {
-    const verdict = this.spec.permissionPolicy?.(a.call) ?? "ask";
+    // A squad role's ownership guard first: what no role may do is declined, and the agent
+    // hears why (an approval's answer carries no message, so it comes as a steer).
+    const denial = this.spec.toolGuard?.(a.call);
+    if (denial) {
+      this.d.logger.log(
+        `squad guard declined ${a.toolName} in ${this.short()}${a.call.agentId ? ` (subagent ${a.call.agentId})` : ""}: ${denial}`,
+      );
+      void Promise.resolve().then(() => this.tellAgent(`Gravita declined that: ${denial}`));
+      return "decline";
+    }
+    const verdict =
+      this.spec.permissionPolicy?.(a.call) ?? (this.spec.access ? accessVerdict(a.call) : "ask");
     if (verdict === "allow") return "accept";
     if (verdict === "deny") return "decline";
     const ask = new AbortController();
@@ -541,6 +777,41 @@ export class CodexAppServerRuntime implements ChatRuntime {
       return this.approvalOf(decision, ask.signal);
     } finally {
       this.asks.delete(String(id));
+    }
+  }
+
+  /**
+   * A word from Gravita to the agent in the middle of its turn (a steer), recorded in the
+   * session's conversation like any message Gravita sends. Lost if the turn already ended:
+   * the commit gate still stops what it was about.
+   */
+  private async tellAgent(text: string) {
+    const turnId = this.activeTurn;
+    const client = this.client;
+    if (!turnId || !client?.isOpen || !this.threadId || this.ended || this.disposing) return;
+    const uuid = randomUUID();
+    try {
+      this.d.ingest.execute([
+        {
+          ts: this.d.clock.iso(),
+          source: "gravita",
+          provider: CODEX,
+          projectId: this.projectId,
+          sessionId: this.sessionId,
+          agentId: MAIN_AGENT,
+          key: keys.userMessage(uuid),
+          type: "message.user",
+          data: { uuid, textPreview: preview(text), origin: "gravita" },
+        },
+      ]);
+      await client.call("turn/steer", {
+        threadId: this.threadId,
+        input: textInput(text),
+        clientUserMessageId: uuid,
+        expectedTurnId: turnId,
+      });
+    } catch (err) {
+      this.d.logger.log(`codex session ${this.short()}: telling the agent failed`, err);
     }
   }
 
@@ -619,6 +890,8 @@ export class CodexAppServerRuntime implements ChatRuntime {
   private end(reason: "disposed" | "crashed" | "closed") {
     if (this.ended) return;
     this.ended = true;
+    // The role tools stop answering with the session.
+    this.mount?.close();
     this.safely(() => this.broker?.dispose());
     // The rollout tailer takes the session over from here (same keys, no duplicates).
     this.safely(() => this.d.runtimes.unregister(this.sessionId, this));
@@ -633,6 +906,11 @@ export class CodexAppServerRuntime implements ChatRuntime {
   }
 
   private setLoggedIn(loggedIn: boolean) {
+    // A squad session's login is Gravita's profile: the profile re-reads its own.
+    if (this.isSquad) {
+      if (!loggedIn) void this.d.squad?.profile.status({ force: true }).catch(() => {});
+      return;
+    }
     if (this.d.status.providerStatus(CODEX)?.loggedIn !== loggedIn)
       this.d.status.updateProvider(CODEX, { loggedIn });
   }

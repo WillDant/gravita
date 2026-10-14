@@ -19,6 +19,8 @@ export interface LaunchOptions {
   cliPath: string;
   cwd: string;
   env: Record<string, string>;
+  /** After `app-server`: config overrides (`-c key=value`) for this process only. */
+  args?: readonly string[];
 }
 
 /** Starts an app-server; tests replace it with a scripted one. */
@@ -26,8 +28,8 @@ export type AppServerLauncher = (o: LaunchOptions) => AppServerProcess;
 
 /** The real launcher. `debug` logs the first line of what Codex writes to stderr. */
 export function spawnAppServer(logger: Logger, debug = false): AppServerLauncher {
-  return ({ cliPath, cwd, env }) => {
-    const child = spawn(cliPath, ["app-server"], {
+  return ({ cliPath, cwd, env, args = [] }) => {
+    const child = spawn(cliPath, ["app-server", ...args], {
       cwd,
       env,
       stdio: ["pipe", "pipe", "pipe"],

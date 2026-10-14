@@ -1,4 +1,4 @@
-import type { AgentProvider, SessionKind, SessionMode } from "@gravita/protocol";
+import type { AgentProvider, SessionKind, SessionMode, SquadAutonomy } from "@gravita/protocol";
 import type { GuardedCall } from "@gravita/protocol/tools";
 import type { ZodRawShape } from "zod";
 import type { SubagentPolicy } from "../../domain/squad-policy";
@@ -68,6 +68,11 @@ export interface ChatRuntimeSpec {
   systemPromptAppend?: string;
   /** A planning session's restrictions; absent, the session has the agent's usual tools. */
   access?: SessionAccess;
+  /**
+   * A role session's autonomy. Claude Code reads it through `permissionMode` and the
+   * policy; a runtime whose sandbox depends on it (Codex) reads it here.
+   */
+  autonomy?: SquadAutonomy;
   /** How the session's subagents run (squad sessions). */
   subagents?: SubagentPolicy;
   maxBudgetUsd?: number;

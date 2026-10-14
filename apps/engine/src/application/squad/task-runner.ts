@@ -76,7 +76,7 @@ export class TaskRunner {
       live.worktree,
       await this.d.git.topLevel(live.worktree).catch(() => live.worktree),
     ];
-    const provider = roleProvider(role);
+    const provider = roleProvider(role, q.providers);
     const session = await this.d.sessions.start({
       squadId: run.squadId,
       projectId: run.projectId,
@@ -86,6 +86,7 @@ export class TaskRunner {
       cwd: live.worktree,
       model: live.model,
       permissionMode: rolePermissionMode(q.autonomy),
+      autonomy: q.autonomy,
       prompt: taskPrompt({
         plan,
         task,
@@ -164,7 +165,7 @@ export class TaskRunner {
               kind: "error",
               message:
                 o.reason === "crashed"
-                  ? "Claude Code stopped unexpectedly."
+                  ? `${session.runtime.provider === "codex" ? "Codex" : "Claude Code"} stopped unexpectedly.`
                   : "The session ended before the task was done.",
             };
       try {

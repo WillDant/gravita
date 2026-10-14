@@ -8,6 +8,7 @@ import {
 } from "@gravita/protocol";
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
+import type { CodexProfileControl } from "../../application/ports/squad-profile";
 import type { PlanUsageMonitor } from "../../application/services/plan-usage-monitor";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
@@ -39,6 +40,7 @@ import {
   ProviderUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
+  SquadProfileError,
   SquadsUnavailableError,
   SquadWorkspaceError,
   TooManySessionsError,
@@ -91,6 +93,8 @@ export interface RouterDeps {
   squads?: SquadOrchestrator;
   /** Plan usage reads; absent in demo mode (nothing to read through). */
   usage?: PlanUsageMonitor;
+  /** Gravita's Codex profile for squads; absent when Codex can't run here (or the demo). */
+  codexProfile?: CodexProfileControl;
 }
 
 const OK = { ok: true } as const;
@@ -99,6 +103,10 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
   const squads = (): SquadOrchestrator => {
     if (!d.squads) throw new SquadsUnavailableError();
     return d.squads;
+  };
+  const codexProfile = (): CodexProfileControl => {
+    if (!d.codexProfile) throw new ProviderUnavailableError("codex", "not-found");
+    return d.codexProfile;
   };
   return {
     "state.snapshot": () => d.getSnapshot.execute(),
@@ -160,6 +168,12 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     },
     "squad.deliver": (p) => squads().deliver(p),
     // Answers at once: the reading, if a running session can give one, arrives as events.
+    "codexProfile.status": () => codexProfile().status(),
+    "codexProfile.signIn": () => codexProfile().signIn(),
+    "codexProfile.signOut": async () => {
+      await codexProfile().signOut();
+      return OK;
+    },
     "usage.refresh": (p) => {
       void d.usage?.refresh(p?.provider ? { provider: p.provider } : {});
       return OK;
@@ -206,6 +220,11 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
     return { code: RpcErrors.squadPhase.code, message: err.message };
   if (err instanceof BypassLockedError)
     return { code: RpcErrors.badRequest.code, message: err.message };
+  if (err instanceof SquadProfileError)
+    return providerError(
+      { code: RpcErrors.codexProfileSignedOut.code, message: err.message },
+      err.provider,
+    );
   if (err instanceof PlanUsageUnavailableError)
     return providerError(
       { code: RpcErrors.planUsageUnavailable.code, message: err.message },
