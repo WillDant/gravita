@@ -10,6 +10,7 @@ import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
 import type { CodexProfileControl } from "../../application/ports/squad-profile";
 import type { PlanUsageMonitor } from "../../application/services/plan-usage-monitor";
+import type { TerminalManager } from "../../application/services/terminal-manager";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
 import type { GetConversation } from "../../application/usecases/get-conversation";
@@ -22,6 +23,7 @@ import type { RespondToPermission } from "../../application/usecases/respond-to-
 import type { SendMessage } from "../../application/usecases/send-message";
 import type { SetModel } from "../../application/usecases/set-model";
 import type { SetPermissionMode } from "../../application/usecases/set-permission-mode";
+import type { SpawnTerminal } from "../../application/usecases/spawn-terminal";
 import type { StartChat } from "../../application/usecases/start-chat";
 import type { StopAgent } from "../../application/usecases/stop-agent";
 import type { StopAllSessions } from "../../application/usecases/stop-all-sessions";
@@ -43,8 +45,11 @@ import {
   SquadProfileError,
   SquadsUnavailableError,
   SquadWorkspaceError,
+  TerminalNotFoundError,
+  TerminalUnsupportedError,
   TooManySessionsError,
   TooManySquadsError,
+  TooManyTerminalsError,
 } from "../../domain/errors";
 
 // Method → use case, with params validated by the protocol's RpcContract. Pure dispatch:
@@ -95,6 +100,8 @@ export interface RouterDeps {
   usage?: PlanUsageMonitor;
   /** Gravita's Codex profile for squads; absent when Codex can't run here (or the demo). */
   codexProfile?: CodexProfileControl;
+  /** Embedded terminals; absent: every terminal method answers that they're unsupported. */
+  terminals?: { spawn: SpawnTerminal; manager: TerminalManager };
 }
 
 const OK = { ok: true } as const;
@@ -107,6 +114,10 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
   const codexProfile = (): CodexProfileControl => {
     if (!d.codexProfile) throw new ProviderUnavailableError("codex", "not-found");
     return d.codexProfile;
+  };
+  const terminals = () => {
+    if (!d.terminals) throw new TerminalUnsupportedError();
+    return d.terminals;
   };
   return {
     "state.snapshot": () => d.getSnapshot.execute(),
@@ -174,6 +185,21 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
       await codexProfile().signOut();
       return OK;
     },
+    "terminal.spawn": (p) => terminals().spawn.execute(p),
+    "terminal.write": (p) => {
+      terminals().manager.write(p.terminalId, p.data);
+      return OK;
+    },
+    "terminal.resize": (p) => {
+      terminals().manager.resize(p.terminalId, p.cols, p.rows);
+      return OK;
+    },
+    "terminal.kill": async (p) => {
+      await terminals().manager.kill(p.terminalId);
+      return OK;
+    },
+    "terminal.list": () => ({ terminals: d.terminals?.manager.list() ?? [] }),
+    "terminal.attach": (p) => terminals().manager.attach(p.terminalId),
     "usage.refresh": (p) => {
       void d.usage?.refresh(p?.provider ? { provider: p.provider } : {});
       return OK;
@@ -225,6 +251,9 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
       { code: RpcErrors.codexProfileSignedOut.code, message: err.message },
       err.provider,
     );
+  if (err instanceof TerminalUnsupportedError) return RpcErrors.terminalUnsupported;
+  if (err instanceof TooManyTerminalsError) return RpcErrors.tooManyTerminals;
+  if (err instanceof TerminalNotFoundError) return RpcErrors.terminalNotFound;
   if (err instanceof PlanUsageUnavailableError)
     return providerError(
       { code: RpcErrors.planUsageUnavailable.code, message: err.message },

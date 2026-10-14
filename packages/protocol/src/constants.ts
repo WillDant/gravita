@@ -76,7 +76,20 @@ export const Methods = {
   codexProfileStatus: "codexProfile.status",
   codexProfileSignIn: "codexProfile.signIn",
   codexProfileSignOut: "codexProfile.signOut",
+  terminalSpawn: "terminal.spawn",
+  terminalWrite: "terminal.write",
+  terminalResize: "terminal.resize",
+  terminalKill: "terminal.kill",
+  terminalList: "terminal.list",
+  terminalAttach: "terminal.attach",
 } as const;
+
+/**
+ * What an embedded terminal starts in its folder: the user's login shell, or their own
+ * Claude Code or Codex CLI (interactive, exactly as they would run it).
+ */
+export const TERMINAL_COMMANDS = ["shell", "claude", "codex"] as const;
+export type TerminalCommand = (typeof TERMINAL_COMMANDS)[number];
 
 /**
  * Plain HTTP routes next to the WebSocket, for callers that aren't the UI:
@@ -104,6 +117,10 @@ export interface RuntimeFile {
 export const Notifications = {
   events: "events",
   status: "engine.status",
+  /** A terminal printed something: `TerminalOutput`. Not an event; never stored. */
+  terminalOutput: "terminal.output",
+  /** A terminal started, exited, was linked to a session or closed: `TerminalUpdate`. */
+  terminalUpdate: "terminal.update",
 } as const;
 
 /**
@@ -159,4 +176,8 @@ export const RpcErrors = {
    * role was asked for with a dollar budget, which Codex can't be measured in).
    */
   codexProfileSignedOut: { code: 4015, message: "Sign in to Codex for squads first" },
+  /** Embedded terminals aren't available on this platform (Windows, for now). */
+  terminalUnsupported: { code: 4016, message: "Terminals aren't available here" },
+  tooManyTerminals: { code: 4017, message: "Too many terminals are open" },
+  terminalNotFound: { code: 4018, message: "No such terminal" },
 } as const;

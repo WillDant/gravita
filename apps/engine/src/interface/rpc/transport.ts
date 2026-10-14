@@ -8,11 +8,14 @@ import {
   RpcErrors,
   type RpcNotification,
   type RpcResponse,
+  type TerminalOutput,
+  type TerminalUpdate,
 } from "@gravita/protocol";
 import { HttpPaths } from "@gravita/protocol/constants";
 import type { ServerWebSocket } from "bun";
 import { z } from "zod";
 import type { EngineFeed, EngineListener } from "../../application/ports/event-publisher";
+import type { TerminalListener } from "../../application/services/terminal-manager";
 import { INTERNAL_ERROR, type RpcError, type RpcRouter } from "./router";
 
 // JSON-RPC over one WebSocket on 127.0.0.1. Defenses, in order: Host allowlist (DNS
@@ -55,6 +58,8 @@ export interface TransportDeps {
   status: () => EngineStatus;
   hooks?: HookSink;
   mcp?: McpRoute;
+  /** Embedded terminals: their output and changes go to every authenticated client. */
+  terminals?: { listen(l: TerminalListener): () => void };
 }
 
 export interface RunningServer {
@@ -67,6 +72,7 @@ interface Conn {
   timer?: ReturnType<typeof setTimeout>;
   listener?: EngineListener;
   unlisten?: () => void;
+  unlistenTerminals?: () => void;
 }
 
 const RpcRequestSchema = z.object({
@@ -133,6 +139,20 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
     };
     ws.data.listener = listener;
     ws.data.unlisten = deps.feed.listen(listener);
+    ws.data.unlistenTerminals = deps.terminals?.listen({
+      output: (terminalId, data) =>
+        send(ws, {
+          jsonrpc: "2.0",
+          method: Notifications.terminalOutput,
+          params: { terminalId, data } satisfies TerminalOutput,
+        }),
+      update: (update) =>
+        send(ws, {
+          jsonrpc: "2.0",
+          method: Notifications.terminalUpdate,
+          params: update satisfies TerminalUpdate,
+        }),
+    });
     reply(ws, id, { ok: true, engineVersion: opts.engineVersion });
     send(ws, { jsonrpc: "2.0", method: Notifications.status, params: deps.status() });
   };
@@ -236,6 +256,7 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
       close(ws) {
         clearTimeout(ws.data.timer);
         ws.data.unlisten?.();
+        ws.data.unlistenTerminals?.();
       },
     },
   });

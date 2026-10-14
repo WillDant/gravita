@@ -33,7 +33,9 @@ import {
   SquadNotFoundError,
   SquadPhaseError,
   SquadWorkspaceError,
+  TerminalNotFoundError,
   TooManySquadsError,
+  TooManyTerminalsError,
 } from "../../src/domain/errors";
 import {
   createRouter,
@@ -561,5 +563,43 @@ describe("rpc router: squad workspace errors", () => {
     for (const [err, expected] of cases)
       expect(toRpcError(err, logger, "squad.deliver")).toEqual(expected);
     expect(logger.lines).toEqual([]);
+  });
+});
+
+describe("rpc router: terminals", () => {
+  test("answer that terminals are unsupported when the engine has none, but list none", async () => {
+    const { router } = setup();
+    expect(
+      await router.dispatch("terminal.spawn", {
+        cwd: "/work/demo",
+        command: "shell",
+        cols: 80,
+        rows: 24,
+      }),
+    ).toEqual({ error: RpcErrors.terminalUnsupported });
+    expect(await router.dispatch("terminal.list", undefined)).toEqual({
+      result: { terminals: [] },
+    });
+  });
+
+  test("validate sizes and commands before anything runs", async () => {
+    const { router } = setup();
+    const bad = await router.dispatch("terminal.spawn", {
+      cwd: "/work/demo",
+      command: "rm",
+      cols: 0,
+      rows: 24,
+    });
+    expect(bad).toMatchObject({ error: { code: RpcErrors.badRequest.code } });
+  });
+
+  test("map their errors to their codes", () => {
+    const logger = new SilentLogger();
+    expect(toRpcError(new TooManyTerminalsError(8), logger, "terminal.spawn")).toEqual(
+      RpcErrors.tooManyTerminals,
+    );
+    expect(toRpcError(new TerminalNotFoundError("t"), logger, "terminal.write")).toEqual(
+      RpcErrors.terminalNotFound,
+    );
   });
 });
