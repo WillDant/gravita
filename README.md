@@ -4,13 +4,13 @@
 
 When Claude Code or Codex fans out into subagents, it gets hard to tell who is doing what, how many are running, and which one is waiting for you. Gravita draws your sessions as a live transit map: each agent is a coloured line, every tool call is a station, and a subagent is a branch line that leaves its parent and merges back when it's done. The agent itself rides at the head of its line as a small orb with eyes that react to what it's doing.
 
-> Status: **v0.3.0-beta**, a preview for macOS. Works with Claude Code and Codex, and squads can mix both. Open source under Apache-2.0.
+> Status: **v0.4.0-beta**, a preview for macOS. Works with Claude Code and Codex, in Gravita's own terminal or chat, and squads can mix both. Open source under Apache-2.0.
 
 ## What it does
 
 - **Home:** every project with agents running, like a service status board, plus a "Needs you" list that says exactly which subagent of which session is asking.
 - **Project:** all sessions in a repo (worktrees included), with their lines, status and token use.
-- **Session:** the live line map, an Orbit lens (the project as a sun, agents as planets, subagents as moons), the conversation, a plain-language "What's happening" column, and a tree lens. Start and steer Claude Code or Codex chats right there: approve tools, answer questions, interrupt, switch model or mode.
+- **Session:** talk on the left, the map on the right. Run your own `claude` or `codex` in a terminal inside Gravita, or chat with it (approve tools, answer questions, interrupt, switch model or mode), while the live line map, an Orbit lens (the project as a sun, agents as planets, subagents as moons) or a tree shows every agent beside it, over a plain-language "What's happening" column.
 - **Squads:** describe a goal and a team of role agents (backend, frontend, tests…) builds it in parallel git worktrees. You approve the plan first; each role can only change its own paths; Gravita commits, merges and runs the checks; a budget caps the spend; you deliver by merge, pull request or branch. Each role runs on Claude Code or Codex. See [docs/squad.md](docs/squad.md).
 - **Tray and notifications:** close the window and agents keep running; the menu-bar icon shows who is waiting and stops every Gravita agent at once, and the OS tells you when someone needs you.
 - **Agent panel:** what the agent is doing now, what it did (Story → Steps → Raw), its subagents and the files it touched.
