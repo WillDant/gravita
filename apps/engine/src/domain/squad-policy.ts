@@ -4,6 +4,7 @@ import {
   estimatePlanCost,
   PLANNER_TOKENS,
   pickModel,
+  roleProviderOf,
   tokenCost,
 } from "@gravita/core";
 import type {
@@ -12,6 +13,7 @@ import type {
   SquadModels,
   SquadPhase,
   SquadPlan,
+  SquadProviders,
 } from "@gravita/protocol";
 
 // The numbers that bound a squad: how much runs at once, how often Gravita retries on its
@@ -55,16 +57,17 @@ export function squadModels(requested?: SquadModels): SquadModels {
 }
 
 /**
- * The provider of squad sessions that name none: the briefing and the planner always, and
- * every role until roles can pick theirs.
+ * The provider of squad sessions that name none: a squad made before Codex roles, and the
+ * briefing and planner of every squad but a Codex-only one.
  */
 export const SQUAD_PROVIDER: AgentProvider = "claude";
 
-/** The provider a role's sessions run on (the squad's default when the role names none). */
+/** The provider a role's sessions run on, by the squad's choice (core's roleProviderOf). */
 export function roleProvider(
-  role: (Pick<PlanRole, "id"> & { provider?: AgentProvider }) | undefined,
+  role: Pick<PlanRole, "provider"> | undefined,
+  providers?: SquadProviders,
 ): AgentProvider {
-  return role?.provider ?? SQUAD_PROVIDER;
+  return roleProviderOf(providers, role);
 }
 
 /**
@@ -139,11 +142,12 @@ export function taskBudget(
   squadBudgetUsd: number,
   taskId: string,
   model?: string,
+  providers?: SquadProviders,
 ): number {
   const task = plan.tasks.find((t) => t.id === taskId);
   const role = plan.roles.find((r) => r.id === task?.role);
   if (role?.budgetUsd) return Math.min(role.budgetUsd, squadBudgetUsd);
-  const est = estimatePlanCost(plan, models, model ? { [taskId]: model } : {});
+  const est = estimatePlanCost(plan, models, model ? { [taskId]: model } : {}, providers);
   const tasksUsd = est.totalUsd - est.plannerUsd;
   const share = tasksUsd > 0 ? (est.byTask[taskId] ?? 0) / tasksUsd : 1 / plan.tasks.length;
   return Math.max(0.01, Math.min(squadBudgetUsd, squadBudgetUsd * share * TASK_HEADROOM));
@@ -153,7 +157,8 @@ export function taskBudget(
 // can measure (account-wide, a few minutes behind). Its sessions still get a dollar cap, but
 // only as a safety net against a runaway session between two readings: a generous multiple
 // of the estimate, never the budget. Claude Code reports API-equivalent dollars even on a
-// subscription, so a tight cap there would stop work the plan still has room for.
+// subscription, so a tight cap there would stop work the plan still has room for. Codex
+// reports no dollars and takes no cap: its sessions are bounded by the plan share alone.
 
 /** How often plan usage is read while a plan squad works. */
 export const PLAN_USAGE_POLL_MS = 3 * 60_000;
@@ -178,18 +183,23 @@ export function planTaskCap(
   models: SquadModels,
   taskId: string,
   model?: string,
+  providers?: SquadProviders,
 ): number {
-  const est = estimatePlanCost(plan, models, model ? { [taskId]: model } : {});
+  const est = estimatePlanCost(plan, models, model ? { [taskId]: model } : {}, providers);
   return Math.max(PLAN_TASK_CAP_MIN_USD, (est.byTask[taskId] ?? 0) * PLAN_CAP_FACTOR);
 }
 
 /** The planner's safety cap in a plan squad. */
-export function planPlannerCap(models: SquadModels): number {
-  const est = tokenCost(pickModel({ models, phase: "planning" }), PLANNER_TOKENS);
+export function planPlannerCap(models: SquadModels, provider: AgentProvider = "claude"): number {
+  const est = tokenCost(
+    pickModel({ models, phase: "planning", provider }),
+    PLANNER_TOKENS,
+    provider,
+  );
   return Math.max(PLAN_PLANNER_CAP_MIN_USD, est * PLAN_CAP_FACTOR);
 }
 
 /** The briefing's safety cap in a plan squad (it reads and asks: half the planner's). */
-export function planBriefingCap(models: SquadModels): number {
-  return Math.max(PLAN_BRIEFING_CAP_MIN_USD, planPlannerCap(models) / 2);
+export function planBriefingCap(models: SquadModels, provider: AgentProvider = "claude"): number {
+  return Math.max(PLAN_BRIEFING_CAP_MIN_USD, planPlannerCap(models, provider) / 2);
 }

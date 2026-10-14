@@ -5,6 +5,7 @@ export * from "./squad/models";
 export * from "./squad/paths";
 export * from "./squad/plan-usage";
 export { roleBudget, squadOfSession, squadPlan } from "./squad/projection";
+export * from "./squad/providers";
 export * from "./squad/scheduler";
 export * from "./squad/state";
 export * from "./squad/validate-plan";

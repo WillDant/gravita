@@ -30,7 +30,10 @@ export type FakeCommand =
   | "skipTask"
   | "reassignTask"
   | "deliverSquad"
-  | "refreshUsage";
+  | "refreshUsage"
+  | "codexProfileStatus"
+  | "codexProfileSignIn"
+  | "codexProfileSignOut";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -61,6 +64,10 @@ export class FakeGateway implements EngineGateway {
   stopAllResult: RpcResult<"engine.stopAll"> = { stopped: 0 };
   createSquadResult: RpcResult<"squad.create"> = { squadId: "sq-new", projectId: "p1" };
   deliverResult: RpcResult<"squad.deliver"> = { ref: "gravita/sq-new/integration" };
+  codexProfileResult: RpcResult<"codexProfile.status"> = { loggedIn: false };
+  signInResult: RpcResult<"codexProfile.signIn"> = {
+    authUrl: "https://auth.openai.com/oauth/authorize?client_id=codex",
+  };
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
   private pendingCalls: (() => void)[] = [];
@@ -198,6 +205,15 @@ export class FakeGateway implements EngineGateway {
   }
   refreshUsage(params: RpcParams<"usage.refresh">) {
     return this.run("refreshUsage", params, () => ({ ok: true }) as const);
+  }
+  codexProfileStatus() {
+    return this.run("codexProfileStatus", {}, () => this.codexProfileResult);
+  }
+  codexProfileSignIn() {
+    return this.run("codexProfileSignIn", {}, () => this.signInResult);
+  }
+  codexProfileSignOut() {
+    return this.run("codexProfileSignOut", {}, () => ({ ok: true }) as const);
   }
 
   onEvents(l: (b: EventsNotification) => void): Unsubscribe {

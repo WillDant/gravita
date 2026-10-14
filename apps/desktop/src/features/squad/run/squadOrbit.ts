@@ -30,7 +30,10 @@ export function squadOrbitInput(
       const persona = toPersona(a, s, now);
       const lifecycle = effectiveLifecycle(a, s, now);
       const id = orbitId(role.id, a.id);
-      const name = a.id === MAIN_AGENT ? role.name : `${role.name} › ${agentName(a)}`;
+      // A Codex role says so (Claude Code stays unmarked, as everywhere).
+      const roleName =
+        role.provider === "codex" ? `${role.name} · ${t("newSession.provider.codex")}` : role.name;
+      const name = a.id === MAIN_AGENT ? roleName : `${roleName} › ${agentName(a)}`;
       names.set(id, name);
       labels.set(id, `${name} ${t(persona.label.key, persona.label.params)}`);
       agents.push({

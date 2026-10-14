@@ -1,24 +1,32 @@
 import {
   estimatePlanCost,
-  type ModelFamily,
-  modelFamily,
+  modelTier,
   type PlanEstimate,
+  roleProviderOf,
   type SquadState,
   validatePlan,
 } from "@gravita/core";
-import type { SquadPlan } from "@gravita/protocol";
+import type { AgentProvider, SquadPlan } from "@gravita/protocol";
 import { RotateCcw } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
 import { points } from "@/shared/presenters/planUsage";
+import { modelLabel } from "@/shared/presenters/squad";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { useAppStore } from "@/state/hooks";
 import { taskOrder, titleOf } from "../model";
 import { useSquadAction } from "../useSquadAction";
-import { answersFor, editTask, moveTask, pinIssues, removeTask } from "./planDraft";
+import {
+  answersFor,
+  editTask,
+  moveTask,
+  pinIssues,
+  removeTask,
+  setRoleProvider,
+} from "./planDraft";
 import { RoleStrip, type TaskEdits } from "./RoleStrip";
 
 /**
@@ -36,16 +44,38 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
   }
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Map<string, string[]>>(new Map());
-  const issues = useMemo(() => validatePlan(draft), [draft]);
+  const providers = q.providers ?? "claude";
+  const issues = useMemo(
+    () => validatePlan(draft, q.providers ? { providers: q.providers } : {}),
+    [draft, q.providers],
+  );
   const pinned = useMemo(() => pinIssues(draft, issues), [draft, issues]);
-  const estimate = useMemo(() => estimatePlanCost(draft, q.models), [draft, q.models]);
-  // Marked only when the squad mixes models: under "Opus everywhere" a mark says nothing.
-  const onOpus = useMemo(() => {
-    const opus = Object.entries(estimate.taskModels)
-      .filter(([, m]) => modelFamily(m) === "opus")
-      .map(([id]) => id);
-    return new Set(opus.length < draft.tasks.length ? opus : []);
-  }, [estimate, draft.tasks.length]);
+  const estimate = useMemo(
+    () => estimatePlanCost(draft, q.models, {}, providers),
+    [draft, q.models, providers],
+  );
+  const providerOf = (roleId: string): AgentProvider =>
+    roleProviderOf(
+      q.providers,
+      draft.roles.find((r) => r.id === roleId),
+    );
+  // The tasks on their provider's strongest tier (Opus, Codex at high effort), marked only
+  // when the squad mixes tiers: under "Opus everywhere" a mark says nothing.
+  const strong = useMemo(() => {
+    const top = Object.entries(estimate.taskModels).filter(([id, m]) => {
+      const role = draft.tasks.find((x) => x.id === id)?.role ?? "";
+      return (
+        modelTier(
+          m,
+          roleProviderOf(
+            q.providers,
+            draft.roles.find((r) => r.id === role),
+          ),
+        ) === "high"
+      );
+    });
+    return new Map(top.length < draft.tasks.length ? top : []);
+  }, [estimate, draft, q.providers]);
   const approve = useSquadAction(useAppStore((s) => s.approvePlan));
   const edited = draft !== proposed;
   const order = useMemo(() => taskOrder(draft), [draft]);
@@ -204,13 +234,20 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
                   key={r.id}
                   plan={draft}
                   role={r}
+                  provider={providerOf(r.id)}
+                  {...(providers === "mixed"
+                    ? {
+                        onProvider: (p: AgentProvider) =>
+                          setDraft((d) => setRoleProvider(d, r.id, p)),
+                      }
+                    : {})}
                   tasks={tasksOf(r.id)}
                   {...(estimate.byRole[r.id] !== undefined
                     ? { estimateUsd: estimate.byRole[r.id] }
                     : {})}
                   issues={pinned.roles.get(r.id) ?? []}
                   taskIssues={pinned.tasks}
-                  onOpus={onOpus}
+                  strong={strong}
                   notes={notes}
                   edits={edits}
                 />
@@ -225,8 +262,15 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
   );
 }
 
-/** Cheapest last, so the eye lands on where the money goes. */
-const FAMILIES: readonly ModelFamily[] = ["opus", "sonnet", "haiku"];
+/** Cheapest last within each provider, so the eye lands on where the money goes. */
+const TIERS: readonly string[] = [
+  "opus",
+  "sonnet",
+  "haiku",
+  "default@high",
+  "default@medium",
+  "default@low",
+];
 
 function ApproveBox({
   squad: q,
@@ -250,7 +294,7 @@ function ApproveBox({
   const estimateUsd = estimate.totalUsd;
   // A plan share can't be priced in dollars: the estimate is only API-equivalent there.
   const over = !q.budgetPlan && estimateUsd > q.budgetUsd;
-  const byModel = FAMILIES.flatMap((f) => {
+  const byModel = TIERS.flatMap((f) => {
     const usdOf = estimate.byModel[f];
     return usdOf ? [{ f, usd: usdOf }] : [];
   });
@@ -267,7 +311,7 @@ function ApproveBox({
         >
           {byModel.map((m) => (
             <li key={m.f}>
-              <span className="font-semibold">{t(`newSquad.model.${m.f}`)}</span>{" "}
+              <span className="font-semibold">{modelLabel(m.f)}</span>{" "}
               <span className="tabular">≈ {usd(m.usd)}</span>
             </li>
           ))}

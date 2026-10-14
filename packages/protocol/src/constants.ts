@@ -9,6 +9,13 @@ export type AgentProvider = (typeof AGENT_PROVIDERS)[number];
 /** The provider of a session or a request that names none (everything before Codex). */
 export const DEFAULT_PROVIDER: AgentProvider = "claude";
 
+/**
+ * Who builds a squad: every role on Claude Code, every role on Codex, or each role on the
+ * provider the plan gives it (`mixed`).
+ */
+export const SQUAD_PROVIDER_CHOICES = ["claude", "codex", "mixed"] as const;
+export type SquadProviderChoice = (typeof SQUAD_PROVIDER_CHOICES)[number];
+
 /** Claude Code's permission modes. */
 export const CLAUDE_MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
 /** Codex's session modes: ask before acting, write in the workspace, or full access. */
@@ -59,18 +66,24 @@ export const Methods = {
   squadTaskReassign: "squad.task.reassign",
   squadDeliver: "squad.deliver",
   usageRefresh: "usage.refresh",
+  codexProfileStatus: "codexProfile.status",
+  codexProfileSignIn: "codexProfile.signIn",
+  codexProfileSignOut: "codexProfile.signOut",
 } as const;
 
 /**
  * Plain HTTP routes next to the WebSocket, for callers that aren't the UI:
  * - `stopAll`: the tray's kill switch (POST, `Authorization: Bearer <engine token>`).
  * - `hooks`: Deep Observe hook events (POST, `Authorization: Bearer <hook token>` from
- *   the runtime file). Both refuse any request carrying an `Origin` header, so a web
- *   page can never reach them.
+ *   the runtime file).
+ * - `mcp`: Gravita's role tools for Codex squad sessions, as an MCP server (streamable
+ *   HTTP, `Authorization: Bearer <that session's token>`).
+ * All refuse any request carrying an `Origin` header, so a web page can never reach them.
  */
 export const HttpPaths = {
   stopAll: "/control/stop-all",
   hooks: "/hooks",
+  mcp: "/mcp",
 } as const;
 
 /** Written by the engine (mode 0600) so Deep Observe hooks can find it: `<data dir>/runtime.json`. */
@@ -134,4 +147,9 @@ export const RpcErrors = {
     code: 4014,
     message: "This account has no plan usage limits; use a dollar budget",
   },
+  /**
+   * Codex squads run on Gravita's own Codex profile, which isn't signed in yet (or a Codex
+   * role was asked for with a dollar budget, which Codex can't be measured in).
+   */
+  codexProfileSignedOut: { code: 4015, message: "Sign in to Codex for squads first" },
 } as const;

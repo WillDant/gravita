@@ -10,7 +10,14 @@ import { windowLine } from "@/shared/presenters/planUsage";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
-import { useNow, useProviderProblem, useUsage, useUsageRefresh } from "@/state/hooks";
+import {
+  useCodexProfile,
+  useNow,
+  useProviderProblem,
+  useUsage,
+  useUsageRefresh,
+} from "@/state/hooks";
+import { ProvidersField } from "./ProvidersField";
 import { type NewSquadForm, useNewSquad } from "./useNewSquad";
 
 const AUTONOMY: readonly SquadAutonomy[] = ["ask", "guarded", "auto"];
@@ -58,19 +65,29 @@ export function NewSquadPanel({
   onClose: () => void;
 }) {
   const form = useNewSquad(defaultFolder);
-  const statusProblem = useProviderProblem();
+  // The briefing and the planner run on Codex only in a Codex-only squad.
+  const plannerProvider = form.providers === "codex" ? "codex" : "claude";
+  const statusProblem = useProviderProblem(plannerProvider);
   const pickFolder = usePickFolder();
   const fid = useId();
   const folderRef = useRef<HTMLInputElement>(null);
   const goalRef = useRef<HTMLTextAreaElement>(null);
   const budgetRef = useRef<HTMLInputElement>(null);
   const shareRef = useRef<HTMLInputElement>(null);
+  const signInRef = useRef<HTMLButtonElement>(null);
   // The panel shows the plan's usage next to the share: ask for a fresh reading.
-  useUsageRefresh("claude");
-  // An error names its provider; otherwise Claude Code's status (the provider these start).
+  useUsageRefresh(form.providers === "codex" ? "codex" : "claude");
+  useUsageRefresh(form.providers === "mixed" ? "codex" : null);
+  const profileReady = useCodexProfile()?.loggedIn === true;
+  // A Codex-only squad's models are one Codex model at three efforts: say it that way.
+  const modelKeys = form.providers === "codex" ? "newSquad.models.codex" : "newSquad.models";
+  // An error names its provider; otherwise the status of the provider the planner runs on.
+  // (Codex's own login doesn't matter to squads: they run on Gravita's Codex profile.)
   const connect =
     form.error?.connect ??
-    (statusProblem && { provider: "claude" as const, problem: statusProblem });
+    (statusProblem && !(plannerProvider === "codex" && statusProblem === "loggedOut")
+      ? { provider: plannerProvider, problem: statusProblem }
+      : undefined);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
   useEffect(() => {
@@ -82,7 +99,14 @@ export function NewSquadPanel({
     if (form.invalid === "goal") goalRef.current?.focus();
     if (form.invalid === "budget") budgetRef.current?.focus();
     if (form.invalid === "share") shareRef.current?.focus();
+    if (form.invalid === "providers") signInRef.current?.focus();
   }, [form.invalid]);
+
+  // Signing in finished (in the browser): the choice is fine again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the profile changes.
+  useEffect(() => {
+    if (profileReady && form.invalid === "providers") form.setProviders(form.providers);
+  }, [profileReady]);
 
   const choose = () => {
     pickFolder?.().then(
@@ -190,6 +214,8 @@ export function NewSquadPanel({
           )}
         </div>
 
+        {form.canChooseProviders && <ProvidersField form={form} id={fid} signInRef={signInRef} />}
+
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-xs font-semibold text-ink-2">
             {t("newSquad.autonomy")}
@@ -283,17 +309,20 @@ export function NewSquadPanel({
                   className="sr-only"
                 />
                 <span className="text-sm font-semibold text-ink">
-                  {t(`newSquad.models.${m}`)}
+                  {t(`${modelKeys}.${m}`)}
                   {m === "auto" && (
                     <span className="ml-1.5 text-xs font-medium text-ink-3">
                       {t("newSquad.recommended")}
                     </span>
                   )}
                 </span>
-                <span className="text-xs text-ink-2">{t(`newSquad.models.${m}.hint`)}</span>
+                <span className="text-xs text-ink-2">{t(`${modelKeys}.${m}.hint`)}</span>
               </label>
             ))}
           </div>
+          {form.providers === "mixed" && (
+            <p className="text-xs text-ink-3">{t("newSquad.models.mixedHint")}</p>
+          )}
         </fieldset>
 
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-hairline pt-4">
@@ -331,7 +360,13 @@ function PlanShareField({
 }) {
   const usage = useUsage();
   const now = useNow();
-  const reading = usage[usageKey("claude", form.window)];
+  // The windows of every provider the squad runs on (a mixed squad counts the larger).
+  const providers =
+    form.providers === "mixed"
+      ? (["claude", "codex"] as const)
+      : ([form.providers === "codex" ? "codex" : "claude"] as const);
+  const readings = providers.map((p) => ({ p, reading: usage[usageKey(p, form.window)] }));
+  const known = readings.filter((r) => r.reading);
   const invalid = form.invalid === "share";
   return (
     <fieldset className="flex flex-col gap-1.5" aria-describedby={`${id}-share-hint`}>
@@ -365,15 +400,35 @@ function PlanShareField({
             ))}
           </select>
         </div>
-        <span className={cn("text-xs tabular-nums", reading ? "text-ink-2" : "text-ink-3")}>
-          {reading ? windowLine(reading, now) : t("newSquad.budget.unknown")}
+        <span className={cn("text-xs tabular-nums", known.length ? "text-ink-2" : "text-ink-3")}>
+          {known.length
+            ? known
+                .map(({ p, reading }) =>
+                  providers.length > 1
+                    ? `${t(`newSession.provider.${p}`)}: ${windowLine(reading!, now)}`
+                    : windowLine(reading!, now),
+                )
+                .join(" · ")
+            : t(
+                form.providers === "codex"
+                  ? "newSquad.budget.unknownCodex"
+                  : "newSquad.budget.unknown",
+              )}
         </span>
       </div>
       <p
         id={`${id}-share-hint`}
         className={cn("max-w-[60ch] text-xs", invalid ? "text-error-ink" : "text-ink-3")}
       >
-        {invalid ? t("newSquad.needShare") : t("newSquad.budget.planHint")}
+        {invalid
+          ? t("newSquad.needShare")
+          : t(
+              form.providers === "mixed"
+                ? "newSquad.budget.planHintMixed"
+                : form.providers === "codex"
+                  ? "newSquad.budget.planHintCodex"
+                  : "newSquad.budget.planHint",
+            )}
       </p>
     </fieldset>
   );

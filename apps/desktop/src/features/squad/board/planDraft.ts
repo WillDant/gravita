@@ -1,5 +1,5 @@
 import { outsideOwnership, type PlanIssue } from "@gravita/core";
-import type { PlanTask, SquadPlan } from "@gravita/protocol";
+import type { AgentProvider, PlanTask, SquadPlan } from "@gravita/protocol";
 
 // Light edits the Board allows on a proposed plan, as pure functions: rename or rewrite a
 // task, remove one (its dependants stop waiting for it), move one to a role that owns
@@ -13,6 +13,18 @@ export function editTask(
   return {
     ...plan,
     tasks: plan.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)),
+  };
+}
+
+/** Puts a role on another provider (a mixed squad's Board); validatePlan judges the result. */
+export function setRoleProvider(
+  plan: SquadPlan,
+  roleId: string,
+  provider: AgentProvider,
+): SquadPlan {
+  return {
+    ...plan,
+    roles: plan.roles.map((r) => (r.id === roleId ? { ...r, provider } : r)),
   };
 }
 

@@ -1,4 +1,11 @@
-import { isCounting, isPlanSquad, meterKey, type SquadState } from "@gravita/core";
+import {
+  isCounting,
+  isPlanSquad,
+  meterKey,
+  type SquadState,
+  squadPlan,
+  squadProvidersOf,
+} from "@gravita/core";
 import {
   type AccountPlan,
   type AgentProvider,
@@ -10,7 +17,6 @@ import {
   PLAN_BASELINE_POLL_MS,
   PLAN_USAGE_MIN_GAP_MS,
   PLAN_USAGE_POLL_MS,
-  SQUAD_PROVIDER,
 } from "../../domain/squad-policy";
 import type { Clock } from "../ports/clock";
 import type { StatusReporter } from "../ports/event-publisher";
@@ -176,8 +182,10 @@ export class PlanUsageMonitor {
     for (const e of events) {
       if (e.type !== "usage.limits") continue;
       usage = true;
-      // Only a subscription gets rate limit events: plan limits apply to this account.
-      if (e.source === "sdk") this.setAccount(e.data.provider, "limited", e.data.planType);
+      // Only a subscription gets rate limit events (Claude's SDK stream, Codex's live
+      // `account/rateLimits/updated`): plan limits apply to this account.
+      if (e.source === "sdk" || e.source === "codex-rpc")
+        this.setAccount(e.data.provider, "limited", e.data.planType);
     }
     if (usage) this.hooks?.onUsage();
   }
@@ -192,8 +200,11 @@ export class PlanUsageMonitor {
   }
 }
 
-/** Whether a plan squad has started counting its window (its baseline is recorded). */
+/** Whether a plan squad has started counting every provider's window (baselines recorded). */
 function hasMeter(q: SquadState): boolean {
   const window = q.budgetPlan?.window;
-  return Boolean(window && q.budget.meters?.[meterKey(SQUAD_PROVIDER, window)]);
+  if (!window) return false;
+  return squadProvidersOf(q.providers, squadPlan(q)).every((p) =>
+    Boolean(q.budget.meters?.[meterKey(p, window)]),
+  );
 }

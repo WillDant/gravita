@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { connect } from "node:net";
 import { EngineStatus, type EventsNotification, RPC_VERSION } from "@gravita/protocol";
+import { LoopbackMcpServer } from "../../src/infrastructure/mcp/loopback-mcp-server";
 import { type RunningServer, startTransport } from "../../src/interface/rpc/transport";
 import { createCore, type EngineCore } from "../../src/main/container";
 import { FakeRuntime } from "../fakes";
@@ -183,11 +184,12 @@ describe("permission.respond", () => {
   });
 });
 
-describe("plain HTTP routes (tray kill switch, Deep Observe hooks)", () => {
+describe("plain HTTP routes (tray kill switch, Deep Observe hooks, role tools)", () => {
   const HOOK_TOKEN = "h".repeat(64);
   let hooked: RunningServer;
   let base: string;
   const received: unknown[] = [];
+  const mcp = new LoopbackMcpServer({ name: "gravita", version: "test" });
 
   beforeAll(() => {
     hooked = startTransport(
@@ -196,9 +198,11 @@ describe("plain HTTP routes (tray kill switch, Deep Observe hooks)", () => {
         feed: core.broadcaster,
         status: () => core.broadcaster.status(),
         hooks: { submit: (p) => received.push(p) },
+        mcp,
       },
       { port: 0, token: TOKEN, hookToken: HOOK_TOKEN, engineVersion: "test" },
     );
+    mcp.attach(hooked.port);
     base = `http://127.0.0.1:${hooked.port}`;
   });
 
@@ -279,6 +283,36 @@ describe("plain HTTP routes (tray kill switch, Deep Observe hooks)", () => {
     expect((await post("/hooks", { body: unknown, token: HOOK_TOKEN })).status).toBe(204);
     await Bun.sleep(10);
     expect(received).toEqual([JSON.parse(body), JSON.parse(unknown)]);
+  });
+
+  test("role tools: on the engine's own port, a session's token only, never a browser", async () => {
+    const m = mcp.mount(
+      [{ name: "whoami", description: "", input: {}, handler: async () => ({ text: "backend" }) }],
+      "q/backend",
+    );
+    expect(m.url).toBe(`${base}/mcp`);
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "whoami" },
+    });
+    expect((await post("/mcp", { body })).status).toBe(401);
+    // Neither the engine's token nor the hooks' opens it.
+    expect((await post("/mcp", { body, token: TOKEN })).status).toBe(401);
+    expect((await post("/mcp", { body, token: HOOK_TOKEN })).status).toBe(401);
+    expect((await post("/mcp", { body, token: m.token, origin: ORIGIN })).status).toBe(403);
+    const ok = await post("/mcp", { body, token: m.token });
+    const answer = (await ok.json()) as { result: { content: { text: string }[] } };
+    expect(answer.result.content[0]?.text).toBe("backend");
+    m.close();
+    // Without the MCP route (the demo), there is none.
+    const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${m.token}` },
+      body,
+    });
+    expect(res.status).toBe(404);
   });
 
   test("without a hook token there is no hooks route", async () => {

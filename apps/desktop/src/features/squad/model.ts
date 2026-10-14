@@ -2,12 +2,13 @@ import {
   type AddedTask,
   type GravitaState,
   roleBudget,
+  roleProviderOf,
   type SessionState,
   type SquadMerge,
   type SquadState,
   squadPlan,
 } from "@gravita/core";
-import type { PlanRole, PlanTask, SquadPlan, TaskStatus } from "@gravita/protocol";
+import type { AgentProvider, PlanRole, PlanTask, SquadPlan, TaskStatus } from "@gravita/protocol";
 import { roleCode, roleColorKey } from "@/shared/presenters/squad";
 
 // The squad as its screen reads it: roles with their colour, spend and session; tasks in
@@ -19,6 +20,8 @@ export interface RoleView {
   kind: PlanRole["kind"];
   colorKey: string;
   code: string;
+  /** The agent that runs it (Claude Code unless the squad put it on Codex). */
+  provider: AgentProvider;
   owns: string[];
   charter: string;
   budgetUsd?: number;
@@ -109,6 +112,7 @@ export function squadView(state: GravitaState, q: SquadState): SquadView {
         kind: r.kind,
         colorKey: roleColorKey(r, plan),
         code: roleCode(r),
+        provider: roleProviderOf(q.providers, r),
         owns: r.owns,
         charter: r.charter,
         ...(budget !== undefined && !q.budgetPlan ? { budgetUsd: budget } : {}),

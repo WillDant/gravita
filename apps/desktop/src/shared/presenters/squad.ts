@@ -1,6 +1,9 @@
 import {
   type GravitaState,
+  isCodexModel,
+  modelFamily,
   type ProjectState,
+  parseCodexModel,
   type SessionCounts,
   type SessionState,
   type SquadState,
@@ -10,6 +13,7 @@ import {
 } from "@gravita/core";
 import { lineCode } from "@gravita/orbs";
 import type { PlanRole, SquadPhase, SquadPlan } from "@gravita/protocol";
+import { t } from "@/shared/i18n/i18n";
 import { needsYou } from "./selectors";
 
 // What the app shell says about squads: their title, where they stand, and what they
@@ -243,4 +247,24 @@ export function projectItems(state: GravitaState, project: ProjectState): Projec
     items.push({ kind: "squad", squad: q, sessions, lastEventTs: last });
   }
   return items.sort((a, b) => b.lastEventTs.localeCompare(a.lastEventTs));
+}
+
+/**
+ * A squad model in the user's words: Claude's families by name ("Opus"), Codex's tiers by
+ * their effort ("Codex · high"), and a named Codex model as itself with its effort.
+ */
+export function modelLabel(model: string): string {
+  if (isCodexModel(model)) {
+    const { model: name, effort } = parseCodexModel(model);
+    const who = name ?? t("newSession.provider.codex");
+    return effort ? t("squad.model.codexEffort", { model: who, effort: effortWord(effort) }) : who;
+  }
+  return t(`newSquad.model.${modelFamily(model)}`);
+}
+
+/** A reasoning effort as the UI says it. */
+function effortWord(effort: string): string {
+  const key = `squad.model.effort.${effort}`;
+  const word = t(key);
+  return word === key ? effort : word;
 }

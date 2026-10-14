@@ -43,6 +43,13 @@ export type { PermissionsRequestApprovalResponse } from "./v2/PermissionsRequest
 export type { ToolRequestUserInputParams } from "./v2/ToolRequestUserInputParams";
 export type { ToolRequestUserInputResponse } from "./v2/ToolRequestUserInputResponse";
 export type { McpServerElicitationRequestResponse } from "./v2/McpServerElicitationRequestResponse";
+export type { LoginAccountParams } from "./v2/LoginAccountParams";
+export type { LoginAccountResponse } from "./v2/LoginAccountResponse";
+export type { CancelLoginAccountParams } from "./v2/CancelLoginAccountParams";
+export type { CancelLoginAccountResponse } from "./v2/CancelLoginAccountResponse";
+export type { LogoutAccountResponse } from "./v2/LogoutAccountResponse";
+export type { AccountLoginCompletedNotification } from "./v2/AccountLoginCompletedNotification";
+export type { McpServerStatusUpdatedNotification } from "./v2/McpServerStatusUpdatedNotification";
 export type { ResponseItem } from "./ResponseItem";
 export type { AskForApproval } from "./v2/AskForApproval";
 export type { SandboxMode } from "./v2/SandboxMode";

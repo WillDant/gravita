@@ -3,9 +3,11 @@ import {
   isCounting,
   meterKey,
   meterPoints,
+  plannerProviderOf,
   roleBudget,
   type SquadState,
   squadPlan,
+  squadProvidersOf,
   type UsageLimitState,
   usageKey,
 } from "@gravita/core";
@@ -18,7 +20,6 @@ import {
   plannerBudget,
   planPlannerCap,
   planTaskCap,
-  SQUAD_PROVIDER,
   taskBudget,
 } from "../../domain/squad-policy";
 import type { Clock } from "../ports/clock";
@@ -223,13 +224,13 @@ export class BudgetGuard {
   forTask(q: SquadState, taskId: string, roleId: string, concurrent = 1, model?: string): number {
     const plan = squadPlan(q);
     if (!plan) return 0;
-    if (q.budgetPlan) return round(planTaskCap(plan, q.models, taskId, model));
+    if (q.budgetPlan) return round(planTaskCap(plan, q.models, taskId, model, q.providers));
     const roleLimit = roleBudget(q, roleId);
     const left = q.budgetUsd - q.budget.spentUsd;
     const limits = [
       roleLimit !== undefined
         ? Math.min(roleLimit, q.budgetUsd)
-        : taskBudget(plan, q.models, q.budgetUsd, taskId, model),
+        : taskBudget(plan, q.models, q.budgetUsd, taskId, model, q.providers),
       left / Math.max(1, concurrent),
     ];
     if (roleLimit !== undefined) limits.push(roleLimit - (q.roles[roleId]?.spentUsd ?? 0));
@@ -244,7 +245,8 @@ export class BudgetGuard {
    */
   forPlanner(q: SquadState, resumeSessionId?: string): number {
     const carried = resumeSessionId ? (this.d.sessions.session(resumeSessionId)?.costUsd ?? 0) : 0;
-    if (q.budgetPlan) return round(planPlannerCap(q.models) + carried);
+    if (q.budgetPlan)
+      return round(planPlannerCap(q.models, plannerProviderOf(q.providers)) + carried);
     return round(
       Math.max(0, Math.min(plannerBudget(q.budgetUsd), q.budgetUsd - q.budget.spentUsd)) + carried,
     );
@@ -252,7 +254,7 @@ export class BudgetGuard {
 
   /** The briefing conversation's slice, within what is left of the squad (plan: a safety cap). */
   forBriefing(q: SquadState): number {
-    if (q.budgetPlan) return round(planBriefingCap(q.models));
+    if (q.budgetPlan) return round(planBriefingCap(q.models, plannerProviderOf(q.providers)));
     return round(
       Math.max(0, Math.min(briefingBudget(q.budgetUsd), q.budgetUsd - q.budget.spentUsd)),
     );
@@ -271,10 +273,13 @@ export class BudgetGuard {
   }
 }
 
-/** The providers a squad's sessions run on (each one's window is counted). */
-function squadProviders(_q: SquadState): AgentProvider[] {
-  // Every squad session runs on Claude Code until roles can pick their provider.
-  return [SQUAD_PROVIDER];
+/**
+ * The providers a squad's sessions run on (each one's window is counted): its planner's and
+ * each role's. A Codex role on Gravita's Codex profile signs in to the same ChatGPT account
+ * as a separate login, so it moves the same windows its role sessions report.
+ */
+function squadProviders(q: SquadState): AgentProvider[] {
+  return squadProvidersOf(q.providers, squadPlan(q));
 }
 
 /** Down to the cent (with a hair of slack for float noise: 7.5 stays 7.5). */

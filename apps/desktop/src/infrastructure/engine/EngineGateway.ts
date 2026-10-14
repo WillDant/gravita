@@ -65,6 +65,12 @@ export interface EngineGateway {
    */
   refreshUsage(params: RpcParams<"usage.refresh">): Promise<RpcResult<"usage.refresh">>;
 
+  // Gravita's Codex profile for squads (it signs in once, through Codex itself).
+  codexProfileStatus(): Promise<RpcResult<"codexProfile.status">>;
+  /** Starts the sign-in: the link to open in the browser; the end arrives as a status. */
+  codexProfileSignIn(): Promise<RpcResult<"codexProfile.signIn">>;
+  codexProfileSignOut(): Promise<RpcResult<"codexProfile.signOut">>;
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
   onStatus(listener: (status: EngineStatus) => void): Unsubscribe;
   onConnection(listener: (connection: GatewayConnection) => void): Unsubscribe;

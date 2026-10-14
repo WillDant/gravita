@@ -1,12 +1,12 @@
 import { MODEL_CHOICES, type ModelChoice } from "@gravita/core";
 import type { PlanWindow, SquadAutonomy, SquadBudget } from "@gravita/protocol";
-import { RpcErrors } from "@gravita/protocol/constants";
+import { RpcErrors, type SquadProviderChoice } from "@gravita/protocol/constants";
 import { useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { describeError, type ErrorView } from "@/shared/presenters/errors";
-import { useAccountPlan, useAppStore } from "@/state/hooks";
+import { useAccountPlan, useAppStore, useCanStartWith, useCodexProfile } from "@/state/hooks";
 
-export type SquadField = "folder" | "goal" | "budget" | "share";
+export type SquadField = "folder" | "goal" | "providers" | "budget" | "share";
 
 /**
  * How the budget is stated: a share of a plan window (subscriptions, the usual case), or
@@ -36,6 +36,12 @@ export interface NewSquadForm {
   window: PlanWindow;
   autonomy: SquadAutonomy;
   models: ModelChoice;
+  /** Who builds it; offered only when Codex can run here. */
+  providers: SquadProviderChoice;
+  /** Whether the choice of who builds it is offered at all (Codex is installed). */
+  canChooseProviders: boolean;
+  /** Codex roles need Gravita's Codex profile signed in. */
+  needsCodexProfile: boolean;
   setFolder: (v: string) => void;
   setGoal: (v: string) => void;
   setBudget: (v: string) => void;
@@ -43,6 +49,7 @@ export interface NewSquadForm {
   setWindow: (v: PlanWindow) => void;
   setAutonomy: (v: SquadAutonomy) => void;
   setModels: (v: ModelChoice) => void;
+  setProviders: (v: SquadProviderChoice) => void;
   busy: boolean;
   /** The first field that stopped the last attempt. */
   invalid?: SquadField;
@@ -65,9 +72,16 @@ export function parsePercent(text: string): number {
 export function useNewSquad(defaultFolder = ""): NewSquadForm {
   const createSquad = useAppStore((s) => s.createSquad);
   const plan = useAccountPlan("claude");
+  const canChooseProviders = useCanStartWith("codex");
+  const [chosen, setProviders] = useState<SquadProviderChoice>("claude");
+  const providers: SquadProviderChoice = canChooseProviders ? chosen : "claude";
+  const needsCodexProfile = providers !== "claude";
+  const profile = useCodexProfile();
   // The engine refused a plan share (an API-key account it hadn't seen yet): dollars.
   const [refusedPlan, setRefusedPlan] = useState(false);
-  const budgetMode: BudgetMode = plan === "api" || refusedPlan ? "usd" : "plan";
+  // Codex roles are measured in plan usage only (Codex reports no dollars).
+  const budgetMode: BudgetMode =
+    !needsCodexProfile && (plan === "api" || refusedPlan) ? "usd" : "plan";
   const [share, setShare] = useState(String(DEFAULT_SHARE_PERCENT));
   const [planWindow, setWindow] = useState<PlanWindow>(DEFAULT_PLAN_WINDOW);
   const navigate = useNavigate();
@@ -90,11 +104,13 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
       ? "folder"
       : !brief
         ? "goal"
-        : budgetMode === "usd" && !(usd >= 1 && usd <= MAX_BUDGET_USD)
-          ? "budget"
-          : budgetMode === "plan" && !(percent >= 1 && percent <= 100)
-            ? "share"
-            : undefined;
+        : needsCodexProfile && !profile?.loggedIn
+          ? "providers"
+          : budgetMode === "usd" && !(usd >= 1 && usd <= MAX_BUDGET_USD)
+            ? "budget"
+            : budgetMode === "plan" && !(percent >= 1 && percent <= 100)
+              ? "share"
+              : undefined;
     setInvalid(bad);
     setError(undefined);
     if (bad) return;
@@ -105,12 +121,15 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
       budget: budgetOf(),
       autonomy,
       models: { ...MODEL_CHOICES[models] },
+      ...(providers !== "claude" ? { providers } : {}),
     }).then((r) => {
       setBusy(false);
       if (r.ok)
         navigate({ level: "squad", projectId: r.value.projectId, squadId: r.value.squadId });
       else {
-        if (r.error.code === RpcErrors.planUsageUnavailable.code) setRefusedPlan(true);
+        if (r.error.code === RpcErrors.planUsageUnavailable.code && !needsCodexProfile)
+          setRefusedPlan(true);
+        if (r.error.code === RpcErrors.codexProfileSignedOut.code) setInvalid("providers");
         setError(describeError(r.error));
       }
     });
@@ -135,6 +154,9 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
     window: planWindow,
     autonomy,
     models,
+    providers,
+    canChooseProviders,
+    needsCodexProfile,
     setFolder: (v) => {
       setFolder(v);
       clear("folder");
@@ -154,6 +176,10 @@ export function useNewSquad(defaultFolder = ""): NewSquadForm {
     setWindow,
     setAutonomy,
     setModels,
+    setProviders: (v) => {
+      setProviders(v);
+      clear("providers");
+    },
     busy,
     invalid,
     error,

@@ -72,11 +72,13 @@ import { CodexPlanUsageSource } from "../infrastructure/codex/codex-plan-usage";
 import { CodexPresence } from "../infrastructure/codex/codex-presence";
 import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-discovery";
 import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
+import { CodexSquadProfile } from "../infrastructure/codex/codex-squad-profile";
 import { CodexTranscriptReader } from "../infrastructure/codex/codex-transcript-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
 import { GhCli } from "../infrastructure/git/gh-cli";
 import { type Env, GitRunner } from "../infrastructure/git/git-runner";
+import { LoopbackMcpServer } from "../infrastructure/mcp/loopback-mcp-server";
 import { SqliteCheckpointStore } from "../infrastructure/persistence/sqlite-checkpoint-store";
 import { openDatabase } from "../infrastructure/persistence/sqlite-database";
 import { SqliteEventStore } from "../infrastructure/persistence/sqlite-event-store";
@@ -130,6 +132,11 @@ export interface ChatOptions {
   codexLaunch?: AppServerLauncher;
   /** Codex's login, plan and models without a chat (one is made when absent). */
   codexProbe?: CodexAccountProbe;
+  /**
+   * Gravita's own Codex home for squads (`<dataDir>/codex-home`); without it, no squad runs
+   * on Codex.
+   */
+  codexSquadHome?: string;
   /** The Agent SDK's `query`; tests inject a scripted one. */
   queryFn?: QueryFn;
   /** Log Claude Code's stderr. */
@@ -245,6 +252,10 @@ export interface EngineCore {
   squads?: SquadOrchestrator;
   /** The providers sessions run on (real mode); absent in the demo. */
   providers?: RuntimeFactoryRegistry;
+  /** Gravita's role tools for Codex squad sessions; the transport serves it on `/mcp`. */
+  mcp?: LoopbackMcpServer;
+  /** Gravita's Codex profile for squads (real mode with Codex). */
+  codexProfile?: CodexSquadProfile;
   /** Plan usage reads (real mode); `startEngine` starts its polling. */
   usage?: PlanUsageMonitor;
   /** Where each provider keeps its files, for the sources that read them. */
@@ -309,6 +320,8 @@ export function createCore(o: CoreOptions): EngineCore {
   let squads: SquadOrchestrator | undefined;
   let providers: RuntimeFactoryRegistry | undefined;
   let usage: PlanUsageMonitor | undefined;
+  let mcp: LoopbackMcpServer | undefined;
+  let codexProfile: CodexSquadProfile | undefined;
   let codexModels: (() => Promise<ModelOption[]>) | undefined;
   const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
@@ -326,6 +339,18 @@ export function createCore(o: CoreOptions): EngineCore {
     const codexHome = o.codexHome ?? join(homedir(), ".codex");
     const codexEnvironment = o.chat.codexEnvironment;
     const codexLaunch = o.chat.codexLaunch ?? spawnAppServer(logger, o.chat.debug);
+    if (codexEnvironment && o.chat.codexSquadHome) {
+      mcp = new LoopbackMcpServer({ name: "gravita", version: ENGINE_VERSION });
+      codexProfile = new CodexSquadProfile({
+        home: o.chat.codexSquadHome,
+        launch: codexLaunch,
+        environment: codexEnvironment,
+        status: broadcaster,
+        clock,
+        logger,
+        version: ENGINE_VERSION,
+      });
+    }
     const codex = codexEnvironment && {
       environment: codexEnvironment,
       factory: new CodexAppServerRuntimeFactory({
@@ -337,6 +362,7 @@ export function createCore(o: CoreOptions): EngineCore {
         launch: codexLaunch,
         version: ENGINE_VERSION,
         codexHome,
+        ...(mcp && codexProfile ? { squad: { profile: codexProfile, mcp } } : {}),
       }),
       probe:
         o.chat.codexProbe ??
@@ -391,6 +417,7 @@ export function createCore(o: CoreOptions): EngineCore {
         logger,
         settings,
         usage,
+        ...(codexProfile ? { profiles: codexProfile } : {}),
         ...(o.squad?.maxRunning ? { maxRunning: o.squad.maxRunning } : {}),
       });
     startChat = new StartChat({
@@ -429,6 +456,7 @@ export function createCore(o: CoreOptions): EngineCore {
       stopAll,
       ...(squads ? { squads } : {}),
       ...(usage ? { usage } : {}),
+      ...(codexProfile ? { codexProfile } : {}),
     }),
     logger,
   );
@@ -449,6 +477,8 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(squads ? { squads } : {}),
     ...(providers ? { providers } : {}),
     ...(usage ? { usage } : {}),
+    ...(mcp ? { mcp } : {}),
+    ...(codexProfile ? { codexProfile } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       // First: a squad must not mistake shutdown for the kill switch and record a pause.
@@ -458,6 +488,7 @@ export function createCore(o: CoreOptions): EngineCore {
     close() {
       usage?.stop();
       squads?.close();
+      void codexProfile?.close();
       void hooks.close();
       broadcaster.close();
       db.close();
@@ -545,6 +576,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         ),
         codexLaunch,
         codexProbe,
+        // Squads run Codex in a home of Gravita's own, never the user's (docs/codex.md).
+        codexSquadHome: join(opts.dataDir, "codex-home"),
         debug,
       };
 
@@ -593,6 +626,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         feed: broadcaster,
         status: () => broadcaster.status(),
         hooks: core.hooks,
+        ...(core.mcp ? { mcp: core.mcp } : {}),
       },
       {
         port: opts.port,
@@ -606,6 +640,9 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     core.close();
     throw err;
   }
+
+  // Codex squad sessions reach their role tools on this port.
+  core.mcp?.attach(server.port);
 
   // Only a real engine advertises itself to Deep Observe hooks: a demo engine would
   // swallow the user's real sessions into a throwaway in-memory store.
@@ -707,6 +744,9 @@ export function startEngine(opts: EngineOptions): RunningEngine {
               .catch((err) => logger.log(`${provider} account check failed`, err));
             // Warm the environment cache so the first session doesn't wait for the shell.
             if (status.found) shellEnv.load().catch(() => {});
+            // Whether Gravita's own Codex profile (for squads) is signed in.
+            if (provider === "codex" && status.found && !status.outdated)
+              void core.codexProfile?.status().catch(() => {});
             return status;
           })
           .catch((err): ProviderStatus => {

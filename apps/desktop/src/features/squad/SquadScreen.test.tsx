@@ -105,7 +105,7 @@ describe("Brief", () => {
 });
 
 describe("Board", () => {
-  const OPUS_MARK = "Runs on Opus: this one matters most to get right.";
+  const OPUS_MARK = "Runs on the strongest tier: this one matters most to get right.";
 
   it("estimates with the squad's model policy and marks the tasks that run on Opus", async () => {
     await renderSquad("review", { models: { ...AUTO_MODELS } });

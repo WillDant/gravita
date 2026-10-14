@@ -459,7 +459,6 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "squad.board.roleBudget": "Orçamento do papel, ou a parte dele na estimativa",
   "squad.board.noTasks": "Nenhuma tarefa para este papel.",
   "squad.board.foundation": "Fundação",
-  "squad.board.onOpus": "Roda no Opus: é aqui que acertar mais importa.",
   "squad.board.byModel": "A estimativa por modelo",
   "squad.board.after": "Depois de {tasks}",
   "squad.board.edit": "Editar {task}",
@@ -657,4 +656,46 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
     "A nova parte precisa ser maior que o usado ({used}%) e no máximo 100%.",
   "squad.board.planHint":
     "As estimativas são em dólares equivalentes na API. O squad pausa quando usar {limit}% de {window}.",
+  "newSquad.providers": "Quem constrói",
+  "newSquad.providers.claude": "Só Claude Code",
+  "newSquad.providers.claude.hint": "Todos os papéis, e o planejador, no Claude Code.",
+  "newSquad.providers.codex": "Só Codex",
+  "newSquad.providers.codex.hint": "Todos os papéis, e o planejador, no Codex.",
+  "newSquad.providers.mixed": "Misto",
+  "newSquad.providers.mixed.hint":
+    "O planejador dá a cada papel o Claude Code ou o Codex; você pode mudar no Quadro.",
+  "newSquad.codexProfile.why":
+    "Os squads rodam o Codex num perfil limpo, só do Gravita, para não herdar seus servidores MCP nem hooks. Entre nele uma vez, com sua conta do ChatGPT.",
+  "newSquad.codexProfile.signIn": "Entrar no Codex para squads",
+  "newSquad.codexProfile.waiting":
+    "Termine de entrar no navegador; isto se atualiza sozinho quando o Codex terminar.",
+  "newSquad.codexProfile.again": "Abrir a página de entrada de novo",
+  "newSquad.codexProfile.signedIn": "O Codex para squads está conectado.",
+  "newSquad.codexProfile.signedInPlan": "O Codex para squads está conectado (plano {plan}).",
+  "newSquad.codexProfile.openFailed": "O Gravita não conseguiu abrir seu navegador. Tente de novo.",
+  "newSquad.budget.unknownCodex": "O uso aparece aqui depois que o Codex ler seu plano.",
+  "newSquad.budget.planHintCodex":
+    "Os papéis no Codex são medidos em uso do plano. O squad pausa quando usar essa parte; outros usos da mesma conta também contam.",
+  "newSquad.budget.planHintMixed":
+    "As janelas do Claude Code e do Codex são contadas à parte, e o squad pausa quando qualquer uma usar essa parte. Outros usos das mesmas contas também contam.",
+  "squad.model.codexEffort": "{model} · {effort}",
+  "squad.model.effort.none": "sem raciocínio",
+  "squad.model.effort.minimal": "esforço mínimo",
+  "squad.model.effort.low": "esforço baixo",
+  "squad.model.effort.medium": "esforço médio",
+  "squad.model.effort.high": "esforço alto",
+  "squad.model.effort.xhigh": "esforço extra-alto",
+  "squad.model.effort.ultra": "esforço ultra",
+  "squad.board.providerOf": "Quem roda {role}",
+  "squad.board.onStrong": "Roda no nível mais forte: é aqui que acertar mais importa.",
+  "newSquad.models.codex.auto": "Automático",
+  "newSquad.models.codex.auto.hint":
+    "Codex com esforço de raciocínio médio na maior parte do trabalho, alto onde importa; só sobe quando uma tarefa tem dificuldade.",
+  "newSquad.models.codex.opus": "Esforço alto em tudo",
+  "newSquad.models.codex.opus.hint":
+    "O raciocínio mais cuidadoso do Codex para cada agente. Usa mais.",
+  "newSquad.models.codex.sonnet": "Esforço médio em tudo",
+  "newSquad.models.codex.sonnet.hint": "Codex com esforço médio para cada agente, sem subir.",
+  "newSquad.models.mixedHint":
+    "Nos papéis no Codex, a mesma escolha define o esforço de raciocínio do Codex: Haiku, Sonnet e Opus viram baixo, médio e alto.",
 };

@@ -1,10 +1,13 @@
 import {
+  allowedProviders,
   budgetState,
   isCounting,
   isPlanSquad,
   outsideOwnership,
+  plannerProviderOf,
   type SquadState,
   squadPlan,
+  squadProvidersOf,
   validatePlan,
 } from "@gravita/core";
 import {
@@ -14,6 +17,7 @@ import {
   type RpcParams,
   type SquadBudget,
   type SquadPlan,
+  type SquadProviders,
 } from "@gravita/protocol";
 import {
   DirtyWorktreeError,
@@ -23,19 +27,16 @@ import {
   PlanUsageUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
+  SquadProfileError,
   SquadWorkspaceError,
   TooManySquadsError,
 } from "../../domain/errors";
-import {
-  ACTIVE_PHASES,
-  MAX_RUNNING_SQUADS,
-  SQUAD_PROVIDER,
-  squadModels,
-} from "../../domain/squad-policy";
+import { ACTIVE_PHASES, MAX_RUNNING_SQUADS, squadModels } from "../../domain/squad-policy";
 import type { Clock } from "../ports/clock";
 import type { GitWorkspace } from "../ports/git-workspace";
 import type { IdGenerator } from "../ports/id-generator";
 import type { Logger } from "../ports/logger";
+import type { SquadProfiles } from "../ports/squad-profile";
 import type { SquadReader } from "../ports/squad-reader";
 import type { Workspace } from "../ports/workspace";
 import type { PlanUsageMonitor } from "../services/plan-usage-monitor";
@@ -77,6 +78,8 @@ export interface SquadOrchestratorDeps {
   budget: BudgetGuard;
   /** Plan usage (absent: plan squads can't be told apart from API accounts up front). */
   usage?: PlanUsageMonitor;
+  /** Squad profiles of providers that run squads in a home of their own (Codex). */
+  profiles?: SquadProfiles;
   /** Squads with work in flight at once (default MAX_RUNNING_SQUADS). */
   maxRunning?: number;
 }
@@ -91,14 +94,13 @@ export class SquadOrchestrator {
   async create(p: RpcParams<"squad.create">): Promise<{ squadId: string; projectId: string }> {
     this.assertCapacity();
     if (!(await this.d.workspace.isDirectory(p.cwd))) throw new InvalidCwdError(p.cwd);
-    // Before anything is spent: the briefing's agent must be there, and the folder fit for
-    // a squad.
-    await this.d.providers.ready(SQUAD_PROVIDER);
-    const baseBranch = await this.checkFolder(p.cwd);
+    const providers: SquadProviders = p.providers ?? "claude";
     const budget = requestedBudget(p);
-    // An account known to pay per token has no plan to take a share of.
-    if (budget.mode === "plan" && this.d.usage?.accountPlan(SQUAD_PROVIDER) === "api")
-      throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
+    // Before anything is spent: every agent the squad may run must be there (and Codex's
+    // squad profile signed in), and the folder fit for a squad.
+    for (const provider of allowedProviders(providers)) await this.d.providers.ready(provider);
+    await this.checkProfiles(allowedProviders(providers), budget);
+    const baseBranch = await this.checkFolder(p.cwd);
     const project = await this.d.projects.execute(p.cwd, this.d.clock.iso());
     const squadId = this.newSquadId();
     const models = squadModels(p.models);
@@ -111,12 +113,44 @@ export class SquadOrchestrator {
       ...(budget.mode === "usd" ? { budgetUsd: budget.amount } : { budget }),
       autonomy: p.autonomy,
       baseBranch,
+      // Claude Code only is the default (and what older readers assume).
+      ...(providers !== "claude" ? { providers } : {}),
     });
     const run = this.run(this.need(squadId));
     this.d.emitter.phase(run, "brief");
     await this.startBriefing(run);
     if (budget.mode === "plan") await this.checkPlanAccount(run);
     return { squadId, projectId: project.id };
+  }
+
+  /**
+   * What a squad's providers need before it may start: an account with plan limits for a
+   * plan budget, and for Codex, Gravita's own Codex profile signed in. Codex roles are only
+   * measured in plan usage (Codex reports no dollars), so they need a plan budget.
+   */
+  private async checkProfiles(providers: readonly AgentProvider[], budget: SquadBudget) {
+    for (const provider of providers) {
+      if (provider === "codex") {
+        if (budget.mode !== "plan")
+          throw new SquadProfileError(
+            provider,
+            "Codex roles are measured in plan usage: give the squad a share of your plan instead of dollars.",
+          );
+        if (this.d.profiles && !(await this.d.profiles.signedIn(provider)))
+          throw new SquadProfileError(
+            provider,
+            "Squads run Codex in Gravita's own Codex profile, which isn't signed in yet. Sign in to Codex for squads first.",
+          );
+      }
+      // An account known to pay per token has no plan to take a share of.
+      if (budget.mode === "plan" && this.accountPlan(provider) === "api")
+        throw new PlanUsageUnavailableError(provider);
+    }
+  }
+
+  /** Whether plan limits apply to the account a provider's squad sessions run on. */
+  private accountPlan(provider: AgentProvider) {
+    return this.d.profiles?.accountPlan(provider) ?? this.d.usage?.accountPlan(provider);
   }
 
   /**
@@ -127,17 +161,18 @@ export class SquadOrchestrator {
    */
   private async checkPlanAccount(run: SquadRun) {
     const usage = this.d.usage;
-    if (!usage || usage.accountPlan(SQUAD_PROVIDER) === "limited") return;
+    const provider = plannerProviderOf(this.need(run.squadId).providers);
+    if (!usage || this.accountPlan(provider) === "limited") return;
     const prefer = run.briefing ? [run.briefing.session.sessionId] : [];
-    const reading = await usage.refresh({ provider: SQUAD_PROVIDER, prefer, force: true });
-    if (reading?.limited !== false && usage.accountPlan(SQUAD_PROVIDER) !== "api") return;
+    const reading = await usage.refresh({ provider, prefer, force: true });
+    if (reading?.limited !== false && this.accountPlan(provider) !== "api") return;
     await this.d.briefing.end(run).catch(() => {});
     this.d.emitter.phase(
       run,
       "failed",
       "This account has no plan usage limits (it uses an API key); start the squad again with a dollar budget.",
     );
-    throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
+    throw new PlanUsageUnavailableError(provider);
   }
 
   /** Ends the briefing: the planner turns the conversation into a plan. */
@@ -166,11 +201,11 @@ export class SquadOrchestrator {
     const q = this.need(p.squadId);
     if (q.phase !== "review")
       throw new SquadPhaseError("A plan can be approved only while it is in review.");
-    if (isPlanSquad(q) && this.d.usage?.accountPlan(SQUAD_PROVIDER) === "api")
-      throw new PlanUsageUnavailableError(SQUAD_PROVIDER);
     const plan = p.plan as SquadPlan;
-    const issues = validatePlan(plan);
+    const issues = validatePlan(plan, q.providers ? { providers: q.providers } : {});
     if (issues.length) throw new InvalidSquadPlanError(issues.map((i) => i.message).join(" "));
+    // The providers this plan actually runs (a mixed plan may use one or both).
+    await this.checkProfiles(squadProvidersOf(q.providers, plan), squadBudgetOf(q));
     this.assertCapacity(q.id);
     // The workspace first: a repository that got dirty meanwhile stops the approval here.
     await this.d.prepare.execute({
@@ -192,10 +227,12 @@ export class SquadOrchestrator {
    * from the first one its sessions bring (the monitor reads often until then).
    */
   private startCounting(run: SquadRun) {
-    this.d.budget.measure(this.need(run.squadId));
+    const q = this.need(run.squadId);
+    this.d.budget.measure(q);
     run.track(
       (async () => {
-        await this.d.usage?.refresh({ provider: SQUAD_PROVIDER, force: true });
+        for (const provider of squadProvidersOf(q.providers, squadPlan(q)))
+          await this.d.usage?.refresh({ provider, force: true });
         this.d.budget.measure(this.need(run.squadId));
       })(),
     );
@@ -280,9 +317,11 @@ export class SquadOrchestrator {
    * one waits for the user (who restarts it with a dollar budget).
    */
   planUnavailable(provider: AgentProvider) {
-    if (provider !== SQUAD_PROVIDER) return;
     for (const q of this.d.squads.squads()) {
       if (!q.created || !isPlanSquad(q) || q.paused || !ACTIVE_PHASES.has(q.phase)) continue;
+      if (!squadProvidersOf(q.providers, squadPlan(q)).includes(provider)) continue;
+      // Codex squads run on Gravita's own profile: the user's own Codex says nothing of it.
+      if (this.d.profiles?.accountPlan(provider) === "limited") continue;
       this.d.scheduler.pause(
         this.run(q),
         "This account has no plan usage limits (it uses an API key), so a share of a plan can't be measured. Stop this squad and start one with a dollar budget.",
@@ -565,6 +604,11 @@ export class SquadOrchestrator {
       })(),
     );
   }
+}
+
+/** A squad's budget as squad.create took it. */
+function squadBudgetOf(q: SquadState): SquadBudget {
+  return q.budgetPlan ? { mode: "plan", ...q.budgetPlan } : { mode: "usd", amount: q.budgetUsd };
 }
 
 /** The budget squad.create asks for: a plan share, dollars, or the older `budgetUsd`. */

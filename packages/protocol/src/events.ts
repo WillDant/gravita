@@ -11,6 +11,7 @@ import {
   SquadModels,
   SquadPhase,
   SquadPlan,
+  SquadProviders,
   TaskStatus,
 } from "./squad";
 
@@ -321,6 +322,8 @@ export const SquadCreated = squadEv("squad.created", {
   autonomy: SquadAutonomy,
   /** The branch the squad started from, and later delivers into. */
   baseBranch: z.string().optional(),
+  /** Who builds it; Claude Code only when absent (squads made before Codex roles). */
+  providers: SquadProviders.optional(),
 });
 
 export const SquadPhaseChanged = squadEv("squad.phase_changed", {

@@ -6,6 +6,7 @@ import { useNavigate } from "@/app/providers";
 import { AgentPanel } from "@/features/session/agent-panel/AgentPanel";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { useAppStore, useSessionEvents } from "@/state/hooks";
@@ -59,6 +60,7 @@ export function RolePanel({
           <h2 className="min-w-0 flex-1 truncate text-md font-bold tracking-[-0.01em]">
             {role.name}
           </h2>
+          <ProviderMark provider={role.provider} />
           <button
             type="button"
             onClick={onClose}

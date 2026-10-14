@@ -188,3 +188,17 @@ export class PlanUsageUnavailableError extends Error {
     this.name = "PlanUsageUnavailableError";
   }
 }
+
+/**
+ * A squad needs Gravita's own Codex profile and it isn't signed in (or Codex roles were asked
+ * for with a dollar budget, which Codex can't be measured in): the message says which.
+ */
+export class SquadProfileError extends Error {
+  constructor(
+    readonly provider: AgentProvider,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SquadProfileError";
+  }
+}

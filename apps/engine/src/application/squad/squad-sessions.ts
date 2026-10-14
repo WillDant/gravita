@@ -1,4 +1,5 @@
-import { type AgentProvider, keys, MAIN_AGENT } from "@gravita/protocol";
+import { modeFor } from "@gravita/core";
+import { type AgentProvider, keys, MAIN_AGENT, type SessionMode } from "@gravita/protocol";
 import { preview } from "@gravita/protocol/tools";
 import { SQUAD_PROVIDER } from "../../domain/squad-policy";
 import type {
@@ -112,16 +113,32 @@ export class SquadSessions {
     const { provider, factory, environment } = await this.d.providers.ready(
       spec.provider ?? SQUAD_PROVIDER,
     );
-    const sessionId = resumeSessionId ?? this.d.ids.uuid();
+    const provisionalId = resumeSessionId ?? this.d.ids.uuid();
+    // A mode is recorded (and shown) in the session's own provider's terms.
+    const permissionMode: RuntimePermissionMode =
+      spec.permissionMode === "dontAsk"
+        ? "dontAsk"
+        : modeFor(provider, spec.permissionMode as SessionMode);
     const runtime = factory.create({
       ...rest,
-      sessionId,
+      sessionId: provisionalId,
       provider,
       environment,
+      permissionMode,
       kind: "squad",
       squad: { squadId, ...(roleId ? { roleId } : {}), ...(taskId ? { taskId } : {}) },
       ...(resumeSessionId ? { resume: true } : {}),
     });
+    if (runtime.open) {
+      // Its agent names the session (Codex: a thread), so its id is known only now.
+      try {
+        await runtime.open();
+      } catch (err) {
+        await runtime.dispose().catch(() => {});
+        throw err;
+      }
+    }
+    const { sessionId } = runtime;
     const session = new SquadSession(sessionId, runtime, this);
     this.d.runtimes.register(runtime);
     try {
@@ -138,7 +155,7 @@ export class SquadSessions {
             kind: "squad",
             cwd: spec.cwd,
             model: spec.model,
-            permissionMode: spec.permissionMode,
+            permissionMode,
             ...(environment.cliVersion ? { cliVersion: environment.cliVersion } : {}),
             ...(resumeSessionId ? { resumedFrom: resumeSessionId } : {}),
             squadId,
@@ -152,7 +169,7 @@ export class SquadSessions {
         { sessionId, projectId: spec.projectId, provider },
         {
           model: spec.model,
-          ...(spec.permissionMode !== "dontAsk" ? { permissionMode: spec.permissionMode } : {}),
+          ...(permissionMode !== "dontAsk" ? { permissionMode } : {}),
         },
       );
       runtime.start();

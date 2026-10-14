@@ -1,7 +1,9 @@
 import {
+  inProvider,
   isComplete,
   nextTasks,
   normalizePath,
+  roleProviderOf,
   type SquadState,
   squadPlan,
   squadTaskModel,
@@ -93,8 +95,15 @@ export class SquadScheduler {
     const roleId = state?.role ?? task.role;
     // Decided once per run, from the projection (role, earlier struggles), so a restart
     // picks the same model; the user's pick on a retry wins.
-    const model =
-      run.modelOverride.get(taskId) ?? squadTaskModel(q, plan, taskId) ?? q.models.roles;
+    // In the role's provider's terms: a retry "with Opus" on a Codex role is its high effort.
+    const provider = roleProviderOf(
+      q.providers,
+      plan.roles.find((r) => r.id === roleId),
+    );
+    const model = inProvider(
+      run.modelOverride.get(taskId) ?? squadTaskModel(q, plan, taskId) ?? q.models.roles,
+      provider,
+    );
     if (this.d.budget.planShareSpent(q)) {
       this.pause(run, planSpentReason(q));
       return false;

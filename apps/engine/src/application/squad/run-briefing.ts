@@ -1,9 +1,8 @@
-import { pickModel, type SquadState } from "@gravita/core";
+import { pickModel, plannerProviderOf, type SquadState } from "@gravita/core";
 import { MAIN_AGENT } from "@gravita/protocol";
 import {
   BRIEFING_MAX_TURNS,
   PLANNER_ROLE_ID,
-  SQUAD_PROVIDER,
   STOP_GRACE_MS,
   squadSubagents,
 } from "../../domain/squad-policy";
@@ -13,7 +12,7 @@ import type { ProjectionReader } from "../ports/projection-reader";
 import type { SquadReader } from "../ports/squad-reader";
 import type { TranscriptReader } from "../ports/transcript-reader";
 import type { BudgetGuard } from "./budget-guard";
-import { BRIEFING_CHARTER, type BriefingLine } from "./prompts";
+import { type BriefingLine, briefingCharter } from "./prompts";
 import type { SquadRun } from "./squad-run";
 import type { SquadSession, SquadSessions } from "./squad-sessions";
 
@@ -62,21 +61,23 @@ export class RunBriefing {
   /** Starts the conversation in `cwd` with the brief as the user's first message. */
   async start(run: SquadRun, cwd: string): Promise<void> {
     const q = this.current(run);
+    // On Codex only in a Codex-only squad; a mixed squad briefs and plans on Claude Code.
+    const provider = plannerProviderOf(q.providers);
     const session = await this.d.sessions.start({
       squadId: run.squadId,
       projectId: run.projectId,
       roleId: PLANNER_ROLE_ID,
       cwd,
       // A conversation, not the plan: under Automatic a cheaper model than the planning run.
-      provider: SQUAD_PROVIDER,
-      model: pickModel({ models: q.models, phase: "briefing" }),
-      subagents: squadSubagents(q.models),
+      provider,
+      model: pickModel({ models: q.models, phase: "briefing", provider }),
+      subagents: squadSubagents(q.models, { provider }),
       // Not "dontAsk": that would deny the user's questions before they reach the user. The
       // access keeps it read-only all the same.
       permissionMode: "default",
       access: "read-and-ask",
       prompt: q.brief,
-      systemPromptAppend: BRIEFING_CHARTER,
+      systemPromptAppend: briefingCharter(provider),
       maxTurns: BRIEFING_MAX_TURNS,
       maxBudgetUsd: this.d.budget.forBriefing(q),
     });
@@ -110,7 +111,7 @@ export class RunBriefing {
 
   /**
    * The briefing's messages, for a planner that can't resume its session: the full text
-   * from Claude Code's transcript when there is one, else the previews Gravita recorded.
+   * from the agent's own transcript when there is one, else the previews Gravita recorded.
    * The briefing session is the planner role's first; none for squads made before briefs.
    */
   async conversation(q: SquadState): Promise<BriefingLine[]> {

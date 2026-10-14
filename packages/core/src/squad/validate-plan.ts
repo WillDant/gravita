@@ -1,5 +1,6 @@
 import type { PlanRole, SquadPlan } from "@gravita/protocol";
 import { isWithin, normalizePath, overlaps } from "./paths";
+import { allowedProviders, type SquadProviderChoice } from "./providers";
 
 // The rules that relate a plan's fields to each other. The zod schema in
 // @gravita/protocol checks shapes; this checks meaning. The engine runs it on every
@@ -31,6 +32,7 @@ export type PlanIssueCode =
   | "check_program_not_allowed"
   | "check_shell_metachar"
   | "planner_has_tasks"
+  | "provider_not_allowed"
   | "no_work";
 
 export interface PlanIssue {
@@ -134,11 +136,16 @@ function findCycles(plan: SquadPlan): string[][] {
   return cycles;
 }
 
+export interface ValidatePlanOptions {
+  /** Who builds the squad (the Brief's choice); Claude Code only when absent. */
+  providers?: SquadProviderChoice;
+}
+
 /**
  * Checks a plan's cross-field rules. Returns every issue found, in a stable order
  * (rule by rule, plan order within a rule); an empty list means the plan is valid.
  */
-export function validatePlan(plan: SquadPlan): PlanIssue[] {
+export function validatePlan(plan: SquadPlan, o: ValidatePlanOptions = {}): PlanIssue[] {
   const issues: PlanIssue[] = [];
   // The first role with an id is the one tasks refer to; later duplicates are reported.
   const roles = new Map<string, PlanRole>();
@@ -305,6 +312,17 @@ export function validatePlan(plan: SquadPlan): PlanIssue[] {
           message: `Check "${c.id}" has the argument "${arg.replace(/[\n\r]/g, "⏎")}" with shell characters (; | & $ \` < > or a newline); list each argument plainly.`,
           path: `checks[${ci}].argv[${ai}]`,
         });
+    });
+  });
+
+  // Providers: a role runs only on a provider the squad's choice allows.
+  const allowed = allowedProviders(o.providers);
+  plan.roles.forEach((r, i) => {
+    if (r.provider === undefined || r.kind === "planner" || allowed.includes(r.provider)) return;
+    issues.push({
+      code: "provider_not_allowed",
+      message: `Role "${r.id}" runs on ${r.provider === "codex" ? "Codex" : "Claude Code"}, but this squad is ${o.providers === "codex" ? "Codex" : "Claude Code"} only.`,
+      path: `roles[${i}].provider`,
     });
   });
 

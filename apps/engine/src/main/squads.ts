@@ -3,6 +3,7 @@ import type { EventStore } from "../application/ports/event-store";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { SessionRuntimeRegistry } from "../application/ports/session-runtime";
+import type { SquadProfiles } from "../application/ports/squad-profile";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import type { PlanUsageMonitor } from "../application/services/plan-usage-monitor";
@@ -44,6 +45,8 @@ export interface SquadWiring {
   settings: SessionSettingsRecorder;
   /** Plan usage: plan squads' budgets react to its readings. */
   usage?: PlanUsageMonitor;
+  /** Providers whose squads run in a profile of their own (Codex). */
+  profiles?: SquadProfiles;
   maxRunning?: number;
 }
 
@@ -104,6 +107,7 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     squads,
     budget,
     ...(w.usage ? { usage: w.usage } : {}),
+    ...(w.profiles ? { profiles: w.profiles } : {}),
     emitter,
     scheduler,
     planner: new RunPlanner({ sessions, squads, emitter, budget }),

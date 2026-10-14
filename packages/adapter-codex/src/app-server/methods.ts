@@ -1,7 +1,10 @@
 import type {
+  AccountLoginCompletedNotification,
   AccountRateLimitsUpdatedNotification,
   AccountUpdatedNotification,
   AgentMessageDeltaNotification,
+  CancelLoginAccountParams,
+  CancelLoginAccountResponse,
   CommandExecutionRequestApprovalParams,
   CommandExecutionRequestApprovalResponse,
   ErrorNotification,
@@ -15,7 +18,11 @@ import type {
   InitializeResponse,
   ItemCompletedNotification,
   ItemStartedNotification,
+  LoginAccountParams,
+  LoginAccountResponse,
+  LogoutAccountResponse,
   McpServerElicitationRequestResponse,
+  McpServerStatusUpdatedNotification,
   ModelListParams,
   ModelListResponse,
   PermissionsRequestApprovalParams,
@@ -56,6 +63,10 @@ export interface ClientRequests {
   "model/list": [ModelListParams, ModelListResponse];
   "account/read": [GetAccountParams, GetAccountResponse];
   "account/rateLimits/read": [GetAccountRateLimitsParams, GetAccountRateLimitsResponse];
+  // Only for Gravita's own Codex profile (squads), never for the user's Codex.
+  "account/login/start": [LoginAccountParams, LoginAccountResponse];
+  "account/login/cancel": [CancelLoginAccountParams, CancelLoginAccountResponse];
+  "account/logout": [undefined, LogoutAccountResponse];
 }
 
 export type ClientMethod = keyof ClientRequests;
@@ -74,6 +85,8 @@ export interface ServerNotifications {
   "serverRequest/resolved": ServerRequestResolvedNotification;
   "account/updated": AccountUpdatedNotification;
   "account/rateLimits/updated": AccountRateLimitsUpdatedNotification;
+  "account/login/completed": AccountLoginCompletedNotification;
+  "mcpServer/startupStatus/updated": McpServerStatusUpdatedNotification;
   error: ErrorNotification;
 }
 
@@ -122,6 +135,8 @@ const NOTIFICATIONS: ReadonlySet<string> = new Set<ServerNotificationMethod>([
   "serverRequest/resolved",
   "account/updated",
   "account/rateLimits/updated",
+  "account/login/completed",
+  "mcpServer/startupStatus/updated",
   "error",
 ]);
 

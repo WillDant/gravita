@@ -170,6 +170,7 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
         delete q.budgetPlan;
       }
       q.autonomy = e.data.autonomy;
+      if (e.data.providers) q.providers = e.data.providers;
       if (e.data.baseBranch) q.baseBranch = e.data.baseBranch;
       q.createdTs = e.ts;
       return true;

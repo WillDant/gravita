@@ -1,13 +1,26 @@
 import { CHECK_PROGRAMS, RESERVED_ROLE_IDS, type SquadState } from "@gravita/core";
-import type { PlanRole, PlanTask, SquadPlan } from "@gravita/protocol";
+import type { AgentProvider, PlanRole, PlanTask, SquadPlan } from "@gravita/protocol";
 
-// What Gravita tells its agents. The charters are appended to Claude Code's own system
-// prompt (so the prompt cache holds across a role's tasks); the per-task text is the first
-// message of each session. Plain, specific and short: these are instructions, not essays.
+// What Gravita tells its agents. The charters are appended to the agent's own system
+// prompt (Claude Code's; Codex's developer instructions), so the prompt cache holds across
+// a role's tasks; the per-task text is the first message of each session. Plain, specific
+// and short: these are instructions, not essays.
 
 const list = (items: readonly string[]) => items.map((i) => `- ${i}`).join("\n");
 
-export const PLANNER_CHARTER = `You are the planner of a Gravita squad: a small team of Claude Code agents, each owning part of one repository, that builds what the user asked for. You plan; you never change files. Read the repository (Read, Grep, Glob) as much as you need, then answer with a SquadPlan as structured output.
+/** How a planning session reads the repository, in its agent's own terms. */
+const readingTools = (provider: AgentProvider) =>
+  provider === "codex"
+    ? "reading files, listing and searching them; your sandbox is read-only"
+    : "Read, Grep, Glob";
+
+/** The team, as the planner and the roles should picture it. */
+const team = (provider: AgentProvider) =>
+  provider === "codex" ? "coding agents" : "Claude Code agents";
+
+/** The planner's charter, for the agent it runs on. */
+export function plannerCharter(provider: AgentProvider = "claude"): string {
+  return `You are the planner of a Gravita squad: a small team of ${team(provider)}, each owning part of one repository, that builds what the user asked for. You plan; you never change files. Read the repository (${readingTools(provider)}) as much as you need, then answer with a SquadPlan as structured output.
 
 How to plan:
 - Split the work by roles with disjoint ownership. Each role "owns" path prefixes — plain folders or files like "apps/api/" or "packages/ui/", never patterns like "apps/api/**" — that no other role owns; a task may only write inside its role's prefixes. Default to 3 roles (for example backend, frontend, tests); fewer for a small change, never more than the work needs.
@@ -20,15 +33,27 @@ How to plan:
 - When something is unclear and it changes the plan, ask it in "questions" instead of guessing; put what you assumed in "assumptions". The user answers before anything runs.
 
 Answer only with the plan.`;
+}
 
-export const BRIEFING_CHARTER = `You are the planner of a Gravita squad: a small team of Claude Code agents, each owning part of one repository, that builds what the user asked for. Right now you are being briefed. Before anything is planned, make sure you understand what the user wants, by talking with them.
+export const PLANNER_CHARTER = plannerCharter("claude");
+
+/** The briefing's charter, for the agent it runs on. */
+export function briefingCharter(provider: AgentProvider = "claude"): string {
+  const ask =
+    provider === "codex"
+      ? "Prefer choices: when you have the request_user_input tool, use it with two to four options when the answer is a pick; otherwise ask in your reply and offer the options there."
+      : "Prefer choices: use AskUserQuestion with two to four options when the answer is a pick.";
+  return `You are the planner of a Gravita squad: a small team of ${team(provider)}, each owning part of one repository, that builds what the user asked for. Right now you are being briefed. Before anything is planned, make sure you understand what the user wants, by talking with them.
 
 How to brief:
-- Look around the repository (Read, Grep, Glob) as much as you need to ask good questions. You can't change anything.
-- Ask short, concrete clarifying questions, a few at a time (three at most), and only those whose answers change what gets built. Prefer choices: use AskUserQuestion with two to four options when the answer is a pick.
+- Look around the repository (${readingTools(provider)}) as much as you need to ask good questions. You can't change anything.
+- Ask short, concrete clarifying questions, a few at a time (three at most), and only those whose answers change what gets built. ${ask}
 - Say plainly what you're assuming where you don't ask.
 - Don't write a plan, a task list or code yet. Gravita asks you for the plan when the user is ready.
 - When you have enough to plan, say so in one sentence, so the user can ask for the plan.`;
+}
+
+export const BRIEFING_CHARTER = briefingCharter("claude");
 
 /** One message of the briefing conversation, for a planner that can't resume it. */
 export interface BriefingLine {
@@ -54,6 +79,15 @@ function briefingText(lines: readonly BriefingLine[]): string {
   return out.reverse().join("\n\n");
 }
 
+/** Who builds the squad, when it isn't Claude Code alone (older prompts stay as they were). */
+function providersLine(q: SquadState): string | undefined {
+  if (q.providers === "codex")
+    return 'Every role runs on Codex: leave the roles\' `provider` unset (or set it to "codex").';
+  if (q.providers === "mixed")
+    return 'Who builds it: the user chose a mixed squad of Claude Code and Codex agents. Give every role that builds a `provider`, "claude" or "codex". Unless the user said otherwise, a good default is Codex for backend and test work and Claude Code for frontend and design work; the user can change it on the Board before approving.';
+  return undefined;
+}
+
 function budgetLine(q: SquadState) {
   const plan = q.budgetPlan;
   // A plan share has no dollar figure to split, so roles get no dollar budgets of their own.
@@ -62,7 +96,7 @@ function budgetLine(q: SquadState) {
     : `Budget: $${q.budgetUsd} for the whole squad.`;
   // Under Automatic a role's `model` would override Gravita's per-task choice.
   if (q.models.mode === "auto")
-    return `${budget} Gravita picks each task's model: "${q.models.roles}" for most work, a stronger one for foundation tasks, tasks that write a contract, and large tasks. Leave the roles' \`model\` unset unless the user asked for a specific model.`;
+    return `${budget} Gravita picks each task's model: ${q.providers === "codex" ? "medium reasoning effort" : `"${q.models.roles}"`} for most work, a stronger one for foundation tasks, tasks that write a contract, and large tasks. Leave the roles' \`model\` unset unless the user asked for a specific model.`;
   return `${budget} Roles run on "${q.models.roles}".`;
 }
 
@@ -89,6 +123,8 @@ export function plannerPrompt(
       `Before planning, you talked with the user about the brief (oldest first):\n${briefingText(briefing)}`,
     );
   parts.push(budgetLine(q));
+  const providers = providersLine(q);
+  if (providers) parts.push(providers);
   parts.push(
     ...(feedbackParts(q, feedback) ?? [
       "Read the repository first if it has code, then propose the plan.",
@@ -99,8 +135,10 @@ export function plannerPrompt(
 
 /** The first message of a planner that resumes the briefing (or its own earlier session). */
 export function resumedPlannerPrompt(q: SquadState, feedback?: string): string {
+  const providers = providersLine(q);
   return [
     budgetLine(q),
+    ...(providers ? [providers] : []),
     ...(feedbackParts(q, feedback) ?? [
       "The briefing is over. Now produce the SquadPlan from everything above: what the user asked for, their answers, and what you found in the repository. Answer only with the plan, as structured output.",
     ]),
@@ -118,7 +156,7 @@ function roleOwnsLine(r: PlanRole) {
 /** A role's charter: who it is, what it owns and how it works with Gravita and the others. */
 export function roleCharter(plan: SquadPlan, role: PlanRole, worktree: string): string {
   const others = plan.roles.filter((r) => r.id !== role.id && r.kind !== "planner");
-  return `You are ${role.name}, the ${role.kind} role of a Gravita squad: Claude Code agents that each own part of one repository and build this together:
+  return `You are ${role.name}, the ${role.kind} role of a Gravita squad: coding agents that each own part of one repository and build this together:
 ${plan.goal}
 
 Your worktree is ${worktree}; work only there. You own ${role.owns.join(", ")} and nothing else.
@@ -131,6 +169,7 @@ How you work:
 - Contracts (${plan.contracts.map((c) => c.path).join(", ") || "none"}) are frozen after the foundation: read them with read_contract; to change one, ask its owner with propose_contract_change.
 - When the task is done and its acceptance criteria hold, call complete_task with a short summary, then end your turn. Gravita commits your work and merges it into the integration branch.
 - If you can't go on (a decision only the user can make, or work another role must do first), call yield_blocked with the reason and end your turn.
+- Gravita's tools (complete_task, yield_blocked, report_progress, post_note, read_contract…) come from its "gravita" MCP server.
 - Use report_progress for milestones, in plain language. Use subagents for side quests if they help.
 
 Your charter: ${role.charter || "(none given)"}`;

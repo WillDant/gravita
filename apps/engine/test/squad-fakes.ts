@@ -12,7 +12,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { SquadOrchestrator } from "../src/application/squad/squad-orchestrator";
 import type { QueryFn } from "../src/infrastructure/claude/sdk/claude-sdk-runtime";
-import { createCore, type EngineCore } from "../src/main/container";
+import { CodexAccountProbe } from "../src/infrastructure/codex/codex-account-probe";
+import { createCore, ENGINE_VERSION, type EngineCore } from "../src/main/container";
+import { type CodexScript, type FakeCodex, fakeCodexLauncher, serveMcp } from "./codex-squad-fakes";
 import { FakeClaudeEnvironment, FakeClock, SeqIds, SilentLogger } from "./fakes";
 import { isolatedEnv } from "./git-helpers";
 import { ScriptedQuery } from "./sdk-fakes";
@@ -177,12 +179,38 @@ export class TickingClock extends FakeClock {
   }
 }
 
-/** A real-mode core whose Claude Code sessions are scripted, with git in `tmp`. */
-export function squadCore(tmp: string, script: AgentScript, o: { dbPath?: string } = {}) {
+/** Codex as squads see it in tests: the CLI found, an allowlisted env. */
+export const FAKE_CODEX_ENV = {
+  provider: "codex" as const,
+  cliPath: "/opt/homebrew/bin/codex",
+  cliVersion: "0.160.0",
+  env: {
+    PATH: "/usr/bin",
+    HOME: "/home/u",
+    CODEX_HOME: "/home/u/.codex",
+    OPENAI_API_KEY: "sk-user-own",
+    OPENAI_BASE_URL: "https://proxy.local",
+  },
+};
+
+/**
+ * A real-mode core whose Claude Code sessions are scripted, with git in `tmp`. With
+ * `codex`, Codex is there too: its app-servers are FakeCodex agents played by that script,
+ * squads run them in `<tmp>/data/codex-home`, and the role tools' MCP route listens on a
+ * real loopback port (call `stop` at the end).
+ */
+export function squadCore(
+  tmp: string,
+  script: AgentScript,
+  o: { dbPath?: string; codex?: CodexScript } = {},
+) {
   const env = isolatedEnv(join(tmp, "home"));
   const { queryFn, agents, failures } = squadQueryFn(script);
   const clock = new TickingClock();
   const logger = new SilentLogger();
+  const codex = o.codex ? fakeCodexLauncher(o.codex) : undefined;
+  const probe = fakeCodexLauncher(async () => {});
+  const codexHome = join(tmp, "data", "codex-home");
   const core: EngineCore = createCore({
     dbPath: o.dbPath ?? ":memory:",
     demo: false,
@@ -190,7 +218,24 @@ export function squadCore(tmp: string, script: AgentScript, o: { dbPath?: string
     logger,
     ids: new SeqIds(),
     projectDirectory: { resolve: async (cwd) => ({ id: "p1", root: cwd, name: "demo" }) },
-    chat: { environment: new FakeClaudeEnvironment(), queryFn },
+    chat: {
+      environment: new FakeClaudeEnvironment(),
+      queryFn,
+      ...(codex
+        ? {
+            codexEnvironment: new FakeClaudeEnvironment(FAKE_CODEX_ENV),
+            codexLaunch: codex.launch,
+            codexSquadHome: codexHome,
+            codexProbe: new CodexAccountProbe({
+              launch: probe.launch,
+              shellEnv: async () => FAKE_CODEX_ENV.env,
+              version: ENGINE_VERSION,
+              clock,
+              logger,
+            }),
+          }
+        : {}),
+    },
     squad: {
       worktreesRoot: join(tmp, "data", "worktrees"),
       env,
@@ -207,7 +252,25 @@ export function squadCore(tmp: string, script: AgentScript, o: { dbPath?: string
   };
   const events = (type?: string): GravitaEvent[] =>
     [...core.events.allEvents()].filter((e) => !type || e.type === type);
-  return { core, squads, squad, events, agents, failures, clock, logger, env };
+  const mcp = core.mcp ? serveMcp(core.mcp) : undefined;
+  // The profile exists (its sign-in is up to each fake app-server's account read).
+  core.codexProfile?.prepare();
+  const codexAgents: FakeCodex[] = codex?.agents ?? [];
+  return {
+    core,
+    squads,
+    squad,
+    events,
+    agents,
+    failures,
+    clock,
+    logger,
+    env,
+    codexAgents,
+    codexFailures: codex?.failures ?? [],
+    codexHome,
+    stop: () => mcp?.stop(),
+  };
 }
 
 /** Creates a squad and asks for its plan at once (the briefing says nothing). */

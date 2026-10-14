@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { ACCOUNT_PLANS } from "./constants";
 import { AgentProviderSchema, GravitaEvent, SessionModeSchema } from "./events";
-import { DeliverMode, SquadAutonomy, SquadBudget, SquadModels, SquadPlan } from "./squad";
+import {
+  DeliverMode,
+  SquadAutonomy,
+  SquadBudget,
+  SquadModels,
+  SquadPlan,
+  SquadProviders,
+} from "./squad";
 
 // JSON-RPC 2.0 over one WebSocket between the UI and the engine.
 // Flow: connect → `auth` → `state.snapshot` → server pushes `events` batches.
@@ -21,6 +28,8 @@ export {
   type ProviderErrorData,
   RPC_VERSION,
   RpcErrors,
+  SQUAD_PROVIDER_CHOICES,
+  type SquadProviderChoice,
   USAGE_WINDOWS,
   type UsageWindow,
 } from "./constants";
@@ -37,6 +46,22 @@ export const EventsNotification = z.object({
   events: z.array(GravitaEvent),
 });
 export type EventsNotification = z.infer<typeof EventsNotification>;
+
+/**
+ * Gravita's own Codex profile, which squads run on: a clean Codex home under Gravita's data
+ * folder that the user signs in to once (see docs/codex.md).
+ */
+export const CodexProfileStatus = z.object({
+  loggedIn: z.boolean(),
+  /** `chatgpt` or `apikey`; never the email or account id. */
+  authMode: z.string().optional(),
+  planType: z.string().optional(),
+  /** A sign-in was started and its browser step isn't finished yet. */
+  signingIn: z.boolean().optional(),
+  /** Why the last sign-in failed. */
+  error: z.string().optional(),
+});
+export type CodexProfileStatus = z.infer<typeof CodexProfileStatus>;
 
 /** What the engine knows about one provider's CLI on this machine. */
 export const ProviderStatus = z.object({
@@ -60,6 +85,8 @@ export const ProviderStatus = z.object({
       plan: z.enum(ACCOUNT_PLANS).optional(),
     })
     .optional(),
+  /** Codex only: Gravita's own Codex profile for squads. Absent until the engine looked. */
+  squadProfile: CodexProfileStatus.optional(),
 });
 export type ProviderStatus = z.infer<typeof ProviderStatus>;
 
@@ -152,6 +179,8 @@ export const SquadCreateParams = z
     /** The older form of a dollar budget: `{ mode: "usd", amount }`. */
     budgetUsd: z.number().positive().max(1_000).optional(),
     autonomy: SquadAutonomy,
+    /** Who builds it: Claude Code only when absent. */
+    providers: SquadProviders.optional(),
   })
   .refine((p) => p.budget !== undefined || p.budgetUsd !== undefined, {
     message: "A squad needs a budget",
@@ -184,6 +213,13 @@ export const SquadDeliverResult = z.object({ ref: z.string() });
  * chat or a squad's). It never starts one, and reads at most every so often; the values
  * arrive as `usage.limits` events.
  */
+/**
+ * Starts the profile's ChatGPT sign-in: the client opens `authUrl` in the browser, Codex
+ * takes the callback and keeps the tokens in Gravita's Codex home; the end arrives as an
+ * `engine.status` update.
+ */
+export const CodexProfileSignInResult = z.object({ authUrl: z.string().url() });
+
 export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
 /**
@@ -226,6 +262,10 @@ export const RpcContract = {
   "squad.task.reassign": { params: SquadReassignParams, result: OkResult },
   "squad.deliver": { params: SquadDeliverParams, result: SquadDeliverResult },
   "usage.refresh": { params: UsageRefreshParams, result: OkResult },
+  /** Reads Gravita's Codex profile (a short-lived app-server; nothing spent). */
+  "codexProfile.status": { params: z.object({}).optional(), result: CodexProfileStatus },
+  "codexProfile.signIn": { params: z.object({}).optional(), result: CodexProfileSignInResult },
+  "codexProfile.signOut": { params: z.object({}).optional(), result: OkResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;
