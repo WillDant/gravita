@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { codexSessionId } from "@gravita/adapter-codex";
 import { detectCodex, MIN_CODEX_VERSION } from "../../src/infrastructure/codex/codex-detector";
 import {
+  type CodexDiscoveryFs,
   CodexSessionDiscovery,
+  nodeCodexDiscoveryFs,
   threadCreatedMs,
 } from "../../src/infrastructure/codex/codex-session-discovery";
 import { CodexTranscriptReader } from "../../src/infrastructure/codex/codex-transcript-reader";
@@ -94,6 +96,54 @@ describe("Codex session discovery", () => {
       expect(found.map((f) => f.sessionId)).toEqual([SUBAGENTS]);
       expect(await discovery.locate(id(0x401))).toEndWith(`${id(0x401)}.jsonl`);
       expect(await discovery.locate(id(0x999))).toBeUndefined();
+    });
+  });
+
+  test("an orphaned subagent doesn't walk every folder on each scan", async () => {
+    await withTempDir(async (home) => {
+      const clock = new FakeClock(Date.now());
+      const files = await fixtureRollouts("subagents");
+      // Folders only a full walk reads, and a subagent whose root is gone (archived, say).
+      for (const days of [40, 60, 90])
+        await mkdir(dayDir(home, clock.now() - days * DAY), { recursive: true });
+      const old = dayDir(home, clock.now() - 60 * DAY);
+      const today = dayDir(home, clock.now());
+      await mkdir(today, { recursive: true });
+      const sub = files.find((f) => f.name.includes(id(0x402)))!;
+      await writeFile(join(today, sub.name), sub.bytes);
+      const reads: string[] = [];
+      const fs: CodexDiscoveryFs = {
+        readdir: (path) => {
+          reads.push(path);
+          return nodeCodexDiscoveryFs.readdir(path);
+        },
+        stat: nodeCodexDiscoveryFs.stat,
+      };
+      const oldReads = () => reads.filter((p) => p === old).length;
+      const discovery = new CodexSessionDiscovery({ codexHome: home, lookbackDays: 14, clock, fs });
+
+      // The first scan sweeps every folder, then looks for the root in every folder.
+      expect(await discovery.scan(() => false)).toEqual([]);
+      expect(oldReads()).toBe(2);
+      // Scans every couple of seconds don't look for it again.
+      reads.length = 0;
+      for (let i = 0; i < 10; i++) {
+        clock.advance(2_000);
+        expect(await discovery.scan(() => false)).toEqual([]);
+      }
+      expect(oldReads()).toBe(0);
+      expect(await discovery.locate(id(0x401))).toBeUndefined();
+      expect(oldReads()).toBe(0);
+      // A full sweep's interval later, it is looked for once more.
+      clock.advance(5 * 60_000);
+      await discovery.scan(() => false);
+      expect(oldReads()).toBe(2);
+      // The root comes back: the next scan finds it, and the session with it.
+      const root = files.find((f) => f.name.includes(id(0x401)))!;
+      await writeFile(join(today, root.name), root.bytes);
+      clock.advance(2_000);
+      expect((await discovery.scan(() => false)).map((f) => f.sessionId)).toEqual([SUBAGENTS]);
+      expect(await discovery.locate(id(0x401))).toEndWith(`${id(0x401)}.jsonl`);
     });
   });
 });
