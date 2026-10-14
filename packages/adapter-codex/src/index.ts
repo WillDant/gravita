@@ -89,6 +89,8 @@ export {
 } from "./rollout/tail";
 export {
   APPLY_PATCH,
+  CODE_MODE,
+  codeModeCommands,
   codexInputPreview,
   codexToolCall,
   codexToolKind,

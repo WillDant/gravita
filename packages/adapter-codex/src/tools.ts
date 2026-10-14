@@ -96,6 +96,48 @@ const firstLine = (text: string) =>
     .map((l) => l.trim())
     .find(Boolean) ?? "";
 
+/** The code-mode script tool: a JS script that runs other tools. */
+export const CODE_MODE = "exec";
+
+const CODE_MODE_CMD =
+  /tools\.exec_command\(\s*\{\s*cmd\s*:\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g;
+
+/**
+ * The shell commands a code-mode script runs through `tools.exec_command({cmd: …})`, so the
+ * map shows the command and not the script around it. Only literal strings are read.
+ */
+export function codeModeCommands(script: string): string[] {
+  const out: string[] = [];
+  for (const m of script.matchAll(CODE_MODE_CMD)) {
+    const cmd = jsString(m[1]!);
+    if (cmd) out.push(cmd);
+  }
+  return out;
+}
+
+/** A JS string literal's value, read as JSON (a single-quoted one is requoted first). */
+function jsString(lit: string): string | undefined {
+  const json = lit.startsWith('"')
+    ? lit
+    : `"${lit
+        .slice(1, -1)
+        .replace(/\\'/g, "'")
+        .replace(/(^|[^\\])"/g, '$1\\"')}"`;
+  try {
+    return JSON.parse(json) as string;
+  } catch {
+    // An escape JSON doesn't know: the script's first line stands for the call.
+    return undefined;
+  }
+}
+
+/** A script's commands on one line: the first, and how many more run after it. */
+function scriptCommand(script: string): string | undefined {
+  const cmds = codeModeCommands(script);
+  if (!cmds.length) return undefined;
+  return cmds.length === 1 ? cmds[0] : `${cmds[0]} (+${cmds.length - 1})`;
+}
+
 /** What a Codex tool call works on, as `tool.started` carries it. */
 export function codexToolTarget(name: string, input: Input | string): ToolTarget {
   if (typeof input === "string") {
@@ -103,6 +145,8 @@ export function codexToolTarget(name: string, input: Input | string): ToolTarget
       const path = parsePatch(input)[0]?.path;
       return path ? { path } : {};
     }
+    const cmd = name === CODE_MODE ? scriptCommand(input) : undefined;
+    if (cmd) return { cmd: preview(cmd) };
     const line = firstLine(input);
     return line ? { cmd: preview(line) } : {};
   }
@@ -143,7 +187,7 @@ export function codexInputPreview(name: string, input: Input | string): string {
       const files = parsePatch(input);
       return preview(files.map((f) => f.movedTo ?? f.path).join(", ") || firstLine(input));
     }
-    return preview(firstLine(input));
+    return preview((name === CODE_MODE && scriptCommand(input)) || firstLine(input));
   }
   const t = codexToolTarget(name, input);
   if (name === SPAWN_AGENT) {

@@ -191,3 +191,44 @@ describe("CodexRpcMapper", () => {
     expect(ofType(events, "usage.reported")).toHaveLength(2);
   });
 });
+
+describe("code mode", () => {
+  test("a script shows its command, and an interrupt fails the call", () => {
+    const t = thread(0x401);
+    const mapper = new CodexRpcMapper({
+      projectId: "p1",
+      sessionId: codexSessionId(t),
+      rootThreadId: t,
+      now: () => "2026-10-12T10:00:00.000Z",
+    });
+    const raw = (item: Record<string, unknown>) =>
+      ({
+        method: "rawResponseItem/completed",
+        params: { threadId: t, turnId: "turn-1", item },
+      }) as unknown as ServerNotification;
+    const events = [
+      raw({
+        type: "custom_tool_call",
+        status: "completed",
+        call_id: "call_sleep",
+        name: "exec",
+        input: 'const r = await tools.exec_command({cmd:"sleep 30 && echo finished"});',
+      }),
+      raw({
+        type: "custom_tool_call_output",
+        call_id: "call_sleep",
+        output: "aborted by user after 3.2s",
+      }),
+    ].flatMap((n) => mapper.map(n));
+    expect(ofType(events, "tool.started")[0]?.data).toMatchObject({
+      name: "exec",
+      kind: "bash",
+      target: { cmd: "sleep 30 && echo finished" },
+      inputPreview: "sleep 30 && echo finished",
+    });
+    expect(ofType(events, "tool.completed")[0]?.data).toMatchObject({
+      toolUseId: codexCallId("call_sleep"),
+      ok: false,
+    });
+  });
+});

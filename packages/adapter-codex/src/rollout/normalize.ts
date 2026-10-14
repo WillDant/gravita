@@ -120,7 +120,8 @@ function outputOk(name: string, output: unknown, text: string): boolean {
   if (isObject(output) && typeof output.success === "boolean") return output.success;
   const exit = text.match(/Process exited with code (-?\d+)/);
   if (exit) return exit[1] === "0";
-  if (/^Script failed\b/m.test(text)) return false;
+  // A script that failed, or a call cut short by an interrupt.
+  if (/^(Script failed|aborted by user)\b/m.test(text)) return false;
   if (text.trim().startsWith("{")) {
     // Older versions: `{"output": "...", "metadata": {"exit_code": 1}}`.
     const code = num(obj(parseArgs(text), "metadata"), "exit_code");

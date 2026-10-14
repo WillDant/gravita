@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  codeModeCommands,
   codexConversationOf,
   codexInputPreview,
   codexToolCall,
@@ -90,6 +91,25 @@ describe("Codex tool table", () => {
     });
     expect(codexToolTarget("spawn_agent", { agent_type: "explorer" })).toEqual({
       agentType: "explorer",
+    });
+  });
+
+  test("code-mode scripts show the commands they run", () => {
+    expect(
+      codeModeCommands(`const r = await tools.exec_command({cmd:"echo \\"hi\\" > a.txt"});`),
+    ).toEqual(['echo "hi" > a.txt']);
+    expect(codeModeCommands("await tools.exec_command({ cmd: 'it\\'s \"ok\"' });")).toEqual([
+      `it's "ok"`,
+    ]);
+    const two =
+      'await tools.exec_command({cmd:"pnpm build"});\nawait tools.exec_command({cmd:"pnpm test"});';
+    expect(codexToolTarget("exec", two)).toEqual({ cmd: "pnpm build (+1)" });
+    expect(codexInputPreview("exec", two)).toBe("pnpm build (+1)");
+    // A command built at run time isn't guessed: the first line stands for the script.
+    expect(
+      codexToolTarget("exec", "const c = pick();\nawait tools.exec_command({cmd: c});"),
+    ).toEqual({
+      cmd: "const c = pick();",
     });
   });
 
