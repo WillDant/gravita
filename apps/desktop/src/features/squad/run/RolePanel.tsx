@@ -69,7 +69,9 @@ export function RolePanel({
           </button>
         </div>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-ink-3">{t("squad.role.spent")}</span>
+          <span className="text-ink-3">
+            {q.budgetPlan ? t("usage.apiEquivalent") : t("squad.role.spent")}
+          </span>
           <span className={cn("tabular", out ? "text-waiting-ink" : "text-ink")}>
             {usd(role.spentUsd)}
             {role.budgetUsd !== undefined && (

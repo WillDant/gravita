@@ -21,6 +21,7 @@ export function applyEvents(prev: GravitaState, events: readonly GravitaEvent[])
     projects: { ...prev.projects },
     sessions: { ...prev.sessions },
     squads: { ...prev.squads },
+    usage: { ...prev.usage },
   };
   const drafted = {
     projects: new Set<string>(),
@@ -51,6 +52,9 @@ export function applyEvents(prev: GravitaState, events: readonly GravitaEvent[])
   // `apply` touches exactly: the event's project, its session, that session's project,
   // and the squad the event or its session belongs to (spend follows session costs).
   for (const e of events) {
+    // A plan usage reading moves the meters of every plan squad.
+    if (e.type === "usage.limits")
+      for (const q of Object.values(next.squads)) if (q.budget.meters) draftSquad(q.id);
     const squadId = squadOf(next, e);
     if (squadId) draftSquad(squadId);
     draftProject(e.projectId);

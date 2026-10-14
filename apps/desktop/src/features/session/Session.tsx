@@ -6,7 +6,13 @@ import { t, useLocale } from "@/shared/i18n/i18n";
 import { sessionTitle } from "@/shared/presenters/selectors";
 import { CountChips } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
-import { useNow, useProjection, useSessionEvents, useStartingSessionId } from "@/state/hooks";
+import {
+  useNow,
+  useProjection,
+  useSessionEvents,
+  useStartingSessionId,
+  useUsageRefresh,
+} from "@/state/hooks";
 import { AgentPanel } from "./agent-panel/AgentPanel";
 import { Composer } from "./composer/Composer";
 import { Happening } from "./happening/Happening";
@@ -35,6 +41,8 @@ export function Session({
   const project = useProjection((p) => p.projects[projectId]);
   const events = useSessionEvents(sessionId);
   const now = useNow();
+  // An open chat or squad keeps plan usage fresh (cheap: read through its running session).
+  useUsageRefresh();
   const navigate = useNavigate();
   const [lens, setLens] = useState<Lens>("lines");
   const starting = useStartingSessionId();

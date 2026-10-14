@@ -18,11 +18,12 @@ describe("RpcContract", () => {
 });
 
 describe("events", () => {
-  test("presence, detach and control are ephemeral; facts are not", () => {
+  test("presence, detach, control and plan usage are ephemeral; facts are not", () => {
     expect([...EPHEMERAL_EVENT_TYPES].sort()).toEqual([
       "session.control",
       "session.detached",
       "session.presence",
+      "usage.limits",
     ]);
     expect(EPHEMERAL_EVENT_TYPES.has("tool.started")).toBe(false);
   });

@@ -100,6 +100,23 @@ export class ScriptedQuery {
     return this.models;
   }
 
+  /**
+   * What the Agent SDK's experimental usage read answers (undefined: an unexpected shape);
+   * set `usageError` to make it throw. `usageReads` counts the calls.
+   */
+  usageAnswer: unknown;
+  usageError: Error | undefined;
+  usageReads = 0;
+
+  async usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(opts?: {
+    skipBehaviors?: boolean;
+  }) {
+    this.usageReads++;
+    this.calls.push(`usage:${opts?.skipBehaviors ? "skipBehaviors" : "full"}`);
+    if (this.usageError) throw this.usageError;
+    return this.usageAnswer;
+  }
+
   close() {
     this.calls.push("close");
     this.closed = true;
@@ -122,3 +139,44 @@ export function scriptedQueryFn(): { queryFn: QueryFn; queries: ScriptedQuery[] 
 export async function settle(times = 5) {
   for (let i = 0; i < times; i++) await new Promise((r) => setTimeout(r, 0));
 }
+
+/** A `rate_limit_event`, as Claude Code sends when a plan window's usage changes. */
+export function rateLimitEvent(
+  utilization: number,
+  o: { type?: string; status?: string; resetsAt?: number; uuid?: string } = {},
+): SDKMessage {
+  return {
+    type: "rate_limit_event",
+    rate_limit_info: {
+      status: o.status ?? "allowed",
+      rateLimitType: o.type ?? "five_hour",
+      utilization,
+      ...(o.resetsAt !== undefined ? { resetsAt: o.resetsAt } : {}),
+    },
+    uuid: o.uuid ?? `rl-${++rateLimitSeq}`,
+    session_id: "",
+  } as unknown as SDKMessage;
+}
+let rateLimitSeq = 0;
+
+/** The usage read's answer for a subscription with these windows (percents). */
+export function usageAnswer(windows: Record<string, number>, resetsAt?: string): unknown {
+  return {
+    session: {},
+    subscription_type: "max",
+    rate_limits_available: true,
+    rate_limits: Object.fromEntries(
+      Object.entries(windows).map(([k, u]) => [k, { utilization: u, resets_at: resetsAt ?? null }]),
+    ),
+    behaviors: null,
+  };
+}
+
+/** The usage read's answer for an API-key account. */
+export const API_KEY_USAGE = {
+  session: {},
+  subscription_type: null,
+  rate_limits_available: false,
+  rate_limits: null,
+  behaviors: null,
+};

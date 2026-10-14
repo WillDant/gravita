@@ -1,4 +1,11 @@
-import type { PermissionMode, Question, SessionKind, ToolKind } from "@gravita/protocol";
+import type {
+  AgentProvider,
+  PermissionMode,
+  Question,
+  SessionKind,
+  ToolKind,
+  UsageWindow,
+} from "@gravita/protocol";
 import type { SquadState } from "./squad/state";
 
 /**
@@ -117,13 +124,34 @@ export interface ProjectState {
   lastEventTs: string;
 }
 
+/** The latest reading of one plan usage window (see the `usage.limits` event). */
+export interface UsageLimitState {
+  provider: AgentProvider;
+  window: UsageWindow;
+  model?: string;
+  /** 0–100, account-wide. */
+  usedPercent: number;
+  resetsAt?: string;
+  planType?: string;
+  status?: "allowed" | "warning" | "rejected";
+  /** When it was read. */
+  ts: string;
+}
+
 export interface GravitaState {
   projects: Record<string, ProjectState>;
   sessions: Record<string, SessionState>;
   squads: Record<string, SquadState>;
+  /** Plan usage by `usageKey` (provider, window and model), latest reading each. */
+  usage: Record<string, UsageLimitState>;
   seq: number;
 }
 
 export function emptyState(): GravitaState {
-  return { projects: {}, sessions: {}, squads: {}, seq: 0 };
+  return { projects: {}, sessions: {}, squads: {}, usage: {}, seq: 0 };
+}
+
+/** The key of a plan usage window in `GravitaState.usage`. */
+export function usageKey(provider: string, window: string, model?: string): string {
+  return model ? `${provider}:${window}:${model}` : `${provider}:${window}`;
 }

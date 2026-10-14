@@ -55,7 +55,11 @@ function briefingText(lines: readonly BriefingLine[]): string {
 }
 
 function budgetLine(q: SquadState) {
-  const budget = `Budget: $${q.budgetUsd} for the whole squad.`;
+  const plan = q.budgetPlan;
+  // A plan share has no dollar figure to split, so roles get no dollar budgets of their own.
+  const budget = plan
+    ? `Budget: at most ${plan.maxPercent}% of the user's ${plan.window === "five_hour" ? "5-hour" : "weekly"} plan usage limit for the whole squad. Leave the roles' \`budgetUsd\` unset.`
+    : `Budget: $${q.budgetUsd} for the whole squad.`;
   // Under Automatic a role's `model` would override Gravita's per-task choice.
   if (q.models.mode === "auto")
     return `${budget} Gravita picks each task's model: "${q.models.roles}" for most work, a stronger one for foundation tasks, tasks that write a contract, and large tasks. Leave the roles' \`model\` unset unless the user asked for a specific model.`;

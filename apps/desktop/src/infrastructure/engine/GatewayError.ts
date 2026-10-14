@@ -48,6 +48,7 @@ export const KnownErrors = {
   tooManySessions: RpcErrors.tooManySessions.code,
   notLoggedIn: RpcErrors.notLoggedIn.code,
   squadNotFound: RpcErrors.squadNotFound.code,
+  planUsageUnavailable: RpcErrors.planUsageUnavailable.code,
   invalidPlan: RpcErrors.invalidPlan.code,
   squadPhase: RpcErrors.squadPhase.code,
   dirtyWorktree: RpcErrors.dirtyWorktree.code,

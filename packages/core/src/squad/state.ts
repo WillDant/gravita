@@ -1,7 +1,9 @@
 import type {
+  AgentProvider,
   BudgetScope,
   DeliverMode,
   PlanTask,
+  PlanWindow,
   SquadAutonomy,
   SquadModels,
   SquadPhase,
@@ -115,10 +117,35 @@ export interface SquadCheckState {
 /** `${scope}:${scopeId}`, e.g. "role:backend" or "squad:q1". */
 export type BudgetKey = `${BudgetScope}:${string}`;
 
-export interface SquadBudget {
+/**
+ * A plan squad's count of one provider's window. Plan usage is account-wide, so the squad's
+ * share is what the window moved since the squad started: `carried + (last - baseline)`.
+ * A window that resets mid-squad carries what was used before it and counts again from 0.
+ */
+export interface PlanMeter {
+  provider: AgentProvider;
+  window: PlanWindow;
+  /** The window's usage the count starts from (0 after a reset). */
+  baseline: number;
+  /** Points used in earlier windows (before a reset). */
+  carried: number;
+  /** The highest usage seen in the current window. */
+  last: number;
+  /** When the current window resets, as last reported. */
+  resetsAt?: string;
+  /** 1 from the start; one more per reset. */
+  round: number;
+  /** The highest round recorded as a `budget.baseline` fact (what a restart counts from). */
+  savedRound: number;
+}
+
+export interface SquadSpend {
+  /** API-equivalent dollars of the squad's sessions (the budget itself in USD mode). */
   spentUsd: number;
   warned: BudgetKey[];
   exhausted: BudgetKey[];
+  /** Plan squads: the count of each provider's window, by `${provider}:${window}`. */
+  meters?: Record<string, PlanMeter>;
 }
 
 export interface SquadState {
@@ -129,7 +156,10 @@ export interface SquadState {
   cwd: string;
   brief: string;
   models: SquadModels;
+  /** The budget in dollars; 0 for a plan squad (see `budgetPlan` and `squadBudget`). */
   budgetUsd: number;
+  /** Set when the budget is a share of a plan window instead of dollars. */
+  budgetPlan?: { maxPercent: number; window: PlanWindow };
   autonomy: SquadAutonomy;
   baseBranch?: string;
   phase: SquadPhase;
@@ -177,6 +207,6 @@ export interface SquadState {
   merges: Record<string, SquadMerge>;
   /** Latest run of each check. */
   checks: Record<string, SquadCheckState>;
-  budget: SquadBudget;
+  budget: SquadSpend;
   delivered?: { mode: DeliverMode; ref: string; ts: string };
 }

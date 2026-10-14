@@ -29,7 +29,8 @@ export type FakeCommand =
   | "retryTask"
   | "skipTask"
   | "reassignTask"
-  | "deliverSquad";
+  | "deliverSquad"
+  | "refreshUsage";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -37,7 +38,7 @@ export class FakeGateway implements EngineGateway {
   reconnects = 0;
   snapshotResult: EngineSnapshot | Error = {
     seq: 0,
-    state: { projects: {}, sessions: {}, squads: {}, seq: 0 },
+    state: { projects: {}, sessions: {}, squads: {}, usage: {}, seq: 0 },
   };
   sessionEventsResult: RpcResult<"session.events"> | Error = { events: [] };
   readonly responded: RpcParams<"permission.respond">[] = [];
@@ -194,6 +195,9 @@ export class FakeGateway implements EngineGateway {
   }
   deliverSquad(params: RpcParams<"squad.deliver">) {
     return this.run("deliverSquad", params, () => this.deliverResult);
+  }
+  refreshUsage(params: RpcParams<"usage.refresh">) {
+    return this.run("refreshUsage", params, () => ({ ok: true }) as const);
   }
 
   onEvents(l: (b: EventsNotification) => void): Unsubscribe {

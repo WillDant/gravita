@@ -1,8 +1,11 @@
+import type { PlanMeter } from "@gravita/core";
 import {
+  type AgentProvider,
   type BudgetScope,
   type EventOf,
   keys,
   type PlanTask,
+  type PlanWindow,
   type SquadPhase,
   type SquadPlan,
   type TaskStatus,
@@ -37,6 +40,20 @@ export interface TaskStatusFact {
   /** The attempt that went wrong in a way a stronger model may fix (see the event). */
   struggledAttempt?: number;
 }
+
+/** A budget level: dollars (USD squads, roles, tasks), or points of a plan window. */
+export type BudgetLevelFact =
+  | { scope: BudgetScope; scopeId: string; keyId?: string; usedUsd: number; limitUsd: number }
+  | {
+      scope: BudgetScope;
+      scopeId: string;
+      keyId?: string;
+      unit: "points";
+      used: number;
+      limit: number;
+      window: PlanWindow;
+      provider?: AgentProvider;
+    };
 
 export class SquadEmitter {
   constructor(private readonly d: { ingest: IngestEvents; clock: Clock; squads: SquadReader }) {}
@@ -146,36 +163,77 @@ export class SquadEmitter {
 
   /**
    * `keyId` tells apart levels of the same scope that may repeat (a task's attempts) while
-   * the event keeps the plain scope id.
+   * the event keeps the plain scope id. A USD level states dollars, as before plan budgets;
+   * a plan level states points of its window.
    */
-  budget(
-    q: SquadRef,
-    level: "warned" | "exhausted",
-    b: { scope: BudgetScope; scopeId: string; keyId?: string; usedUsd: number; limitUsd: number },
-  ): boolean {
-    const data = {
-      squadId: q.squadId,
-      scope: b.scope,
-      scopeId: b.scopeId,
-      usedUsd: b.usedUsd,
-      limitUsd: b.limitUsd,
-    };
+  budget(q: SquadRef, level: "warned" | "exhausted", b: BudgetLevelFact): boolean {
+    const data =
+      "unit" in b
+        ? {
+            squadId: q.squadId,
+            scope: b.scope,
+            scopeId: b.scopeId,
+            unit: b.unit,
+            used: b.used,
+            limit: b.limit,
+            window: b.window,
+            ...(b.provider ? { provider: b.provider } : {}),
+          }
+        : {
+            squadId: q.squadId,
+            scope: b.scope,
+            scopeId: b.scopeId,
+            usedUsd: b.usedUsd,
+            limitUsd: b.limitUsd,
+          };
     const key = keys.budget(q.squadId, b.scope, b.keyId ?? b.scopeId, level);
     return level === "warned"
       ? this.emit("budget.warned", key, q.projectId, data)
       : this.emit("budget.exhausted", key, q.projectId, data);
   }
 
+  /** Where a plan squad's count of a provider's window starts, for this round. */
+  baseline(
+    q: SquadRef,
+    m: Pick<PlanMeter, "provider" | "window" | "round" | "baseline" | "carried" | "last"> & {
+      resetsAt?: string;
+    },
+  ) {
+    this.emit(
+      "budget.baseline",
+      keys.budgetBaseline(q.squadId, m.provider, m.window, m.round),
+      q.projectId,
+      {
+        squadId: q.squadId,
+        provider: m.provider,
+        window: m.window,
+        round: m.round,
+        baseline: m.baseline,
+        carried: Math.round(m.carried * 100) / 100,
+        current: m.last,
+        ...(m.resetsAt ? { resetsAt: m.resetsAt } : {}),
+      },
+    );
+  }
+
   budgetChanged(
     q: SquadRef,
-    c: { budgetUsd: number; previousUsd: number; roleBudgets?: Record<string, number> },
+    c:
+      | { budgetUsd: number; previousUsd: number; roleBudgets?: Record<string, number> }
+      | { maxPercent: number; previousPercent: number },
   ) {
     const n = (this.d.squads.squad(q.squadId)?.budgetChanges ?? 0) + 1;
     this.emit("squad.budget_changed", keys.budgetChanged(q.squadId, n), q.projectId, {
       squadId: q.squadId,
-      budgetUsd: c.budgetUsd,
-      previousUsd: c.previousUsd,
-      ...(c.roleBudgets && Object.keys(c.roleBudgets).length ? { roleBudgets: c.roleBudgets } : {}),
+      ...("maxPercent" in c
+        ? { maxPercent: c.maxPercent, previousPercent: c.previousPercent }
+        : {
+            budgetUsd: c.budgetUsd,
+            previousUsd: c.previousUsd,
+            ...(c.roleBudgets && Object.keys(c.roleBudgets).length
+              ? { roleBudgets: c.roleBudgets }
+              : {}),
+          }),
     });
   }
 

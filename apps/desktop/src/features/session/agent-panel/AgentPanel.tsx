@@ -10,7 +10,10 @@ import { QuestionCard } from "@/features/questions/QuestionCard";
 import { firstQuestion } from "@/features/questions/questions";
 import { ago, compact, t } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
+import { usd } from "@/shared/presenters/money";
+import { planWindows, windowLine } from "@/shared/presenters/planUsage";
 import { basename, cn } from "@/shared/utils";
+import { useAccountPlan, useUsage } from "@/state/hooks";
 import { StopAgent } from "./StopAgent";
 import { Steps, Story } from "./Timeline";
 
@@ -101,6 +104,8 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
         </div>
       </dl>
 
+      {agent.id === MAIN_AGENT && <SessionUsage session={session} now={now} />}
+
       <div role="tablist" aria-label={agentName(agent)} className="flex flex-none gap-1 px-4 pt-3">
         {(["story", "steps", "raw"] as const).map((k) => (
           <button
@@ -174,6 +179,40 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
         )}
       </div>
       {stoppable && <StopAgent session={session} agent={agent} />}
+    </div>
+  );
+}
+
+/**
+ * What the session costs, in the account's terms: plan usage (account-wide) when plan
+ * limits apply and a reading is known; dollars only for an API-key account. Before Gravita
+ * knows which, Claude Code's dollars show as what they are: API-equivalent.
+ */
+function SessionUsage({ session, now }: { session: SessionState; now: number }) {
+  const provider = session.provider === "codex" ? "codex" : "claude";
+  const plan = useAccountPlan(provider);
+  const usage = useUsage();
+  const readings = planWindows(usage, provider);
+  if (plan !== "api" && readings.length > 0)
+    return (
+      <div className="flex-none border-b border-hairline px-5 py-2.5 text-xs">
+        <p className="text-ink-3">{t("usage.title")}</p>
+        <p className="mt-0.5 flex flex-col gap-0.5 tabular text-ink-2">
+          {readings.map((u) => (
+            <span key={u.window}>{windowLine(u, now)}</span>
+          ))}
+        </p>
+      </div>
+    );
+  if (session.costUsd === undefined || plan === "limited") return null;
+  return (
+    <div className="flex-none border-b border-hairline px-5 py-2.5 text-xs">
+      <p className="text-ink-3">{t("usage.cost")}</p>
+      <p className="mt-0.5 tabular text-ink-2">
+        {plan === "api"
+          ? t("usage.costApi", { cost: usd(session.costUsd) })
+          : t("usage.costEquivalent", { cost: usd(session.costUsd) })}
+      </p>
     </div>
   );
 }

@@ -5,7 +5,11 @@ import { ptBR } from "./pt-BR";
 describe("locales", () => {
   it("translate every squad string into Brazilian Portuguese", () => {
     const keys = Object.keys(en).filter(
-      (k) => k.startsWith("squad.") || k.startsWith("newSquad.") || k.startsWith("error."),
+      (k) =>
+        k.startsWith("squad.") ||
+        k.startsWith("newSquad.") ||
+        k.startsWith("error.") ||
+        k.startsWith("usage."),
     );
     expect(keys.length).toBeGreaterThan(200);
     expect(keys.filter((k) => !(k in ptBR))).toEqual([]);

@@ -1,5 +1,6 @@
 import type { GravitaEvent, SquadPlan } from "@gravita/protocol";
 import type { GravitaState } from "../state";
+import { meterKey } from "./plan-usage";
 import type {
   BudgetKey,
   MergeState,
@@ -140,6 +141,7 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
     case "budget.warned":
     case "budget.exhausted":
     case "squad.budget_changed":
+    case "budget.baseline":
     case "squad.paused":
     case "squad.resumed":
     case "task.added":
@@ -159,7 +161,14 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
       q.cwd = e.data.cwd;
       q.brief = e.data.brief;
       q.models = e.data.models;
-      q.budgetUsd = e.data.budgetUsd;
+      // Squads made before plan budgets (and USD squads) record dollars as budgetUsd.
+      if (e.data.budget?.mode === "plan") {
+        q.budgetUsd = 0;
+        q.budgetPlan = { maxPercent: e.data.budget.maxPercent, window: e.data.budget.window };
+      } else {
+        q.budgetUsd = e.data.budget?.amount ?? e.data.budgetUsd ?? 0;
+        delete q.budgetPlan;
+      }
       q.autonomy = e.data.autonomy;
       if (e.data.baseBranch) q.baseBranch = e.data.baseBranch;
       q.createdTs = e.ts;
@@ -376,12 +385,44 @@ export function applySquad(state: GravitaState, e: GravitaEvent): boolean {
         q.budget.warned = q.budget.warned.filter((k) => k !== key);
         q.budget.exhausted = q.budget.exhausted.filter((k) => k !== key);
       };
-      if (e.data.budgetUsd !== q.budgetUsd) rearm(`squad:${q.id}`);
-      q.budgetUsd = e.data.budgetUsd;
+      if (e.data.budgetUsd !== undefined) {
+        if (e.data.budgetUsd !== q.budgetUsd) rearm(`squad:${q.id}`);
+        q.budgetUsd = e.data.budgetUsd;
+      }
+      if (e.data.maxPercent !== undefined && q.budgetPlan) {
+        if (e.data.maxPercent !== q.budgetPlan.maxPercent) rearm(`squad:${q.id}`);
+        q.budgetPlan = { ...q.budgetPlan, maxPercent: e.data.maxPercent };
+      }
       for (const [roleId, usd] of Object.entries(e.data.roleBudgets ?? {})) {
         q.roleBudgets = { ...q.roleBudgets, [roleId]: usd };
         rearm(`role:${roleId}`);
       }
+      return true;
+    }
+
+    case "budget.baseline": {
+      q.budget.meters ??= {};
+      const key = meterKey(e.data.provider, e.data.window);
+      const prev = q.budget.meters[key];
+      // A later round wins; the same round again (a replay) changes nothing it set.
+      if (prev && e.data.round < prev.savedRound) return true;
+      const keepLive = prev && prev.round > e.data.round;
+      q.budget.meters[key] = keepLive
+        ? { ...prev, savedRound: Math.max(prev.savedRound, e.data.round) }
+        : {
+            provider: e.data.provider,
+            window: e.data.window,
+            baseline: e.data.baseline,
+            carried: e.data.carried,
+            // Readings since this was recorded may already be higher.
+            last: Math.max(
+              e.data.current,
+              prev && prev.round === e.data.round ? prev.last : e.data.current,
+            ),
+            ...(e.data.resetsAt ? { resetsAt: e.data.resetsAt } : {}),
+            round: e.data.round,
+            savedRound: e.data.round,
+          };
       return true;
     }
 

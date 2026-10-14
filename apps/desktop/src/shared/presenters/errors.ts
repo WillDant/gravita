@@ -50,6 +50,8 @@ export function describeError(error: GatewayError): ErrorView {
     }
     case KnownErrors.squadNotFound:
       return { text: t("error.squadNotFound") };
+    case KnownErrors.planUsageUnavailable:
+      return { text: t("error.planUsageUnavailable") };
     case KnownErrors.invalidPlan:
       return { text: t("error.invalidPlan", { message: error.message }) };
     case KnownErrors.squadPhase:

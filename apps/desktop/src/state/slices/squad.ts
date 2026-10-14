@@ -1,4 +1,4 @@
-import type { DeliverMode, RpcParams, RpcResult } from "@gravita/protocol";
+import type { AgentProvider, DeliverMode, RpcParams, RpcResult } from "@gravita/protocol";
 import type { Slice } from "../store";
 import { attempt, type CommandResult, done } from "./control";
 
@@ -22,6 +22,8 @@ export interface SquadSlice {
     squadId: string,
     mode: DeliverMode,
   ) => Promise<CommandResult<RpcResult<"squad.deliver">>>;
+  /** Asks for fresh plan usage (cheap: the engine reads through a running session, if any). */
+  refreshUsage: (provider?: AgentProvider) => Promise<CommandResult>;
 }
 
 export const createSquadSlice: Slice<SquadSlice> = (gateway) => (set) => ({
@@ -42,4 +44,5 @@ export const createSquadSlice: Slice<SquadSlice> = (gateway) => (set) => ({
   reassignTask: (squadId, taskId, role) =>
     done(() => gateway.reassignTask({ squadId, taskId, role })),
   deliverSquad: (squadId, mode) => attempt(() => gateway.deliverSquad({ squadId, mode })),
+  refreshUsage: (provider) => done(() => gateway.refreshUsage(provider ? { provider } : {})),
 });

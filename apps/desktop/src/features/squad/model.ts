@@ -50,6 +50,11 @@ export interface SquadView {
   task: (id: string) => TaskView | undefined;
   role: (id: string) => RoleView | undefined;
   planner?: { sessionId?: string; session?: SessionState; spentUsd: number };
+  /**
+   * The budget is a share of the plan: dollars shown for roles are what the work would
+   * cost on the API, not what the user pays, and role dollar budgets don't apply.
+   */
+  apiEquivalent: boolean;
 }
 
 /** The planner as a role-like view (it isn't a plan role, but it has a line colour). */
@@ -106,7 +111,7 @@ export function squadView(state: GravitaState, q: SquadState): SquadView {
         code: roleCode(r),
         owns: r.owns,
         charter: r.charter,
-        ...(budget !== undefined ? { budgetUsd: budget } : {}),
+        ...(budget !== undefined && !q.budgetPlan ? { budgetUsd: budget } : {}),
         spentUsd: run?.spentUsd ?? 0,
         ...(sessionId ? { sessionId } : {}),
         ...(session ? { session } : {}),
@@ -144,6 +149,7 @@ export function squadView(state: GravitaState, q: SquadState): SquadView {
   const plannerSession = plannerSessionId ? state.sessions[plannerSessionId] : undefined;
   return {
     ...(plan ? { plan } : {}),
+    apiEquivalent: Boolean(q.budgetPlan),
     roles,
     tasks,
     task: (id) => taskById.get(id),

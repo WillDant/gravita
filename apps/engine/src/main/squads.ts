@@ -5,6 +5,7 @@ import type { Logger } from "../application/ports/logger";
 import type { SessionRuntimeRegistry } from "../application/ports/session-runtime";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
+import type { PlanUsageMonitor } from "../application/services/plan-usage-monitor";
 import type { ProjectionService } from "../application/services/projection-service";
 import type { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import type { SessionSettingsRecorder } from "../application/services/session-settings";
@@ -41,6 +42,8 @@ export interface SquadWiring {
   clock: Clock;
   logger: Logger;
   settings: SessionSettingsRecorder;
+  /** Plan usage: plan squads' budgets react to its readings. */
+  usage?: PlanUsageMonitor;
   maxRunning?: number;
 }
 
@@ -57,7 +60,7 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     logger,
     settings: w.settings,
   });
-  const budget = new BudgetGuard({ emitter, sessions: squads });
+  const budget = new BudgetGuard({ emitter, sessions: squads, clock });
   let scheduler: SquadScheduler | undefined;
   const desk = new SquadDesk({
     squads,
@@ -97,8 +100,10 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     freezeContract: kit.freezeContract,
     logger,
   });
-  return new SquadOrchestrator({
+  const orchestrator = new SquadOrchestrator({
     squads,
+    budget,
+    ...(w.usage ? { usage: w.usage } : {}),
     emitter,
     scheduler,
     planner: new RunPlanner({ sessions, squads, emitter, budget }),
@@ -124,4 +129,9 @@ export function createSquadOrchestrator(w: SquadWiring): SquadOrchestrator {
     runs,
     ...(w.maxRunning ? { maxRunning: w.maxRunning } : {}),
   });
+  w.usage?.bind({
+    onUsage: () => orchestrator.checkBudgets(),
+    onPlanUnavailable: (provider) => orchestrator.planUnavailable(provider),
+  });
+  return orchestrator;
 }

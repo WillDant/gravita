@@ -175,3 +175,16 @@ export class CheckRefusedError extends Error {
     this.name = "CheckRefusedError";
   }
 }
+
+/**
+ * A squad's budget is a share of the plan, but the account has no plan limits (an API key,
+ * Bedrock, Vertex): there is no share to take, so the budget must be in dollars.
+ */
+export class PlanUsageUnavailableError extends Error {
+  constructor(readonly provider: AgentProvider) {
+    super(
+      `Your ${provider === "codex" ? "Codex" : "Claude"} account has no plan usage limits (it uses an API key), so a squad can't take a share of a plan. Give the squad a dollar budget instead.`,
+    );
+    this.name = "PlanUsageUnavailableError";
+  }
+}

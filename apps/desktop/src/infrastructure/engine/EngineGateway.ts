@@ -59,6 +59,11 @@ export interface EngineGateway {
   skipTask(params: RpcParams<"squad.task.skip">): Promise<RpcResult<"squad.task.skip">>;
   reassignTask(params: RpcParams<"squad.task.reassign">): Promise<RpcResult<"squad.task.reassign">>;
   deliverSquad(params: RpcParams<"squad.deliver">): Promise<RpcResult<"squad.deliver">>;
+  /**
+   * Asks the engine to read plan usage through a session that is already running (it never
+   * starts one, and reads at most once a minute); the values arrive as events.
+   */
+  refreshUsage(params: RpcParams<"usage.refresh">): Promise<RpcResult<"usage.refresh">>;
 
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
   onStatus(listener: (status: EngineStatus) => void): Unsubscribe;

@@ -1,10 +1,13 @@
 import { z } from "zod";
-import { AGENT_PROVIDERS, CLAUDE_MODES, CODEX_MODES } from "./constants";
+import { AGENT_PROVIDERS, CLAUDE_MODES, CODEX_MODES, USAGE_WINDOWS } from "./constants";
 import {
   BudgetScope,
+  BudgetUnit,
   DeliverMode,
   PlanTask,
+  PlanWindowSchema,
   SquadAutonomy,
+  SquadBudget,
   SquadModels,
   SquadPhase,
   SquadPlan,
@@ -210,6 +213,28 @@ export const UsageReported = ev("usage.reported", {
   cacheWrite: z.number(),
 });
 
+export const UsageWindowSchema = z.enum(USAGE_WINDOWS);
+
+/**
+ * How much of a plan window the account has used, as its provider reports it (Claude's rate
+ * limit events and usage reads, Codex's rate limits). Account-wide: every use of the same
+ * account moves it, not only Gravita's. Ephemeral: the projection keeps the latest per
+ * provider and window. It carries no session; `projectId` is the reporting session's, or "".
+ */
+export const UsageLimits = ev("usage.limits", {
+  provider: AgentProviderSchema,
+  window: UsageWindowSchema,
+  /** For `seven_day_model` (and `other` when the provider names one): the model family. */
+  model: z.string().optional(),
+  /** 0–100. */
+  usedPercent: z.number().min(0).max(100),
+  /** When the window resets (ISO 8601). */
+  resetsAt: z.string().optional(),
+  planType: z.string().optional(),
+  /** The provider's own reading: still allowed, close to the limit, or over it. */
+  status: z.enum(["allowed", "warning", "rejected"]).optional(),
+});
+
 export const CostSnapshot = ev("cost.snapshot", {
   totalCostUsd: z.number(),
   linesAdded: z.number().optional(),
@@ -289,7 +314,10 @@ export const SquadCreated = squadEv("squad.created", {
   cwd: z.string(),
   brief: z.string(),
   models: SquadModels,
-  budgetUsd: z.number().positive(),
+  /** The budget in dollars: squads made before plan budgets, and USD squads still. */
+  budgetUsd: z.number().positive().optional(),
+  /** A share of the plan; a USD squad records `budgetUsd` instead (older readers know it). */
+  budget: SquadBudget.optional(),
   autonomy: SquadAutonomy,
   /** The branch the squad started from, and later delivers into. */
   baseBranch: z.string().optional(),
@@ -410,8 +438,17 @@ const BudgetLevel = {
   scope: BudgetScope,
   /** The task id or role id for task and role scopes; the squad id otherwise. */
   scopeId: z.string(),
-  usedUsd: z.number().nonnegative(),
-  limitUsd: z.number().positive(),
+  /** Absent (and dollars) on USD levels, as before plan budgets; `points` on a plan share. */
+  unit: BudgetUnit.optional(),
+  /** Dollars, on USD levels. */
+  usedUsd: z.number().nonnegative().optional(),
+  limitUsd: z.number().positive().optional(),
+  /** Percentage points of `window` the squad used, and its share, on plan levels. */
+  used: z.number().nonnegative().optional(),
+  limit: z.number().positive().optional(),
+  window: PlanWindowSchema.optional(),
+  /** The provider whose window counted most (plan levels). */
+  provider: AgentProviderSchema.optional(),
 };
 /** 75% of a budget is spent. */
 export const BudgetWarned = squadEv("budget.warned", BudgetLevel);
@@ -419,13 +456,35 @@ export const BudgetWarned = squadEv("budget.warned", BudgetLevel);
 export const BudgetExhausted = squadEv("budget.exhausted", BudgetLevel);
 /**
  * The user raised the squad's budget (and maybe some roles'): the new limits apply, and the
- * 75% / 100% levels of the changed scopes are armed again.
+ * 75% / 100% levels of the changed scopes are armed again. A USD squad changes dollars, a
+ * plan squad its share of the window.
  */
 export const SquadBudgetChanged = squadEv("squad.budget_changed", {
-  budgetUsd: z.number().positive(),
-  previousUsd: z.number().nonnegative(),
+  budgetUsd: z.number().positive().optional(),
+  previousUsd: z.number().nonnegative().optional(),
+  maxPercent: z.number().min(1).max(100).optional(),
+  previousPercent: z.number().nonnegative().optional(),
   /** New budgets of some roles, by role id. */
   roleBudgets: z.record(z.string(), z.number().positive()).optional(),
+});
+
+/**
+ * Where a plan squad's count of one provider's window starts: its usage when the squad
+ * started building (round 1), and again after the window reset mid-squad (round 2…), with
+ * what the squad had used before the reset carried over. Usage samples are ephemeral, so
+ * these are what a restarted engine counts from.
+ */
+export const BudgetBaseline = squadEv("budget.baseline", {
+  provider: AgentProviderSchema,
+  window: PlanWindowSchema,
+  round: z.number().int().positive(),
+  /** The window's usage the squad's count starts from (0 after a reset). */
+  baseline: z.number().min(0).max(100),
+  /** Points the squad used in earlier windows. */
+  carried: z.number().nonnegative(),
+  /** The window's usage when this was recorded. */
+  current: z.number().min(0).max(100),
+  resetsAt: z.string().optional(),
 });
 
 /** The squad stopped starting work and its sessions were interrupted; it waits for the user. */
@@ -470,6 +529,7 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   TodoUpdated,
   CompactHappened,
   UsageReported,
+  UsageLimits,
   CostSnapshot,
   PermissionRequested,
   PermissionResolved,
@@ -499,6 +559,7 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   BudgetWarned,
   BudgetExhausted,
   SquadBudgetChanged,
+  BudgetBaseline,
   SquadPaused,
   SquadResumed,
   TaskAdded,
@@ -509,12 +570,22 @@ export type GravitaEvent = z.infer<typeof GravitaEvent>;
 export type GravitaEventType = GravitaEvent["type"];
 export type EventOf<T extends GravitaEventType> = Extract<GravitaEvent, { type: T }>;
 
+/**
+ * One plan usage window in Gravita's provider-neutral terms: what a `usage.limits` event
+ * says, without the provider. Each provider's mapping produces these.
+ */
+export type PlanUsageLimit = Omit<EventOf<"usage.limits">["data"], "provider">;
+
 /** An event after the store assigned its global ingest order. */
 export type StoredEvent = GravitaEvent & { seq: number };
 
-/** Facts about the live moment (presence, control). Applied and broadcast, never stored. */
+/**
+ * Facts about the live moment (presence, control, plan usage). Applied and broadcast, never
+ * stored.
+ */
 export const EPHEMERAL_EVENT_TYPES: ReadonlySet<GravitaEventType> = new Set([
   "session.presence",
   "session.detached",
   "session.control",
+  "usage.limits",
 ]);

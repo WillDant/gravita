@@ -8,6 +8,7 @@ import {
 } from "@gravita/protocol";
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
+import type { PlanUsageMonitor } from "../../application/services/plan-usage-monitor";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
 import type { GetConversation } from "../../application/usecases/get-conversation";
@@ -34,6 +35,7 @@ import {
   NotARepositoryError,
   NotControllableError,
   NotLoggedInError,
+  PlanUsageUnavailableError,
   ProviderUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
@@ -87,6 +89,8 @@ export interface RouterDeps {
   stopAll: StopAllSessions;
   /** Absent in demo mode: the demo plays a scripted squad and runs none. */
   squads?: SquadOrchestrator;
+  /** Plan usage reads; absent in demo mode (nothing to read through). */
+  usage?: PlanUsageMonitor;
 }
 
 const OK = { ok: true } as const;
@@ -155,6 +159,11 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
       return OK;
     },
     "squad.deliver": (p) => squads().deliver(p),
+    // Answers at once: the reading, if a running session can give one, arrives as events.
+    "usage.refresh": (p) => {
+      void d.usage?.refresh(p?.provider ? { provider: p.provider } : {});
+      return OK;
+    },
   };
 }
 
@@ -197,6 +206,11 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
     return { code: RpcErrors.squadPhase.code, message: err.message };
   if (err instanceof BypassLockedError)
     return { code: RpcErrors.badRequest.code, message: err.message };
+  if (err instanceof PlanUsageUnavailableError)
+    return providerError(
+      { code: RpcErrors.planUsageUnavailable.code, message: err.message },
+      err.provider,
+    );
   logger.log(`${method} failed`, err);
   return INTERNAL_ERROR;
 }

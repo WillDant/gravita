@@ -1,9 +1,10 @@
-import type { GravitaState } from "@gravita/core";
-import type { EngineStatus, GravitaEvent, ProviderStatus } from "@gravita/protocol";
+import type { GravitaState, UsageLimitState } from "@gravita/core";
+import type { AccountPlan, EngineStatus, GravitaEvent, ProviderStatus } from "@gravita/protocol";
 import type { AgentProvider } from "@gravita/protocol/constants";
 import { createContext, useContext, useEffect } from "react";
 import { useStore } from "zustand";
 import type { ProviderProblem } from "@/shared/presenters/errors";
+import { accountPlan } from "@/shared/presenters/planUsage";
 import type { ModelOption } from "./slices/control";
 
 export type { CommandResult, ModelOption } from "./slices/control";
@@ -113,3 +114,27 @@ export const useNotice = () => useAppStore((s) => s.notice);
 
 export const useStartingSessionId = (): string | undefined =>
   useAppStore((s) => s.startingSessionId);
+
+const NO_USAGE: Record<string, UsageLimitState> = {};
+
+/** The latest plan usage readings, by provider and window (account-wide). */
+export const useUsage = (): Record<string, UsageLimitState> =>
+  useAppStore((s) => s.projection.usage ?? NO_USAGE);
+
+/** Whether plan limits apply to `provider`'s account (`limited`) or it pays per token (`api`). */
+export function useAccountPlan(provider: AgentProvider = "claude"): AccountPlan | undefined {
+  return useAppStore((s) => accountPlan(s.engineStatus, provider));
+}
+
+/**
+ * Asks the engine for fresh plan usage while the caller is mounted (a chat or squad screen,
+ * the new-squad panel): once on mount and on each reconnect. Cheap by design: the engine
+ * reads through a running session at most once a minute and never starts one.
+ */
+export function useUsageRefresh(provider: AgentProvider = "claude") {
+  const refresh = useAppStore((s) => s.refreshUsage);
+  const connection = useConnection();
+  useEffect(() => {
+    if (connection === "online") void refresh(provider);
+  }, [refresh, connection, provider]);
+}

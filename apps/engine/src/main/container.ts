@@ -16,6 +16,7 @@ import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
 import { HookIngest } from "../application/services/hook-ingest";
 import { MergeQueue } from "../application/services/merge-queue";
+import { PlanUsageMonitor } from "../application/services/plan-usage-monitor";
 import { ProjectionService } from "../application/services/projection-service";
 import { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
@@ -51,6 +52,7 @@ import { BunCheckRunner } from "../infrastructure/checks/bun-check-runner";
 import { ClaudeDetector } from "../infrastructure/claude/claude-cli-locator";
 import { DetectedClaudeEnvironment } from "../infrastructure/claude/claude-environment";
 import { ClaudeHookTranslator } from "../infrastructure/claude/claude-hook-translator";
+import { ClaudePlanUsageSource } from "../infrastructure/claude/claude-plan-usage";
 import { Registry } from "../infrastructure/claude/registry";
 import {
   ClaudeSdkRuntimeFactory,
@@ -221,6 +223,8 @@ export interface EngineCore {
   squads?: SquadOrchestrator;
   /** The providers sessions run on (real mode); absent in the demo. */
   providers?: RuntimeFactoryRegistry;
+  /** Plan usage reads (real mode); `startEngine` starts its polling. */
+  usage?: PlanUsageMonitor;
   /** Where each provider keeps its files, for the sources that read them. */
   homes: { codex: string };
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
@@ -264,6 +268,7 @@ export function createCore(o: CoreOptions): EngineCore {
   let startChat: StartChat | undefined;
   let squads: SquadOrchestrator | undefined;
   let providers: RuntimeFactoryRegistry | undefined;
+  let usage: PlanUsageMonitor | undefined;
   const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
     const workspace = o.chat.workspace ?? new NodeWorkspace();
@@ -280,6 +285,14 @@ export function createCore(o: CoreOptions): EngineCore {
     providers = new RuntimeFactoryRegistry({
       claude: { factory: claude, environment: o.chat.environment },
     });
+    usage = new PlanUsageMonitor({
+      sources: [new ClaudePlanUsageSource({ runtimes, logger })],
+      ingest,
+      status: broadcaster,
+      squads: projection,
+      clock,
+      logger,
+    });
     if (squadKit)
       squads = createSquadOrchestrator({
         kit: squadKit,
@@ -295,6 +308,7 @@ export function createCore(o: CoreOptions): EngineCore {
         clock,
         logger,
         settings,
+        usage,
         ...(o.squad?.maxRunning ? { maxRunning: o.squad.maxRunning } : {}),
       });
     startChat = new StartChat({
@@ -326,6 +340,7 @@ export function createCore(o: CoreOptions): EngineCore {
       listModels: new ListModels(runtimes, clock, logger),
       stopAll,
       ...(squads ? { squads } : {}),
+      ...(usage ? { usage } : {}),
     }),
     logger,
   );
@@ -345,6 +360,7 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(squadKit ? { squad: squadKit } : {}),
     ...(squads ? { squads } : {}),
     ...(providers ? { providers } : {}),
+    ...(usage ? { usage } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       // First: a squad must not mistake shutdown for the kill switch and record a pause.
@@ -352,6 +368,7 @@ export function createCore(o: CoreOptions): EngineCore {
       await stopAll.execute(capMs);
     },
     close() {
+      usage?.stop();
       squads?.close();
       void hooks.close();
       broadcaster.close();
@@ -433,6 +450,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   const { clock, logger, broadcaster, ingest, projection, runtimes } = core;
   // Squads that were working when the engine last stopped wait, paused, for the user.
   core.squads?.recover();
+  // Plan usage is read while plan squads work (through their own running sessions).
+  core.usage?.start();
   const stops: (() => void)[] = [];
   // Separate from the engine token: hooks can read it from disk, the UI's token never is.
   const hookToken = opts.hookToken ?? randomBytes(32).toString("hex");

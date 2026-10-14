@@ -95,6 +95,10 @@ export class SquadScheduler {
     // picks the same model; the user's pick on a retry wins.
     const model =
       run.modelOverride.get(taskId) ?? squadTaskModel(q, plan, taskId) ?? q.models.roles;
+    if (this.d.budget.planShareSpent(q)) {
+      this.pause(run, planSpentReason(q));
+      return false;
+    }
     const maxBudgetUsd = this.d.budget.forTask(q, taskId, roleId, concurrent, model);
     if (maxBudgetUsd < MIN_SESSION_BUDGET_USD) {
       this.pause(run, "The budget is used up; there isn't enough left to start the next task.");
@@ -207,7 +211,9 @@ export class SquadScheduler {
         });
         return status(
           "blocked",
-          `The task used its budget ($${end.usedUsd.toFixed(2)} of $${end.limitUsd.toFixed(2)}).`,
+          this.d.squads.squad(run.squadId)?.budgetPlan
+            ? `The task reached its safety cap ($${end.usedUsd.toFixed(2)} of $${end.limitUsd.toFixed(2)}, API-equivalent), set well above its estimate so a runaway run stops.`
+            : `The task used its budget ($${end.usedUsd.toFixed(2)} of $${end.limitUsd.toFixed(2)}).`,
         );
       case "interrupted":
         if (end.sessionId) run.resumeFrom.set(live.taskId, end.sessionId);
@@ -353,17 +359,28 @@ export class SquadScheduler {
     }
   }
 
-  /** After every turn: budgets. A role or the squad out of budget stops and pauses. */
+  /**
+   * After every turn, and after every plan usage reading: budgets. A role or the squad out
+   * of budget stops and pauses.
+   */
   onTurn(run: SquadRun) {
     if (this.closing) return;
     const q = this.d.squads.squad(run.squadId);
     if (!q) return;
     for (const x of this.d.budget.check(q, run)) {
-      const usd = `$${x.limitUsd.toFixed(2)}`;
+      if (x.unit === "points") return this.pause(run, planSpentReason(q));
+      const usd = `$${x.limit.toFixed(2)}`;
       if (x.scope === "squad") return this.pause(run, `The squad's budget (${usd}) is used up.`);
       this.pause(run, `The ${x.scopeId} role's budget (${usd}) is used up.`, x.scopeId);
     }
   }
+}
+
+/** Why a plan squad paused: it used its share of the window. */
+export function planSpentReason(q: SquadState): string {
+  const plan = q.budgetPlan;
+  const window = plan?.window === "five_hour" ? "5-hour window" : "weekly limit";
+  return `The squad used its share of your ${window} (${plan?.maxPercent ?? 0}%).`;
 }
 
 function foundationDone(q: SquadState, plan: SquadPlan): boolean {

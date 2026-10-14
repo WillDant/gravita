@@ -1,21 +1,28 @@
 import { z } from "zod";
+import { ACCOUNT_PLANS } from "./constants";
 import { AgentProviderSchema, GravitaEvent, SessionModeSchema } from "./events";
-import { DeliverMode, SquadAutonomy, SquadModels, SquadPlan } from "./squad";
+import { DeliverMode, SquadAutonomy, SquadBudget, SquadModels, SquadPlan } from "./squad";
 
 // JSON-RPC 2.0 over one WebSocket between the UI and the engine.
 // Flow: connect → `auth` → `state.snapshot` → server pushes `events` batches.
 // The UI applies events with the same reducer the engine uses (@gravita/core).
 
 export {
+  ACCOUNT_PLANS,
+  type AccountPlan,
   AGENT_PROVIDERS,
   CLAUDE_MODES,
   CODEX_MODES,
   DEFAULT_PROVIDER,
   Methods,
   Notifications,
+  PLAN_WINDOWS,
+  type PlanWindow,
   type ProviderErrorData,
   RPC_VERSION,
   RpcErrors,
+  USAGE_WINDOWS,
+  type UsageWindow,
 } from "./constants";
 
 export const AuthParams = z.object({ token: z.string(), rpcVersion: z.number() });
@@ -42,7 +49,16 @@ export const ProviderStatus = z.object({
   loggedIn: z.boolean().optional(),
   /** The account it runs on, when the provider tells (never credentials). */
   account: z
-    .object({ planType: z.string().optional(), authMode: z.string().optional() })
+    .object({
+      planType: z.string().optional(),
+      authMode: z.string().optional(),
+      /**
+       * `limited`: plan usage limits apply (a subscription), so squad budgets are a share of
+       * the plan; `api`: it pays per token (an API key), so budgets are dollars. Absent until
+       * the provider tells.
+       */
+      plan: z.enum(ACCOUNT_PLANS).optional(),
+    })
     .optional(),
 });
 export type ProviderStatus = z.infer<typeof ProviderStatus>;
@@ -126,13 +142,20 @@ export const ModelsResult = z.object({
 // Squad control. The engine re-validates every plan it receives; the UI's validation
 // (same @gravita/core rules) is only for live feedback on the Board.
 export const SquadRef = z.object({ squadId: z.string() });
-export const SquadCreateParams = z.object({
-  cwd: z.string().min(1),
-  brief: z.string().min(1).max(8_000),
-  models: SquadModels.optional(),
-  budgetUsd: z.number().positive().max(1_000),
-  autonomy: SquadAutonomy,
-});
+export const SquadCreateParams = z
+  .object({
+    cwd: z.string().min(1),
+    brief: z.string().min(1).max(8_000),
+    models: SquadModels.optional(),
+    /** A share of the plan, or dollars for an account without plan limits. */
+    budget: SquadBudget.optional(),
+    /** The older form of a dollar budget: `{ mode: "usd", amount }`. */
+    budgetUsd: z.number().positive().max(1_000).optional(),
+    autonomy: SquadAutonomy,
+  })
+  .refine((p) => p.budget !== undefined || p.budgetUsd !== undefined, {
+    message: "A squad needs a budget",
+  });
 export const SquadCreateResult = z.object({ squadId: z.string(), projectId: z.string() });
 export const SquadReplanParams = SquadRef.extend({ feedback: z.string().min(1).max(4_000) });
 export const SquadApproveParams = SquadRef.extend({
@@ -145,14 +168,23 @@ export const SquadRetryParams = SquadTaskRef.extend({ model: z.string().optional
 export const SquadReassignParams = SquadTaskRef.extend({ role: z.string() });
 /**
  * Resuming may raise the budget (the new total, which the engine checks is above what was
- * spent) and the budget of some roles: how a squad that ran out goes on.
+ * spent) and the budget of some roles: how a squad that ran out goes on. A USD squad raises
+ * `budgetUsd`; a plan squad its share, `maxPercent`.
  */
 export const SquadResumeParams = SquadRef.extend({
   budgetUsd: z.number().positive().max(1_000).optional(),
+  maxPercent: z.number().min(1).max(100).optional(),
   roleBudgets: z.record(z.string(), z.number().positive().max(500)).optional(),
 });
 export const SquadDeliverParams = SquadRef.extend({ mode: DeliverMode });
 export const SquadDeliverResult = z.object({ ref: z.string() });
+
+/**
+ * Asks the engine to read plan usage again through a session that is already running (a
+ * chat or a squad's). It never starts one, and reads at most every so often; the values
+ * arrive as `usage.limits` events.
+ */
+export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
 /**
  * Every method's params and result, in one place. The engine's router validates with
@@ -193,6 +225,7 @@ export const RpcContract = {
   "squad.task.skip": { params: SquadTaskRef, result: OkResult },
   "squad.task.reassign": { params: SquadReassignParams, result: OkResult },
   "squad.deliver": { params: SquadDeliverParams, result: SquadDeliverResult },
+  "usage.refresh": { params: UsageRefreshParams, result: OkResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;
