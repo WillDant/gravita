@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { type GravitaEvent, keys, MAIN_AGENT } from "@gravita/protocol";
-import { inputPreview, preview, toolKind, toolTarget } from "../tools";
+import { inputPreview, preview, toolTarget } from "@gravita/protocol/tools";
+import { toolKind } from "../tools";
 import { AGENT_ID, type ContentBlock, parseTaskNotification, type RawRecord } from "./records";
 
 export interface FileContext {

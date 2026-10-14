@@ -78,7 +78,7 @@ describe("control slice", () => {
     gateway.failures.models = err({ code: -2, message: "timeout" });
     store.getState().loadModels();
     await flush();
-    expect(store.getState().modelsStatus).toBe("failed");
+    expect(store.getState().modelsStatus.claude).toBe("failed");
 
     delete gateway.failures.models;
     store.getState().loadModels();
@@ -87,7 +87,8 @@ describe("control slice", () => {
     store.getState().loadModels();
 
     expect(gateway.callsOf("models")).toHaveLength(2);
-    expect(store.getState().modelsStatus).toBe("ready");
-    expect(store.getState().models.map((m) => m.value)).toEqual(["default", "opus"]);
+    expect(gateway.callsOf("models")[0]).toEqual({ provider: "claude" });
+    expect(store.getState().modelsStatus.claude).toBe("ready");
+    expect(store.getState().models.claude?.map((m) => m.value)).toEqual(["default", "opus"]);
   });
 });

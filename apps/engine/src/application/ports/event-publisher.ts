@@ -1,4 +1,10 @@
-import type { EngineStatus, EventsNotification, GravitaEvent } from "@gravita/protocol";
+import type {
+  AgentProvider,
+  EngineStatus,
+  EventsNotification,
+  GravitaEvent,
+  ProviderStatus,
+} from "@gravita/protocol";
 
 /** Sends newly applied events to whoever listens (batched by the implementation). */
 export interface EventPublisher {
@@ -9,7 +15,12 @@ export interface EventPublisher {
 /** The engine's status (CLI detection, indexing progress), broadcast when it changes. */
 export interface StatusReporter {
   status(): EngineStatus;
-  updateStatus(patch: Partial<EngineStatus>): void;
+  /** Patches the engine-wide fields; providers change through `updateProvider`. */
+  updateStatus(patch: Partial<Omit<EngineStatus, "providers" | "claude">>): void;
+  /** Merges `patch` into one provider's status (and its deprecated alias, for Claude). */
+  updateProvider(provider: AgentProvider, patch: Partial<ProviderStatus>): void;
+  /** One provider's status, or undefined when it hasn't been detected. */
+  providerStatus(provider: AgentProvider): ProviderStatus | undefined;
 }
 
 export interface EngineListener {

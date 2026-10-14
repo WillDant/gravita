@@ -1,4 +1,11 @@
-import { RpcContract, RpcErrors, type RpcMethod, type RpcResult } from "@gravita/protocol";
+import {
+  DEFAULT_PROVIDER,
+  type ProviderErrorData,
+  RpcContract,
+  RpcErrors,
+  type RpcMethod,
+  type RpcResult,
+} from "@gravita/protocol";
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
@@ -18,15 +25,16 @@ import type { StopAgent } from "../../application/usecases/stop-agent";
 import type { StopAllSessions } from "../../application/usecases/stop-all-sessions";
 import {
   BypassLockedError,
-  ClaudeUnavailableError,
   DirtyWorktreeError,
   GhUnavailableError,
   InvalidAnswerError,
   InvalidCwdError,
+  InvalidSessionModeError,
   InvalidSquadPlanError,
   NotARepositoryError,
   NotControllableError,
   NotLoggedInError,
+  ProviderUnavailableError,
   SquadNotFoundError,
   SquadPhaseError,
   SquadsUnavailableError,
@@ -49,6 +57,8 @@ export type RpcHandlers = {
 export interface RpcError {
   code: number;
   message: string;
+  /** More about the error where its code defines it (`ProviderErrorData` for provider errors). */
+  data?: unknown;
 }
 
 export type RpcOutcome = { result: unknown } | { error: RpcError };
@@ -64,7 +74,7 @@ export interface RouterDeps {
   getEngineStatus: GetEngineStatus;
   getSessionEvents: GetSessionEvents;
   respondToPermission: RespondToPermission;
-  /** Absent in demo mode: there is no Claude Code to start. */
+  /** Absent in demo mode: there is no agent to start. */
   startChat?: StartChat;
   sendMessage: SendMessage;
   interruptSession: InterruptSession;
@@ -92,7 +102,8 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "session.events": (p) => d.getSessionEvents.execute(p.sessionId),
     "permission.respond": (p) => d.respondToPermission.execute(p),
     "session.start": (p) => {
-      if (!d.startChat) throw new ClaudeUnavailableError("not-found");
+      if (!d.startChat)
+        throw new ProviderUnavailableError(p.provider ?? DEFAULT_PROVIDER, "not-found");
       return d.startChat.execute(p);
     },
     "session.send": (p) => d.sendMessage.execute(p),
@@ -102,7 +113,9 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "session.setPermissionMode": (p) => d.setPermissionMode.execute(p),
     "question.answer": (p) => d.answerQuestion.execute(p),
     "session.conversation": (p) => d.getConversation.execute(p),
-    "claude.models": () => d.listModels.execute(),
+    "models.list": (p) => d.listModels.execute(p.provider),
+    // The alias older clients call: Claude Code's models.
+    "claude.models": () => d.listModels.execute("claude"),
     "engine.stopAll": () => d.stopAll.execute(),
     "squad.create": (p) => squads().create(p),
     "squad.plan": (p) => {
@@ -148,13 +161,22 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
 const isRouted = (handlers: RpcHandlers, method: string): method is RoutedMethod =>
   Object.hasOwn(handlers, method);
 
+/** A provider error: the neutral code and message, and which provider in `data`. */
+const providerError = (base: RpcError, provider: ProviderErrorData["provider"]): RpcError => ({
+  ...base,
+  data: { provider } satisfies ProviderErrorData,
+});
+
 /** Maps a failure of a use case to the error the client sees. */
 export function toRpcError(err: unknown, logger: Logger, method: string): RpcError {
   if (err instanceof NotControllableError) return RpcErrors.notControllable;
-  if (err instanceof ClaudeUnavailableError) return RpcErrors.claudeUnavailable;
+  if (err instanceof ProviderUnavailableError)
+    return providerError(RpcErrors.providerUnavailable, err.provider);
   if (err instanceof InvalidCwdError) return RpcErrors.invalidCwd;
   if (err instanceof TooManySessionsError) return RpcErrors.tooManySessions;
-  if (err instanceof NotLoggedInError) return RpcErrors.notLoggedIn;
+  if (err instanceof NotLoggedInError) return providerError(RpcErrors.notLoggedIn, err.provider);
+  if (err instanceof InvalidSessionModeError)
+    return { code: RpcErrors.badRequest.code, message: err.message };
   if (err instanceof InvalidAnswerError) return RpcErrors.badRequest;
   if (err instanceof SquadsUnavailableError)
     return { code: RpcErrors.squadPhase.code, message: err.message };

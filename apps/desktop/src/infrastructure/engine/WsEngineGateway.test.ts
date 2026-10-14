@@ -66,8 +66,9 @@ describe("WsEngineGateway errors", () => {
 
   it("resolves results of the new methods", async () => {
     const { gw, ws } = await online();
-    const models = gw.models();
-    ws.reply(ws.lastCall("claude.models").id, {
+    const models = gw.models({ provider: "claude" });
+    expect(ws.lastCall("models.list").params).toEqual({ provider: "claude" });
+    ws.reply(ws.lastCall("models.list").id, {
       result: { models: [{ value: "opus", displayName: "Opus" }] },
     });
     await expect(models).resolves.toEqual({ models: [{ value: "opus", displayName: "Opus" }] });

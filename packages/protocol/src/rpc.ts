@@ -1,12 +1,22 @@
 import { z } from "zod";
-import { GravitaEvent, PermissionModeSchema } from "./events";
+import { AgentProviderSchema, GravitaEvent, SessionModeSchema } from "./events";
 import { DeliverMode, SquadAutonomy, SquadModels, SquadPlan } from "./squad";
 
 // JSON-RPC 2.0 over one WebSocket between the UI and the engine.
 // Flow: connect → `auth` → `state.snapshot` → server pushes `events` batches.
 // The UI applies events with the same reducer the engine uses (@gravita/core).
 
-export { Methods, Notifications, RPC_VERSION, RpcErrors } from "./constants";
+export {
+  AGENT_PROVIDERS,
+  CLAUDE_MODES,
+  CODEX_MODES,
+  DEFAULT_PROVIDER,
+  Methods,
+  Notifications,
+  type ProviderErrorData,
+  RPC_VERSION,
+  RpcErrors,
+} from "./constants";
 
 export const AuthParams = z.object({ token: z.string(), rpcVersion: z.number() });
 export const AuthResult = z.object({ ok: z.literal(true), engineVersion: z.string() });
@@ -21,18 +31,33 @@ export const EventsNotification = z.object({
 });
 export type EventsNotification = z.infer<typeof EventsNotification>;
 
-export const ClaudeStatus = z.object({
+/** What the engine knows about one provider's CLI on this machine. */
+export const ProviderStatus = z.object({
   found: z.boolean(),
   path: z.string().optional(),
   version: z.string().optional(),
   /** True when the CLI is older than the minimum Gravita supports. */
   outdated: z.boolean().optional(),
-  /** False after Claude Code reported it isn't logged in; true after a successful turn. */
+  /** False after the CLI reported it isn't logged in; true after a successful turn. */
   loggedIn: z.boolean().optional(),
+  /** The account it runs on, when the provider tells (never credentials). */
+  account: z
+    .object({ planType: z.string().optional(), authMode: z.string().optional() })
+    .optional(),
 });
+export type ProviderStatus = z.infer<typeof ProviderStatus>;
+
+/** @deprecated Claude Code's status is `ProviderStatus` under `EngineStatus.providers.claude`. */
+export const ClaudeStatus = ProviderStatus;
 
 export const EngineStatus = z.object({
-  claude: ClaudeStatus,
+  /** Each detected provider's CLI; a provider the engine doesn't look for is absent. */
+  providers: z.object({ claude: ProviderStatus.optional(), codex: ProviderStatus.optional() }),
+  /**
+   * @deprecated Kept equal to `providers.claude` for one version, so an older UI still
+   * knows whether Claude Code is there. Read `providers` instead.
+   */
+  claude: ProviderStatus,
   indexing: z.object({ done: z.number(), total: z.number() }),
   demo: z.boolean(),
 });
@@ -58,14 +83,18 @@ const SessionRef = z.object({ sessionId: z.string() });
 export const SessionStartParams = z.object({
   cwd: z.string().min(1),
   prompt: z.string().min(1).max(32_000),
+  /** Which agent runs the session; Claude Code when absent. */
+  provider: AgentProviderSchema.optional(),
   model: z.string().optional(),
-  permissionMode: PermissionModeSchema.optional(),
+  /** In the provider's own terms; the engine refuses a mode of another provider. */
+  permissionMode: SessionModeSchema.optional(),
 });
 export const SessionStartResult = z.object({ sessionId: z.string(), projectId: z.string() });
 export const SessionSendParams = SessionRef.extend({ text: z.string().min(1).max(32_000) });
 export const AgentStopParams = SessionRef.extend({ agentId: z.string() });
 export const SetModelParams = SessionRef.extend({ model: z.string().min(1) });
-export const SetPermissionModeParams = SessionRef.extend({ mode: PermissionModeSchema });
+/** The mode is in the session's provider's terms; the engine refuses another provider's. */
+export const SetPermissionModeParams = SessionRef.extend({ mode: SessionModeSchema });
 export const QuestionAnswerParams = SessionRef.extend({
   agentId: z.string(),
   requestId: z.string(),
@@ -89,6 +118,7 @@ export const ConversationResult = z.object({ messages: z.array(ConversationMessa
 /** The kill switch: every session Gravita runs is stopped (its Claude Code process ends). */
 export const StopAllResult = z.object({ stopped: z.number().int().nonnegative() });
 
+export const ModelsListParams = z.object({ provider: AgentProviderSchema });
 export const ModelsResult = z.object({
   models: z.array(z.object({ value: z.string(), displayName: z.string() })),
 });
@@ -146,6 +176,9 @@ export const RpcContract = {
   "session.setPermissionMode": { params: SetPermissionModeParams, result: OkResult },
   "question.answer": { params: QuestionAnswerParams, result: OkResult },
   "session.conversation": { params: SessionRef, result: ConversationResult },
+  /** The models a provider offers (asked of a live session, else its known aliases). */
+  "models.list": { params: ModelsListParams, result: ModelsResult },
+  /** @deprecated `models.list` with `{ provider: "claude" }`; kept for older clients. */
   "claude.models": { params: z.object({}).optional(), result: ModelsResult },
   "engine.stopAll": { params: z.object({}).optional(), result: StopAllResult },
   "squad.create": { params: SquadCreateParams, result: SquadCreateResult },
@@ -177,7 +210,8 @@ export interface RpcResponse {
   jsonrpc: "2.0";
   id: number;
   result?: unknown;
-  error?: { code: number; message: string };
+  /** `data` says more where the error defines it (e.g. `ProviderErrorData`). */
+  error?: { code: number; message: string; data?: unknown };
 }
 
 export interface RpcNotification {

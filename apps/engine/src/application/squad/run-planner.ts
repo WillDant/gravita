@@ -1,16 +1,12 @@
 import { pickModel, type SquadState, validatePlan } from "@gravita/core";
 import { SquadPlan, squadPlanJsonSchema } from "@gravita/protocol";
 import {
-  PLANNER_DISALLOWED_TOOLS,
-  PLANNER_TOOLS,
-  plannerPermission,
-} from "../../domain/autonomy-policy";
-import {
   MAX_PLAN_ATTEMPTS,
   PLANNER_MAX_TURNS,
   PLANNER_ROLE_ID,
+  SQUAD_PROVIDER,
   STOP_GRACE_MS,
-  squadEnv,
+  squadSubagents,
 } from "../../domain/squad-policy";
 import type { TurnOutcome } from "../ports/chat-runtime";
 import type { SquadReader } from "../ports/squad-reader";
@@ -26,7 +22,7 @@ import type { SquadEmitter } from "./squad-emitter";
 import type { SquadRun } from "./squad-run";
 import type { SquadSessions } from "./squad-sessions";
 
-// The planner: a read-only Claude Code session in the user's repository that answers with a
+// The planner: a read-only agent session in the user's repository that answers with a
 // SquadPlan as structured output. It resumes the briefing conversation when it can (so it
 // keeps what the user told it), else it starts afresh with the brief and a summary of that
 // conversation. Gravita checks the shape (zod) and the meaning (validatePlan); a plan with
@@ -97,20 +93,19 @@ export class RunPlanner {
       cwd,
       // Resuming the briefing may switch models (Sonnet talked, Opus plans): the model is
       // passed on resume too, and Claude Code continues the transcript on it.
+      provider: SQUAD_PROVIDER,
       model: pickModel({ models: q.models, phase: "planning" }),
-      env: squadEnv(q.models),
+      subagents: squadSubagents(q.models),
       permissionMode: "dontAsk",
+      access: "read-only",
       prompt: resume
         ? resumedPlannerPrompt(q, p.feedback)
         : plannerPrompt(q, p.feedback, p.briefing),
       ...(resume ? { resumeSessionId: resume } : {}),
       systemPromptAppend: PLANNER_CHARTER,
-      tools: [...PLANNER_TOOLS],
-      disallowedTools: [...PLANNER_DISALLOWED_TOOLS],
       outputSchema: squadPlanJsonSchema(),
       maxTurns: PLANNER_MAX_TURNS,
       maxBudgetUsd: this.d.budget.forPlanner(q, resume),
-      permissionPolicy: (tool) => plannerPermission(tool),
     });
     run.planner = session;
     run.plannerSessionId = session.sessionId;

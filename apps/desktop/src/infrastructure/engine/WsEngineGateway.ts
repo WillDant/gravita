@@ -129,8 +129,8 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.sessionConversation, params);
   }
 
-  models(): Promise<RpcResult<"claude.models">> {
-    return this.call(Methods.claudeModels, {});
+  models(params: RpcParams<"models.list">): Promise<RpcResult<"models.list">> {
+    return this.call(Methods.modelsList, params);
   }
 
   stopAll(): Promise<RpcResult<"engine.stopAll">> {
@@ -252,7 +252,8 @@ export class WsEngineGateway implements EngineGateway {
       const p = this.pending.get(data.id);
       if (!p) return;
       this.pending.delete(data.id);
-      if (data.error) p.reject(new GatewayError(data.error.code, data.error.message));
+      if (data.error)
+        p.reject(new GatewayError(data.error.code, data.error.message, data.error.data));
       else p.resolve(data.result);
       return;
     }

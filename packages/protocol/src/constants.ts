@@ -2,6 +2,18 @@
 
 export const RPC_VERSION = 1;
 
+/** The coding agents Gravita observes and runs. Events also carry "gravita" and "fake". */
+export const AGENT_PROVIDERS = ["claude", "codex"] as const;
+export type AgentProvider = (typeof AGENT_PROVIDERS)[number];
+
+/** The provider of a session or a request that names none (everything before Codex). */
+export const DEFAULT_PROVIDER: AgentProvider = "claude";
+
+/** Claude Code's permission modes. */
+export const CLAUDE_MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
+/** Codex's session modes: ask before acting, write in the workspace, or full access. */
+export const CODEX_MODES = ["ask", "workspace", "fullAccess"] as const;
+
 export const Methods = {
   auth: "auth",
   snapshot: "state.snapshot",
@@ -16,6 +28,8 @@ export const Methods = {
   sessionSetPermissionMode: "session.setPermissionMode",
   questionAnswer: "question.answer",
   sessionConversation: "session.conversation",
+  modelsList: "models.list",
+  /** @deprecated Use `modelsList` with `{ provider: "claude" }`; kept for older clients. */
   claudeModels: "claude.models",
   stopAll: "engine.stopAll",
   squadCreate: "squad.create",
@@ -56,19 +70,37 @@ export const Notifications = {
   status: "engine.status",
 } as const;
 
+/**
+ * The JSON-RPC `data` of an error about one provider (`providerUnavailable`, `notLoggedIn`):
+ * the message is provider-neutral and the client words it for the provider named here.
+ */
+export interface ProviderErrorData {
+  provider: AgentProvider;
+}
+
+const providerUnavailable = { code: 4005, message: "The coding agent is not available" } as const;
+
 export const RpcErrors = {
   unauthorized: { code: 4001, message: "Unauthorized" },
   badRequest: { code: -32600, message: "Invalid request" },
   methodNotFound: { code: -32601, message: "Method not found" },
   /** The session runs outside Gravita (e.g. a terminal); answer it there. */
   notControllable: { code: 4004, message: "This session is not controlled by Gravita" },
-  /** Claude Code isn't installed, or is older than Gravita supports. */
-  claudeUnavailable: { code: 4005, message: "Claude Code is not available" },
+  /**
+   * The provider's CLI isn't installed, or is older than Gravita supports. `data` is
+   * `ProviderErrorData`.
+   */
+  providerUnavailable,
+  /** @deprecated The same error as `providerUnavailable` (one code for every provider). */
+  claudeUnavailable: providerUnavailable,
   /** The folder doesn't exist or isn't a directory. */
   invalidCwd: { code: 4006, message: "That folder doesn't exist" },
   tooManySessions: { code: 4007, message: "Too many sessions are running" },
-  /** Claude Code isn't logged in; the user runs /login in Claude Code itself. */
-  notLoggedIn: { code: 4008, message: "Claude Code is not logged in" },
+  /**
+   * The provider's CLI isn't logged in; the user logs in there (Gravita never does it for
+   * them). `data` is `ProviderErrorData`.
+   */
+  notLoggedIn: { code: 4008, message: "The coding agent is not logged in" },
   squadNotFound: { code: 4009, message: "No such squad" },
   /** The plan breaks a rule (overlapping ownership, a task writing outside its role…). */
   invalidPlan: { code: 4010, message: "The plan is not valid" },

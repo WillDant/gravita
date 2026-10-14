@@ -1,4 +1,18 @@
 import type { ToolKind } from "@gravita/protocol";
+import type { GuardedCall, GuardedKind } from "@gravita/protocol/tools";
+
+// Claude Code's tool names, and what they mean to Gravita: the kind a `tool.started`
+// event shows, and the provider-neutral `GuardedCall` the engine's guards judge.
+
+// The provider-neutral helpers live in @gravita/protocol/tools; re-exported for callers
+// that already import them from here.
+export {
+  inputPreview,
+  PREVIEW_CHARS,
+  preview,
+  type ToolTarget,
+  toolTarget,
+} from "@gravita/protocol/tools";
 
 const KIND_BY_NAME: Record<string, ToolKind> = {
   Read: "read",
@@ -36,45 +50,74 @@ export function toolKind(name: string): ToolKind {
   return KIND_BY_NAME[name] ?? "other";
 }
 
-type Input = Record<string, unknown>;
+/** Claude Code's question tool: its prompts are always the user's to answer. */
+export const ASK_USER_QUESTION = "AskUserQuestion";
 
-const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+/** The role tools Gravita serves itself, as Claude Code names them. */
+export const GRAVITA_TOOL_PREFIX = "mcp__gravita__";
 
-export interface ToolTarget {
-  path?: string;
-  cmd?: string;
-  url?: string;
-  query?: string;
-  agentType?: string;
+/** Tools that only read, or only organise the agent's own work. */
+export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  "Read",
+  "Grep",
+  "Glob",
+  "LS",
+  "NotebookRead",
+  "TodoWrite",
+  "ToolSearch",
+  "BashOutput",
+  "TaskOutput",
+  "ListMcpResourcesTool",
+  "ReadMcpResourceTool",
+  // Subagents: each of their tool calls is judged on its own.
+  "Agent",
+  "Task",
+]);
+
+/** Tools that write files. */
+export const EDIT_TOOLS: ReadonlySet<string> = new Set([
+  "Edit",
+  "Write",
+  "MultiEdit",
+  "NotebookEdit",
+]);
+
+const WEB_TOOLS: ReadonlySet<string> = new Set(["WebFetch", "WebSearch"]);
+
+function guardedKind(toolName: string): GuardedKind {
+  if (toolName.startsWith(GRAVITA_TOOL_PREFIX)) return "gravita";
+  if (toolName === ASK_USER_QUESTION) return "ask";
+  if (READ_ONLY_TOOLS.has(toolName)) return "read";
+  if (EDIT_TOOLS.has(toolName)) return "edit";
+  if (WEB_TOOLS.has(toolName)) return "web";
+  if (toolName === "Bash") return "shell";
+  return "other";
 }
 
-export function toolTarget(input: Input): ToolTarget {
-  const target: ToolTarget = {};
-  const path = str(input.file_path) ?? str(input.notebook_path) ?? str(input.path);
-  if (path) target.path = path;
-  const cmd = str(input.command);
-  if (cmd) target.cmd = cmd;
-  const url = str(input.url);
-  if (url) target.url = url;
-  const query = str(input.query) ?? str(input.pattern);
-  if (query) target.query = query;
-  const agentType = str(input.subagent_type);
-  if (agentType) target.agentType = agentType;
-  return target;
+/** The file a Claude Code tool input names, if any. */
+function filePath(input: Record<string, unknown>): string | undefined {
+  for (const key of ["file_path", "notebook_path", "path"]) {
+    const v = input[key];
+    if (typeof v === "string" && v) return v;
+  }
+  return undefined;
 }
 
-export const PREVIEW_CHARS = 240;
-
-export function preview(text: string, max = PREVIEW_CHARS): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
-}
-
-/** Short human-readable summary of a tool input, preferring the agent's own description. */
-export function inputPreview(input: Input): string {
-  const t = toolTarget(input);
-  const parts = [str(input.description), t.cmd, t.path, t.url, t.query, str(input.prompt)].filter(
-    (p): p is string => Boolean(p),
-  );
-  return preview(parts[0] ?? JSON.stringify(input));
+/** A Claude Code tool call as the engine's guards judge it. */
+export function claudeToolCall(
+  toolName: string,
+  input: Record<string, unknown>,
+  context: { agentId?: string; cwd?: string } = {},
+): GuardedCall {
+  const kind = guardedKind(toolName);
+  const path = kind === "edit" || kind === "read" ? filePath(input) : undefined;
+  const command = kind === "shell" && typeof input.command === "string" ? input.command : undefined;
+  return {
+    kind,
+    paths: path === undefined ? [] : [path],
+    ...(command !== undefined ? { command } : {}),
+    tool: toolName,
+    ...(context.agentId ? { agentId: context.agentId } : {}),
+    ...(context.cwd ? { cwd: context.cwd } : {}),
+  };
 }

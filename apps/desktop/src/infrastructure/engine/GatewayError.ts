@@ -1,4 +1,4 @@
-import { RpcErrors } from "@gravita/protocol/constants";
+import { AGENT_PROVIDERS, type AgentProvider, RpcErrors } from "@gravita/protocol/constants";
 
 /** Codes for failures that never reached the engine (no JSON-RPC error code exists). */
 export const LocalErrors = {
@@ -14,11 +14,23 @@ export const LocalErrors = {
  */
 export class GatewayError extends Error {
   readonly code: number;
+  /** The JSON-RPC error's `data`, when the engine sent some. */
+  readonly data: unknown;
 
-  constructor(code: number, message: string) {
+  constructor(code: number, message: string, data?: unknown) {
     super(message);
     this.name = "GatewayError";
     this.code = code;
+    this.data = data;
+  }
+
+  /**
+   * The provider a provider error is about (`data.provider`); Claude Code when the engine
+   * didn't say (engines from before Codex support only ran Claude Code).
+   */
+  get provider(): AgentProvider {
+    const p = (this.data as { provider?: unknown } | undefined)?.provider;
+    return AGENT_PROVIDERS.find((known) => known === p) ?? "claude";
   }
 }
 
@@ -31,7 +43,7 @@ export function toGatewayError(e: unknown): GatewayError {
 /** The error codes the UI explains in its own words; anything else shows a generic line. */
 export const KnownErrors = {
   notControllable: RpcErrors.notControllable.code,
-  claudeUnavailable: RpcErrors.claudeUnavailable.code,
+  providerUnavailable: RpcErrors.providerUnavailable.code,
   invalidCwd: RpcErrors.invalidCwd.code,
   tooManySessions: RpcErrors.tooManySessions.code,
   notLoggedIn: RpcErrors.notLoggedIn.code,

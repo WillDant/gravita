@@ -1,3 +1,4 @@
+import { type AgentProvider, DEFAULT_PROVIDER } from "@gravita/protocol";
 import type { Clock } from "../ports/clock";
 import type { Logger } from "../ports/logger";
 import type { ModelOption, SessionRuntimeRegistry } from "../ports/session-runtime";
@@ -10,35 +11,46 @@ export const FALLBACK_MODELS: readonly ModelOption[] = [
   { value: "haiku", displayName: "Haiku" },
 ];
 
+/** What each provider offers before a live session can tell (none known: an empty list). */
+export const DEFAULT_FALLBACKS: Readonly<Partial<Record<AgentProvider, readonly ModelOption[]>>> = {
+  claude: FALLBACK_MODELS,
+};
+
 const ASK_TIMEOUT_MS = 3_000;
 
 /**
- * The models the user's Claude Code offers, asked of a live session; the last answer is
- * remembered, and the aliases stand in until there is one.
+ * The models a provider offers, asked of a live session of that provider; the last answer
+ * per provider is remembered, and the provider's fallbacks stand in until there is one.
  */
 export class ListModels {
-  private known: ModelOption[] | undefined;
+  private readonly known = new Map<AgentProvider, ModelOption[]>();
 
   constructor(
     private readonly runtimes: SessionRuntimeRegistry,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    private readonly fallbacks: Readonly<
+      Partial<Record<AgentProvider, readonly ModelOption[]>>
+    > = DEFAULT_FALLBACKS,
   ) {}
 
-  async execute(): Promise<{ models: ModelOption[] }> {
+  async execute(provider: AgentProvider = DEFAULT_PROVIDER): Promise<{ models: ModelOption[] }> {
     for (const runtime of this.runtimes.all()) {
-      if (!runtime.supportedModels) continue;
+      if (runtime.provider !== provider || !runtime.supportedModels) continue;
       try {
         const models = await this.withTimeout(runtime.supportedModels());
         if (models?.length) {
-          this.known = models.map((m) => ({ value: m.value, displayName: m.displayName }));
+          this.known.set(
+            provider,
+            models.map((m) => ({ value: m.value, displayName: m.displayName })),
+          );
           break;
         }
       } catch (err) {
         this.logger.log("listing models failed", err);
       }
     }
-    return { models: this.known ?? [...FALLBACK_MODELS] };
+    return { models: this.known.get(provider) ?? [...(this.fallbacks[provider] ?? [])] };
   }
 
   private withTimeout<T>(p: Promise<T>): Promise<T | undefined> {

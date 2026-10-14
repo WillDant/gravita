@@ -17,7 +17,20 @@ export type {
   SdkResultMessage,
   SdkSystemMessage,
 } from "./sdk/messages";
-export { inputPreview, isAgentTool, preview, toolKind, toolTarget } from "./tools";
+export {
+  ASK_USER_QUESTION,
+  claudeToolCall,
+  EDIT_TOOLS,
+  GRAVITA_TOOL_PREFIX,
+  inputPreview,
+  isAgentTool,
+  PREVIEW_CHARS,
+  preview,
+  READ_ONLY_TOOLS,
+  type ToolTarget,
+  toolKind,
+  toolTarget,
+} from "./tools";
 export { conversationOf } from "./transcript/conversation";
 export { nodeTranscriptFs, type TranscriptFs, type TranscriptStat } from "./transcript/fs";
 export { readSessionHead, type SessionHead } from "./transcript/head";

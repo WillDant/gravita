@@ -41,7 +41,8 @@ export interface EngineGateway {
   conversation(
     params: RpcParams<"session.conversation">,
   ): Promise<RpcResult<"session.conversation">>;
-  models(): Promise<RpcResult<"claude.models">>;
+  /** The models a provider offers (`models.list`). */
+  models(params: RpcParams<"models.list">): Promise<RpcResult<"models.list">>;
   /** The kill switch: stops every session Gravita runs (the tray calls it over HTTP too). */
   stopAll(): Promise<RpcResult<"engine.stopAll">>;
 

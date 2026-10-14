@@ -1,3 +1,5 @@
+import type { AgentProvider } from "@gravita/protocol";
+
 /** The session runs outside Gravita (e.g. a terminal), or its request can't be answered here. */
 export class NotControllableError extends Error {
   constructor(readonly sessionId: string) {
@@ -6,11 +8,16 @@ export class NotControllableError extends Error {
   }
 }
 
-/** Claude Code isn't installed, wasn't found, or is older than Gravita supports. */
-export class ClaudeUnavailableError extends Error {
-  constructor(readonly reason: "not-found" | "outdated") {
-    super(reason === "outdated" ? "Claude Code is outdated" : "Claude Code was not found");
-    this.name = "ClaudeUnavailableError";
+/** A provider's CLI isn't installed, wasn't found, or is older than Gravita supports. */
+export class ProviderUnavailableError extends Error {
+  constructor(
+    readonly provider: AgentProvider,
+    readonly reason: "not-found" | "outdated",
+  ) {
+    super(
+      `${provider === "codex" ? "Codex" : "Claude Code"} ${reason === "outdated" ? "is outdated" : "was not found"}`,
+    );
+    this.name = "ProviderUnavailableError";
   }
 }
 
@@ -30,11 +37,25 @@ export class TooManySessionsError extends Error {
   }
 }
 
-/** Claude Code reported it isn't logged in; the user runs /login in Claude Code itself. */
+/** A provider's CLI reported it isn't logged in; the user logs in there, never through Gravita. */
 export class NotLoggedInError extends Error {
-  constructor(readonly sessionId?: string) {
-    super("Claude Code is not logged in");
+  constructor(
+    readonly provider: AgentProvider,
+    readonly sessionId?: string,
+  ) {
+    super(`${provider === "codex" ? "Codex" : "Claude Code"} is not logged in`);
     this.name = "NotLoggedInError";
+  }
+}
+
+/** A session mode of another provider (a Codex mode for a Claude Code session, or back). */
+export class InvalidSessionModeError extends Error {
+  constructor(
+    readonly provider: AgentProvider,
+    readonly mode: string,
+  ) {
+    super(`${mode} is not a mode of ${provider} sessions`);
+    this.name = "InvalidSessionModeError";
   }
 }
 

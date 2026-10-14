@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./ids": "./src/ids.ts",
-    "./constants": "./src/constants.ts"
+    "./constants": "./src/constants.ts",
+    "./tools": "./src/tools.ts",
+    "./input-key": "./src/input-key.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

@@ -130,15 +130,16 @@ export class SquadDesk implements RoleToolHost {
 
   progress(b: RoleBinding, text: string): ToolReply {
     const live = this.d.attempt(b);
-    const sessionId = live?.session?.sessionId;
-    if (!live || !sessionId) return ok("Noted.");
+    const session = live?.session;
+    if (!live || !session?.sessionId) return ok("Noted.");
+    const { sessionId, runtime } = session;
     live.progressCount++;
     this.d.ingest.execute([
       {
         key: keys.roleProgress(b.squadId, b.taskId, b.attempt, live.progressCount),
         ts: this.d.clock.iso(),
         source: "gravita",
-        provider: "claude",
+        provider: runtime.provider,
         projectId: live.projectId,
         sessionId,
         agentId: MAIN_AGENT,

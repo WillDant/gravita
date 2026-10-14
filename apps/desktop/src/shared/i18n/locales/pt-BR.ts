@@ -249,6 +249,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "error.tooManySessions":
     "Há sessões demais rodando. Espere uma terminar ou interrompa uma, e tente de novo.",
   "error.notLoggedIn": "O Claude Code não está logado.",
+  "error.codexUnavailable": "O Codex não está disponível neste Mac.",
+  "error.codexNotLoggedIn": "O Codex não está logado.",
   "error.offline": "O motor do Gravita não está conectado. Tente de novo quando ele voltar.",
   "error.timeout": "O motor não respondeu a tempo. Tente de novo.",
   "error.generic": "Algo deu errado: {message}",

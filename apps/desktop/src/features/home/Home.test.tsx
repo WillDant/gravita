@@ -64,6 +64,7 @@ describe("Home: needs you", () => {
     const { store } = renderWithApp(<Home />, { state });
     act(() =>
       store.getState().setEngineStatus({
+        providers: { claude: { found: false } },
         claude: { found: false },
         indexing: { done: 0, total: 0 },
         demo: false,
@@ -72,6 +73,7 @@ describe("Home: needs you", () => {
     expect(screen.getByRole("heading", { name: "Connect Claude Code" })).toBeTruthy();
     act(() =>
       store.getState().setEngineStatus({
+        providers: { claude: { found: false } },
         claude: { found: false },
         indexing: { done: 0, total: 0 },
         demo: true,

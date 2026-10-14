@@ -1,4 +1,10 @@
-import type { EngineStatus, EventsNotification, GravitaEvent } from "@gravita/protocol";
+import type {
+  AgentProvider,
+  EngineStatus,
+  EventsNotification,
+  GravitaEvent,
+  ProviderStatus,
+} from "@gravita/protocol";
 import type { Clock } from "../ports/clock";
 import type {
   EngineFeed,
@@ -9,6 +15,27 @@ import type {
 
 /** Batching window for `events` notifications (~30 fps). */
 export const FLUSH_MS = 33;
+
+/** Claude Code's status before detection says otherwise. */
+const CLAUDE_UNKNOWN: ProviderStatus = { found: false };
+
+/**
+ * The engine's first status. Providers may be given either way: under `providers`, or (as
+ * before providers existed) as `claude` alone.
+ */
+export type InitialStatus = Omit<EngineStatus, "providers" | "claude"> & {
+  providers?: EngineStatus["providers"];
+  claude?: ProviderStatus;
+};
+
+/**
+ * A status whose deprecated `claude` alias equals `providers.claude`, so a UI that predates
+ * providers keeps reading Claude Code's status where it always did.
+ */
+export function withClaudeAlias(s: InitialStatus): EngineStatus {
+  const claude = s.providers?.claude ?? s.claude ?? CLAUDE_UNKNOWN;
+  return { ...s, providers: { ...s.providers, claude }, claude };
+}
 
 /**
  * Batches applied events into `events` notifications and broadcasts status changes,
@@ -25,10 +52,10 @@ export class EventBroadcaster implements EventPublisher, StatusReporter, EngineF
 
   constructor(
     private readonly clock: Clock,
-    initial: EngineStatus,
+    initial: InitialStatus,
   ) {
-    this.current = initial;
-    this.lastStatusJson = JSON.stringify(initial);
+    this.current = withClaudeAlias(initial);
+    this.lastStatusJson = JSON.stringify(this.current);
   }
 
   publish(events: readonly GravitaEvent[], seq: number) {
@@ -42,10 +69,22 @@ export class EventBroadcaster implements EventPublisher, StatusReporter, EngineF
     return this.current;
   }
 
-  updateStatus(patch: Partial<EngineStatus>) {
+  updateStatus(patch: Partial<Omit<EngineStatus, "providers" | "claude">>) {
     this.current = { ...this.current, ...patch };
     this.statusDirty = true;
     this.schedule();
+  }
+
+  updateProvider(provider: AgentProvider, patch: Partial<ProviderStatus>) {
+    const before = this.current.providers[provider] ?? { found: false };
+    const providers = { ...this.current.providers, [provider]: { ...before, ...patch } };
+    this.current = withClaudeAlias({ ...this.current, providers });
+    this.statusDirty = true;
+    this.schedule();
+  }
+
+  providerStatus(provider: AgentProvider): ProviderStatus | undefined {
+    return this.current.providers[provider];
   }
 
   listen(l: EngineListener): () => void {

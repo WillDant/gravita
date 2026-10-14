@@ -5,6 +5,7 @@ import {
   type McpSdkServerConfigWithInstance,
   tool,
 } from "@anthropic-ai/claude-agent-sdk";
+import { claudeToolCall, EDIT_TOOLS } from "@gravita/adapter-claude";
 import type { RoleTool, ToolGuard, ToolReply } from "../../../application/ports/chat-runtime";
 
 // The SDK side of a squad session's extras: role tools become an in-process MCP server and
@@ -49,8 +50,11 @@ export function buildGravitaMcpServer(
   });
 }
 
-/** Tools whose calls the guard judges. Everything else passes the hook untouched. */
-export const GUARDED_TOOLS = "Edit|Write|MultiEdit|NotebookEdit|Bash";
+/**
+ * Claude Code's tools whose calls the guard judges (the ones that edit files, and Bash).
+ * Everything else passes the hook untouched.
+ */
+export const GUARDED_TOOLS = [...EDIT_TOOLS, "Bash"].join("|");
 
 /**
  * The guard as a PreToolUse hook. Hooks run before the permission callback and a deny
@@ -70,12 +74,12 @@ export function guardHooks(
             input.tool_input && typeof input.tool_input === "object"
               ? (input.tool_input as Record<string, unknown>)
               : {};
-          const reason = guard({
-            toolName: input.tool_name,
-            input: toolInput,
-            ...(input.agent_id ? { agentId: input.agent_id } : {}),
-            ...(input.cwd ? { cwd: input.cwd } : {}),
-          });
+          const reason = guard(
+            claudeToolCall(input.tool_name, toolInput, {
+              ...(input.agent_id ? { agentId: input.agent_id } : {}),
+              ...(input.cwd ? { cwd: input.cwd } : {}),
+            }),
+          );
           if (reason === undefined) return { continue: true };
           onDeny(input.tool_name, reason, input.agent_id);
           return {

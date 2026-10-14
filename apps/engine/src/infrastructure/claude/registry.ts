@@ -6,6 +6,7 @@ import type { Logger } from "../../application/ports/logger";
 import type { ProjectionReader } from "../../application/ports/projection-reader";
 import type { AnnounceProject } from "../../application/usecases/announce-project";
 import type { IngestEvents } from "../../application/usecases/ingest-events";
+import { CLAUDE } from "./provider";
 
 // Live presence from <claudeHome>/sessions/<pid>.json. Only files named exactly
 // "<digits>.json" are ever opened: never *.key files, credentials or messaging sockets.
@@ -141,7 +142,7 @@ export class Registry {
         key: `presence:${sessionId}:${e.pid}:${e.status}:${nowMs}`,
         ts: now,
         source: "registry",
-        provider: "claude",
+        provider: CLAUDE,
         projectId,
         sessionId,
         type: "session.presence",
@@ -155,7 +156,7 @@ export class Registry {
         key: `detached:${sessionId}:${prev.pid}:${nowMs}`,
         ts: now,
         source: "registry",
-        provider: "claude",
+        provider: CLAUDE,
         projectId: prev.projectId,
         sessionId,
         type: "session.detached",

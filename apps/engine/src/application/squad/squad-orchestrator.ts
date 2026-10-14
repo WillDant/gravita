@@ -10,14 +10,19 @@ import {
   SquadWorkspaceError,
   TooManySquadsError,
 } from "../../domain/errors";
-import { ACTIVE_PHASES, MAX_RUNNING_SQUADS, squadModels } from "../../domain/squad-policy";
-import type { ClaudeEnvironmentSource } from "../ports/claude-environment";
+import {
+  ACTIVE_PHASES,
+  MAX_RUNNING_SQUADS,
+  SQUAD_PROVIDER,
+  squadModels,
+} from "../../domain/squad-policy";
 import type { Clock } from "../ports/clock";
 import type { GitWorkspace } from "../ports/git-workspace";
 import type { IdGenerator } from "../ports/id-generator";
 import type { Logger } from "../ports/logger";
 import type { SquadReader } from "../ports/squad-reader";
 import type { Workspace } from "../ports/workspace";
+import type { RuntimeFactoryRegistry } from "../services/runtime-factory-registry";
 import type { AnnounceProject } from "../usecases/announce-project";
 import type { CleanupSquadWorkspace } from "../usecases/cleanup-squad-workspace";
 import type { DeliverSquad } from "../usecases/deliver-squad";
@@ -46,7 +51,8 @@ export interface SquadOrchestratorDeps {
   cleanup: CleanupSquadWorkspace;
   projects: AnnounceProject;
   workspace: Workspace;
-  claude: ClaudeEnvironmentSource;
+  /** The providers squad sessions run on. */
+  providers: RuntimeFactoryRegistry;
   ids: IdGenerator;
   clock: Clock;
   logger: Logger;
@@ -65,8 +71,9 @@ export class SquadOrchestrator {
   async create(p: RpcParams<"squad.create">): Promise<{ squadId: string; projectId: string }> {
     this.assertCapacity();
     if (!(await this.d.workspace.isDirectory(p.cwd))) throw new InvalidCwdError(p.cwd);
-    // Before anything is spent: Claude Code must be there, and the folder fit for a squad.
-    await this.d.claude.load();
+    // Before anything is spent: the briefing's agent must be there, and the folder fit for
+    // a squad.
+    await this.d.providers.ready(SQUAD_PROVIDER);
     const baseBranch = await this.checkFolder(p.cwd);
     const project = await this.d.projects.execute(p.cwd, this.d.clock.iso());
     const squadId = this.newSquadId();

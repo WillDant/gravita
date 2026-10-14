@@ -1,19 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import type { AgentProvider, ProviderStatus } from "@gravita/protocol";
 import pkg from "../../package.json" with { type: "json" };
-import type { ClaudeEnvironmentSource } from "../application/ports/claude-environment";
+import type { AgentEnvironmentSource } from "../application/ports/agent-environment";
 import type { Clock } from "../application/ports/clock";
 import type { GitWorkspace, PullRequestHost } from "../application/ports/git-workspace";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
+import type { ProviderDetector } from "../application/ports/provider-detector";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
 import { HookIngest } from "../application/services/hook-ingest";
 import { MergeQueue } from "../application/services/merge-queue";
 import { ProjectionService } from "../application/services/projection-service";
+import { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
 import type { SquadOrchestrator } from "../application/squad/squad-orchestrator";
@@ -44,7 +48,7 @@ import { StopAllSessions } from "../application/usecases/stop-all-sessions";
 import { SyncRoleBranch } from "../application/usecases/sync-role-branch";
 import type { LockfileCommand } from "../domain/squad-workspace";
 import { BunCheckRunner } from "../infrastructure/checks/bun-check-runner";
-import { type ClaudeStatus, detectClaude } from "../infrastructure/claude/claude-cli-locator";
+import { ClaudeDetector } from "../infrastructure/claude/claude-cli-locator";
 import { DetectedClaudeEnvironment } from "../infrastructure/claude/claude-environment";
 import { ClaudeHookTranslator } from "../infrastructure/claude/claude-hook-translator";
 import { Registry } from "../infrastructure/claude/registry";
@@ -103,7 +107,8 @@ export const stderrLogger: Logger = new StderrLogger();
 
 /** What starting chat sessions needs (real mode only). */
 export interface ChatOptions {
-  environment: ClaudeEnvironmentSource;
+  /** Claude Code's environment (the only provider sessions run on so far). */
+  environment: AgentEnvironmentSource;
   /** The Agent SDK's `query`; tests inject a scripted one. */
   queryFn?: QueryFn;
   /** Log Claude Code's stderr. */
@@ -187,8 +192,10 @@ export interface CoreOptions {
   ids?: IdGenerator;
   projectDirectory?: ProjectDirectory;
   transcripts?: TranscriptReader;
-  /** Absent: `session.start` answers that Claude Code is unavailable (demo mode). */
+  /** Absent: `session.start` answers that the provider is unavailable (demo mode). */
   chat?: ChatOptions;
+  /** Where Codex keeps its sessions (`--codex-home`); nothing reads it yet. */
+  codexHome?: string;
   /** Absent: no squad toolkit (demo mode, most tests). */
   squad?: SquadOptions;
 }
@@ -212,6 +219,10 @@ export interface EngineCore {
   squad?: SquadToolkit;
   /** Runs squads (real mode with Claude Code); absent in the demo. */
   squads?: SquadOrchestrator;
+  /** The providers sessions run on (real mode); absent in the demo. */
+  providers?: RuntimeFactoryRegistry;
+  /** Where each provider keeps its files, for the sources that read them. */
+  homes: { codex: string };
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
   disposeRuntimes(capMs?: number): Promise<void>;
   close(): void;
@@ -227,7 +238,7 @@ export function createCore(o: CoreOptions): EngineCore {
   const projection = new ProjectionService();
   projection.hydrate(events.allEvents(), events.maxSeq());
   const broadcaster = new EventBroadcaster(clock, {
-    claude: { found: false },
+    providers: { claude: { found: false } },
     indexing: { done: 0, total: 0 },
     demo: o.demo,
   });
@@ -252,10 +263,11 @@ export function createCore(o: CoreOptions): EngineCore {
 
   let startChat: StartChat | undefined;
   let squads: SquadOrchestrator | undefined;
+  let providers: RuntimeFactoryRegistry | undefined;
   const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
     const workspace = o.chat.workspace ?? new NodeWorkspace();
-    const factory = new ClaudeSdkRuntimeFactory({
+    const claude = new ClaudeSdkRuntimeFactory({
       ingest,
       runtimes,
       status: broadcaster,
@@ -265,11 +277,13 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(o.chat.queryFn ? { queryFn: o.chat.queryFn } : {}),
       ...(o.chat.debug ? { debug: true } : {}),
     });
+    providers = new RuntimeFactoryRegistry({
+      claude: { factory: claude, environment: o.chat.environment },
+    });
     if (squadKit)
       squads = createSquadOrchestrator({
         kit: squadKit,
-        factory,
-        claude: o.chat.environment,
+        providers,
         runtimes,
         ingest,
         projection,
@@ -285,8 +299,7 @@ export function createCore(o: CoreOptions): EngineCore {
       });
     startChat = new StartChat({
       workspace,
-      claude: o.chat.environment,
-      factory,
+      providers,
       runtimes,
       projects,
       ingest,
@@ -331,6 +344,8 @@ export function createCore(o: CoreOptions): EngineCore {
     router,
     ...(squadKit ? { squad: squadKit } : {}),
     ...(squads ? { squads } : {}),
+    ...(providers ? { providers } : {}),
+    homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       // First: a squad must not mistake shutdown for the kill switch and record a pause.
       squads?.close();
@@ -345,14 +360,16 @@ export function createCore(o: CoreOptions): EngineCore {
   };
 }
 
-export interface EngineOptions extends Omit<EngineArgs, "tokenStdin"> {
+export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHome"> {
   token: string;
+  /** `--codex-home`; `~/.codex` when absent. */
+  codexHome?: string;
   /** Tests pin it; otherwise 256 random bits per run. */
   hookToken?: string;
   /** Seed of the demo story. */
   demoSeed?: number;
   /** Tests replace it, so a real-mode engine doesn't look for the user's `claude`. */
-  detectClaude?: () => Promise<ClaudeStatus>;
+  detectClaude?: () => Promise<ProviderStatus>;
 }
 
 export interface RunningEngine {
@@ -378,15 +395,18 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     dbPath = join(opts.dataDir, "gravita.db");
   }
 
-  // Real mode: the CLI detection runs once at start; a session started before it finished
-  // waits for it. The login shell's environment is captured once and cached.
-  let detection: Promise<ClaudeStatus> | undefined;
+  // Real mode: each provider's CLI detection runs once at start; a session started before
+  // it finished waits for it. The login shell's environment is captured once and cached.
+  const detectors: ProviderDetector[] = [new ClaudeDetector(opts.detectClaude)];
+  const detections = new Map<AgentProvider, Promise<ProviderStatus>>();
+  const detected = (provider: AgentProvider) =>
+    detections.get(provider) ?? Promise.resolve<ProviderStatus>({ found: false });
   const shellEnv = new LoginShellEnv();
   const chat: ChatOptions | undefined = opts.demo
     ? undefined
     : {
         environment: new DetectedClaudeEnvironment(
-          () => detection ?? Promise.resolve({ found: false }),
+          () => detected("claude"),
           () => shellEnv.load(),
         ),
         debug: process.env.GRAVITA_DEBUG === "1",
@@ -395,6 +415,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   const core = createCore({
     dbPath,
     demo: opts.demo,
+    ...(opts.codexHome ? { codexHome: opts.codexHome } : {}),
     ...(chat ? { chat } : {}),
     ...(opts.demo
       ? {}
@@ -505,17 +526,24 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       () => tails.stop(),
       () => clearInterval(drainTimer),
     );
-    detection = (opts.detectClaude ?? detectClaude)()
-      .then((claude) => {
-        broadcaster.updateStatus({ claude });
-        // Warm the environment cache so the first session doesn't wait for the shell.
-        if (claude.found) shellEnv.load().catch(() => {});
-        return claude;
-      })
-      .catch((err): ClaudeStatus => {
-        logger.log("claude detection failed", err);
-        return { found: false };
-      });
+    for (const detector of detectors) {
+      const { provider } = detector;
+      detections.set(
+        provider,
+        detector
+          .detect()
+          .then((status) => {
+            broadcaster.updateProvider(provider, status);
+            // Warm the environment cache so the first session doesn't wait for the shell.
+            if (status.found) shellEnv.load().catch(() => {});
+            return status;
+          })
+          .catch((err): ProviderStatus => {
+            logger.log(`${provider} detection failed`, err);
+            return { found: false };
+          }),
+      );
+    }
   }
 
   let stopping: Promise<void> | undefined;

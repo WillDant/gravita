@@ -2,6 +2,16 @@
 
 All notable changes to Gravita. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Engine protocol
+- Groundwork for Codex support; nothing changes for Claude Code users.
+- `engine.status` reports each provider under `providers`; `claude` stays as a deprecated copy of `providers.claude` for one version.
+- `models.list {provider}` lists a provider's models; `claude.models` is a deprecated alias.
+- Errors 4005 (`providerUnavailable`, formerly `claudeUnavailable`) and 4008 (`notLoggedIn`) have provider-neutral messages and name the provider in `error.data`.
+- `session.start` takes an optional `provider` (Claude Code by default); session modes are in the provider's own terms.
+- The engine takes `--codex-home` (default `~/.codex`), not read yet.
+
 ## [0.2.0-beta] - 2026-10-13
 
 Squads: a team of role agents that builds from a goal you describe, with clear ownership, a budget and you in control.

@@ -1,14 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { claudeToolCall } from "@gravita/adapter-claude";
 import type { SquadAutonomy } from "@gravita/protocol";
 import {
   isNetworkCommand,
-  plannerPermission,
   rolePermission,
   rolePermissionMode,
 } from "../../src/domain/autonomy-policy";
 import { guardToolCall, type OwnershipScope } from "../../src/domain/ownership-guard";
 import { simpleCommands } from "../../src/domain/shell-command";
-import { plannerBudget, squadEnv, squadModels, taskBudget } from "../../src/domain/squad-policy";
+import { plannerBudget, squadModels, taskBudget } from "../../src/domain/squad-policy";
+import { plannerPermission } from "../../src/infrastructure/claude/sdk/claude-access";
+import { squadEnv } from "../../src/infrastructure/claude/sdk/claude-subagent-env";
 import { testPlan } from "../git-helpers";
 
 const WT = "/data/worktrees/p1/q1/frontend";
@@ -17,8 +19,9 @@ const scope: OwnershipScope = {
   roleId: "frontend",
   roots: [WT, `/private${WT}`],
 };
+// Claude Code's tool calls, through the Claude adapter to the provider-neutral guard.
 const guard = (toolName: string, input: Record<string, unknown>, more = {}) =>
-  guardToolCall(scope, { toolName, input, ...more });
+  guardToolCall(scope, claudeToolCall(toolName, input, more));
 
 describe("shell parsing", () => {
   test.each([
@@ -206,7 +209,7 @@ describe("autonomy policy", () => {
   for (const [tool, input, want] of cases)
     for (const autonomy of ["auto", "guarded", "ask"] as const)
       test(`${autonomy}: ${tool} ${JSON.stringify(input)} → ${want[autonomy]}`, () => {
-        expect(rolePermission(autonomy, tool, input)).toBe(want[autonomy] as never);
+        expect(rolePermission(autonomy, claudeToolCall(tool, input))).toBe(want[autonomy] as never);
       });
 
   test.each([

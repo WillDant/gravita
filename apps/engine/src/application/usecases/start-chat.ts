@@ -1,12 +1,23 @@
-import { keys, MAIN_AGENT, type PermissionMode } from "@gravita/protocol";
-import { canStartChat, countChats, MAX_CHAT_SESSIONS, previewText } from "../../domain/chat-policy";
-import { InvalidCwdError, TooManySessionsError } from "../../domain/errors";
-import type { ChatRuntimeFactory } from "../ports/chat-runtime";
-import type { ClaudeEnvironmentSource } from "../ports/claude-environment";
+import { DEFAULT_MODE, isModeOf } from "@gravita/core";
+import {
+  type AgentProvider,
+  DEFAULT_PROVIDER,
+  keys,
+  MAIN_AGENT,
+  type SessionMode,
+} from "@gravita/protocol";
+import { preview } from "@gravita/protocol/tools";
+import { canStartChat, countChats, MAX_CHAT_SESSIONS } from "../../domain/chat-policy";
+import {
+  InvalidCwdError,
+  InvalidSessionModeError,
+  TooManySessionsError,
+} from "../../domain/errors";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id-generator";
 import type { SessionRuntimeRegistry } from "../ports/session-runtime";
 import type { Workspace } from "../ports/workspace";
+import type { RuntimeFactoryRegistry } from "../services/runtime-factory-registry";
 import type { SessionSettingsRecorder } from "../services/session-settings";
 import type { AnnounceProject } from "./announce-project";
 import type { IngestEvents } from "./ingest-events";
@@ -14,14 +25,17 @@ import type { IngestEvents } from "./ingest-events";
 export interface StartChatParams {
   cwd: string;
   prompt: string;
+  /** Claude Code when absent. */
+  provider?: AgentProvider;
   model?: string;
-  permissionMode?: PermissionMode;
+  /** One of the provider's own modes; its default when absent. */
+  permissionMode?: SessionMode;
 }
 
 export interface StartChatDeps {
   workspace: Workspace;
-  claude: ClaudeEnvironmentSource;
-  factory: ChatRuntimeFactory;
+  /** The providers sessions can run on. */
+  providers: RuntimeFactoryRegistry;
   runtimes: SessionRuntimeRegistry;
   projects: AnnounceProject;
   ingest: IngestEvents;
@@ -32,20 +46,24 @@ export interface StartChatDeps {
 }
 
 /**
- * Starts a Claude Code session in a folder and sends its first message. The runtime is
- * registered before the first event, so the transcript tailer leaves the session to it
- * from the start; the first message's event and the message sent to Claude Code share
- * one uuid, so the transcript's copy of it is deduplicated.
+ * Starts a session of the chosen provider (Claude Code unless the request names another)
+ * in a folder and sends its first message. The runtime is registered before the first
+ * event, so the transcript tailer leaves the session to it from the start; the first
+ * message's event and the message sent to the agent share one uuid, so the transcript's
+ * copy of it is deduplicated.
  */
 export class StartChat {
   constructor(private readonly d: StartChatDeps) {}
 
   async execute(p: StartChatParams): Promise<{ sessionId: string; projectId: string }> {
+    const provider = p.provider ?? DEFAULT_PROVIDER;
+    if (p.permissionMode !== undefined && !isModeOf(provider, p.permissionMode))
+      throw new InvalidSessionModeError(provider, p.permissionMode);
     const limit = this.d.maxSessions ?? MAX_CHAT_SESSIONS;
     if (!canStartChat(countChats(this.d.runtimes.all()), limit))
       throw new TooManySessionsError(limit);
     if (!(await this.d.workspace.isDirectory(p.cwd))) throw new InvalidCwdError(p.cwd);
-    const environment = await this.d.claude.load();
+    const { factory, environment } = await this.d.providers.ready(provider);
     const ts = this.d.clock.iso();
     const project = await this.d.projects.execute(p.cwd, ts);
     // Checked again after the awaits: another start may have registered meanwhile.
@@ -54,10 +72,11 @@ export class StartChat {
 
     const sessionId = this.d.ids.uuid();
     const uuid = this.d.ids.uuid();
-    const permissionMode = p.permissionMode ?? "default";
-    const runtime = this.d.factory.create({
+    const permissionMode = p.permissionMode ?? DEFAULT_MODE[provider];
+    const runtime = factory.create({
       sessionId,
       projectId: project.id,
+      provider,
       cwd: p.cwd,
       ...(p.model ? { model: p.model } : {}),
       permissionMode,
@@ -68,7 +87,7 @@ export class StartChat {
       const base = {
         ts,
         source: "gravita" as const,
-        provider: "claude" as const,
+        provider,
         projectId: project.id,
         sessionId,
       };
@@ -87,7 +106,7 @@ export class StartChat {
         },
       ]);
       this.d.settings.record(
-        { sessionId, projectId: project.id, provider: "claude" },
+        { sessionId, projectId: project.id, provider },
         { ...(p.model ? { model: p.model } : {}), permissionMode },
       );
       this.d.ingest.execute([
@@ -96,7 +115,7 @@ export class StartChat {
           agentId: MAIN_AGENT,
           key: keys.userMessage(uuid),
           type: "message.user",
-          data: { uuid, textPreview: previewText(p.prompt), origin: "gravita" },
+          data: { uuid, textPreview: preview(p.prompt), origin: "gravita" },
         },
       ]);
       runtime.start();

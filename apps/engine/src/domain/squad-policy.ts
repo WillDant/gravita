@@ -1,5 +1,11 @@
-import { AUTO_MODELS, AUTO_SUBAGENT_MODEL, estimatePlanCost } from "@gravita/core";
-import type { SquadModels, SquadPhase, SquadPlan } from "@gravita/protocol";
+import { AUTO_MODELS, autoSubagentModel, estimatePlanCost } from "@gravita/core";
+import type {
+  AgentProvider,
+  PlanRole,
+  SquadModels,
+  SquadPhase,
+  SquadPlan,
+} from "@gravita/protocol";
 
 // The numbers that bound a squad: how much runs at once, how often Gravita retries on its
 // own, and how the budget is sliced. Squad sessions don't count against the chat limit.
@@ -41,21 +47,52 @@ export function squadModels(requested?: SquadModels): SquadModels {
   return { ...requested, mode: "fixed" };
 }
 
+/**
+ * The provider of squad sessions that name none: the briefing and the planner always, and
+ * every role until roles can pick theirs.
+ */
+export const SQUAD_PROVIDER: AgentProvider = "claude";
+
+/** The provider a role's sessions run on (the squad's default when the role names none). */
+export function roleProvider(
+  role: (Pick<PlanRole, "id"> & { provider?: AgentProvider }) | undefined,
+): AgentProvider {
+  return role?.provider ?? SQUAD_PROVIDER;
+}
+
+/**
+ * How a squad session's subagents run. Each runtime turns it into its own settings (Claude
+ * Code: environment variables); absent fields leave the agent's defaults alone.
+ */
+export interface SubagentPolicy {
+  /** The model of subagents whose definition names none. */
+  model?: string;
+  /** Subagents running at once. */
+  maxConcurrent?: number;
+  /** How deep subagents may spawn their own. */
+  maxDepth?: number;
+}
+
 /** Role sessions may fan out, but boundedly. */
-export const ROLE_ENV: Readonly<Record<string, string>> = {
-  CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: "4",
-  CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: "2",
+export const ROLE_SUBAGENT_LIMITS: Readonly<Required<Omit<SubagentPolicy, "model">>> = {
+  maxConcurrent: 4,
+  maxDepth: 2,
 };
 
 /**
- * Environment for every squad session (briefing, planner, roles). Under Automatic, subagents
- * run on Haiku: Claude Code reads CLAUDE_CODE_SUBAGENT_MODEL for any subagent whose
- * definition doesn't name a model (an explicit model on the Agent call or in an agent's
- * definition still wins, and Explore already runs on Haiku by default). Fixed models leave
- * Claude Code's defaults alone.
+ * Subagents of every squad session (briefing, planner, roles), plus the fan-out bounds of
+ * role sessions. Under Automatic they run on the cheapest tier: an explicit model on the
+ * call or in an agent's definition still wins. Fixed models leave the agent's defaults alone.
  */
-export function squadEnv(models: SquadModels): Record<string, string> {
-  return models.mode === "auto" ? { CLAUDE_CODE_SUBAGENT_MODEL: AUTO_SUBAGENT_MODEL } : {};
+export function squadSubagents(
+  models: SquadModels,
+  o: { role?: boolean; provider?: AgentProvider } = {},
+): SubagentPolicy {
+  const provider = o.provider ?? SQUAD_PROVIDER;
+  // A provider without a tier table (core's PROVIDER_MODELS) keeps its own subagent model.
+  const model =
+    models.mode === "auto" && provider === "claude" ? autoSubagentModel(provider) : undefined;
+  return { ...(o.role ? ROLE_SUBAGENT_LIMITS : {}), ...(model ? { model } : {}) };
 }
 
 /** Phases with work in flight; a squad in one of these counts as running. */

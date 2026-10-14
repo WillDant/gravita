@@ -118,7 +118,7 @@ export class HookIngest {
     const base = {
       ts,
       source: "hook" as const,
-      provider: "claude" as const,
+      provider: this.d.translator.provider,
       projectId: session.projectId,
       sessionId: m.sessionId,
     };

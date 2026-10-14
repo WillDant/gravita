@@ -1,8 +1,9 @@
 import type { GravitaState } from "@gravita/core";
-import type { GravitaEvent } from "@gravita/protocol";
+import type { EngineStatus, GravitaEvent, ProviderStatus } from "@gravita/protocol";
+import type { AgentProvider } from "@gravita/protocol/constants";
 import { createContext, useContext, useEffect } from "react";
 import { useStore } from "zustand";
-import type { ClaudeProblem } from "@/shared/presenters/errors";
+import type { ProviderProblem } from "@/shared/presenters/errors";
 import type { ModelOption } from "./slices/control";
 
 export type { CommandResult, ModelOption } from "./slices/control";
@@ -41,26 +42,47 @@ export function useSessionEvents(sessionId: string): GravitaEvent[] {
   return useAppStore((s) => (s.openSession?.id === sessionId ? s.openSession.events : NO_EVENTS));
 }
 
-/** Why Claude Code can't run sessions right now, if it can't (never in demo mode). */
-export function useClaudeProblem(): ClaudeProblem | undefined {
-  return useAppStore((s) => {
-    const status = s.engineStatus;
-    if (!status || status.demo) return undefined;
-    if (!status.claude.found) return "missing";
-    if (status.claude.outdated) return "outdated";
-    if (status.claude.loggedIn === false) return "loggedOut";
-    return undefined;
-  });
+/**
+ * One provider's status. An engine from before providers sends only `claude`, so Claude
+ * Code's status falls back to it.
+ */
+export function providerStatus(
+  status: EngineStatus,
+  provider: AgentProvider,
+): ProviderStatus | undefined {
+  return status.providers?.[provider] ?? (provider === "claude" ? status.claude : undefined);
 }
 
-/** Claude Code's models, loaded once on first use. */
-export function useModels(): ModelOption[] {
+/** Why a provider can't run sessions right now, if it can't (never in demo mode). */
+export function problemOf(
+  status: EngineStatus | undefined,
+  provider: AgentProvider,
+): ProviderProblem | undefined {
+  if (!status || status.demo) return undefined;
+  const p = providerStatus(status, provider);
+  if (!p?.found) return "missing";
+  if (p.outdated) return "outdated";
+  if (p.loggedIn === false) return "loggedOut";
+  return undefined;
+}
+
+/** Why `provider` (Claude Code by default) can't run sessions right now, if it can't. */
+export function useProviderProblem(
+  provider: AgentProvider = "claude",
+): ProviderProblem | undefined {
+  return useAppStore((s) => problemOf(s.engineStatus, provider));
+}
+
+const NO_MODELS: ModelOption[] = [];
+
+/** A provider's models (Claude Code's by default), loaded once on first use. */
+export function useModels(provider: AgentProvider = "claude"): ModelOption[] {
   const load = useAppStore((s) => s.loadModels);
   const connection = useConnection();
   useEffect(() => {
-    if (connection === "online") load();
-  }, [load, connection]);
-  return useAppStore((s) => s.models);
+    if (connection === "online") load(provider);
+  }, [load, connection, provider]);
+  return useAppStore((s) => s.models[provider] ?? NO_MODELS);
 }
 
 /** The full conversation of a session, loaded while the caller is mounted. */
