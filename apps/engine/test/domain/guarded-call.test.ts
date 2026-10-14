@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { claudeToolCall } from "@gravita/adapter-claude";
 import { codexToolCall } from "@gravita/adapter-codex";
+import { type AcpProtocol, cursorToolCall, cursorToolName } from "@gravita/adapter-cursor";
 import type { GuardedCall } from "@gravita/protocol/tools";
 import { rolePermission } from "../../src/domain/autonomy-policy";
 import { guardToolCall } from "../../src/domain/ownership-guard";
@@ -137,4 +138,37 @@ describe("guarded calls: Codex's adapter satisfies the table", () => {
     const script = codexToolCall("exec", "await tools.exec_command({ cmd: 'git push' })");
     expect(judge(script).permission).toEqual({ auto: "allow", guarded: "ask", ask: "ask" });
   });
+});
+
+const at = (path: string) => ({ locations: [{ path }] });
+
+/** Cursor's ACP tool call for each intent of the table. */
+const CURSOR_CALLS: Record<string, Omit<AcpProtocol.ToolCall, "toolCallId">> = {
+  "write a file it owns": { kind: "edit", ...at(`${WT}/apps/web/App.tsx`) },
+  "edit a file another role owns": { kind: "edit", ...at(`${WT}/apps/api/index.ts`) },
+  "edit a shared file": { kind: "edit", rawInput: { path: "package.json" } },
+  "edit a file outside the worktree": { kind: "delete", ...at("/etc/hosts") },
+  "read a file anywhere": { kind: "read", ...at("/etc/hosts") },
+  "run a local command": { kind: "execute", rawInput: { command: "pnpm test" } },
+  "install a package": { kind: "execute", title: "`pnpm add zod`" },
+  "commit with git": { kind: "execute", rawInput: { command: "git commit -m x" } },
+  "leave the worktree": { kind: "execute", rawInput: { command: "cd /tmp" } },
+  "fetch a web page": { kind: "fetch", rawInput: { url: "https://x.dev" } },
+  "ask the user a question": { kind: "other", rawInput: { _toolName: "askQuestion" } },
+  "call one of Gravita's role tools": { kind: "other", title: "gravita: complete_task" },
+  "call another server's tool": { kind: "other", title: "other: tool" },
+};
+
+describe("guarded calls: Cursor's adapter satisfies the table", () => {
+  test("every intent has a Cursor call", () => {
+    expect(Object.keys(CURSOR_CALLS).sort()).toEqual(GUARD_TABLE.map((c) => c.intent).sort());
+  });
+
+  for (const c of GUARD_TABLE)
+    test(c.intent, () => {
+      const acp = { toolCallId: "t1", ...CURSOR_CALLS[c.intent] };
+      const call = cursorToolCall(acp);
+      expect(call).toEqual({ ...c.call, tool: cursorToolName(acp) });
+      expectCase(c, call);
+    });
 });

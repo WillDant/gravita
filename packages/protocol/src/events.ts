@@ -3,6 +3,7 @@ import {
   AGENT_PROVIDERS,
   CLAUDE_MODES,
   CODEX_MODES,
+  CURSOR_MODES,
   USAGE_ACCOUNTS,
   USAGE_WINDOWS,
 } from "./constants";
@@ -33,11 +34,12 @@ export const EventSource = z.enum([
   "gravita",
   "codex-rpc",
   "codex-rollout",
+  "cursor-acp",
   "fake",
 ]);
 export type EventSource = z.infer<typeof EventSource>;
 
-export const ProviderSchema = z.enum(["claude", "codex", "gravita", "fake"]);
+export const ProviderSchema = z.enum(["claude", "codex", "cursor", "gravita", "fake"]);
 
 /** The providers whose agents Gravita runs and detects (a subset of `ProviderSchema`). */
 export const AgentProviderSchema = z.enum(AGENT_PROVIDERS);
@@ -287,14 +289,23 @@ export type PermissionMode = z.infer<typeof PermissionModeSchema>;
 export const CodexModeSchema = z.enum(CODEX_MODES);
 export type CodexMode = z.infer<typeof CodexModeSchema>;
 
+/** Cursor's session modes (core's `session-modes` maps them to Claude's and back). */
+export const CursorModeSchema = z.enum(CURSOR_MODES);
+export type CursorMode = z.infer<typeof CursorModeSchema>;
+
 /** A session's mode in its own provider's terms; the engine checks it fits the provider. */
-export const SessionModeSchema = z.union([PermissionModeSchema, CodexModeSchema]);
+export const SessionModeSchema = z.union([PermissionModeSchema, CodexModeSchema, CursorModeSchema]);
 export type SessionMode = z.infer<typeof SessionModeSchema>;
 
 /** Model and permission mode a Gravita-run session uses now. */
 export const SessionSettings = ev("session.settings", {
   model: z.string().optional(),
   permissionMode: PermissionModeSchema.optional(),
+  /**
+   * The mode in the provider's own terms, set only when Claude Code's can't tell it apart
+   * (Cursor's `ask` reads as `plan` there).
+   */
+  providerMode: SessionModeSchema.optional(),
 });
 
 export const QuestionOption = z.object({ label: z.string(), description: z.string().optional() });

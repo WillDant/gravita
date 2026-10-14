@@ -119,7 +119,9 @@ export class PlanUsageMonitor {
       // Their own sessions first, newest first; any running session of the account will do.
       const prefer = working.flatMap((q) => [...q.sessionIds].reverse());
       // A squad profile is read only for the squads that run on it.
-      const used = new Set(working.flatMap((q) => squadProvidersOf(q.providers, squadPlan(q))));
+      const used = new Set<AgentProvider>(
+        working.flatMap((q) => squadProvidersOf(q.providers, squadPlan(q))),
+      );
       for (const source of this.d.sources) {
         if (source.account && !used.has(source.provider)) continue;
         await this.readOne(source, { prefer, force: true }).catch((err) =>

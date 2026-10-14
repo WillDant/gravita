@@ -28,6 +28,67 @@ describe("providers in the RPC contract", () => {
     expect(RpcContract["engine.status"].result.parse(status)).toEqual(status);
   });
 
+  test("Cursor: its modes start a session, and its status carries the key's state", () => {
+    const start = RpcContract["session.start"].params;
+    for (const permissionMode of ["agent", "plan", "ask"])
+      expect(
+        start.safeParse({ cwd: "/w", prompt: "hi", provider: "cursor", permissionMode }).success,
+      ).toBe(true);
+    const cursor = { found: true, credential: { source: "app", state: "valid" } };
+    const claude = { found: false };
+    const status = {
+      providers: { claude, cursor },
+      claude,
+      indexing: { done: 0, total: 0 },
+      demo: false,
+    };
+    expect(RpcContract["engine.status"].result.parse(status).providers.cursor).toEqual(cursor);
+    const credential = (c: unknown) =>
+      RpcContract["engine.status"].result.safeParse({
+        ...status,
+        providers: { claude, cursor: { found: true, credential: c } },
+      }).success;
+    expect(credential({ source: "none", state: "missing" })).toBe(true);
+    expect(credential({ source: "app", state: "unchecked" })).toBe(true);
+    expect(credential({ source: "env", state: "valid" })).toBe(false);
+    expect(credential({ source: "none", state: "valid" })).toBe(false);
+    expect(credential({ source: "app", state: "missing" })).toBe(false);
+  });
+
+  test("cursorKey.validate takes nothing and answers the key's state, never the key", () => {
+    const { params, result } = RpcContract["cursorKey.validate"];
+    expect(params.safeParse(undefined).success).toBe(true);
+    expect(result.parse({ source: "app", state: "invalid" })).toEqual({
+      source: "app",
+      state: "invalid",
+    });
+  });
+
+  test("no method takes or returns a key's value", () => {
+    // An event's `key` is its idempotency key; `auth` takes the engine's session token.
+    const names = /(api_?key|cursor_?key|secret|password|credential_?value|token)$/i;
+    const walk = (schema: unknown, path: string, out: string[]) => {
+      const def = (schema as { def?: Record<string, unknown> } | undefined)?.def;
+      if (!def) return;
+      if (def.type === "object") {
+        const shape = (schema as { shape: Record<string, unknown> }).shape;
+        for (const [k, v] of Object.entries(shape)) {
+          if (names.test(k)) out.push(`${path}.${k}`);
+          walk(v, `${path}.${k}`, out);
+        }
+      }
+      for (const inner of ["innerType", "element", "in", "out"]) walk(def[inner], path, out);
+      if (Array.isArray(def.options)) for (const o of def.options) walk(o, path, out);
+    };
+    const found: string[] = [];
+    for (const [method, c] of Object.entries(RpcContract)) {
+      if (method === "auth") continue;
+      walk(c.params, `${method}.params`, found);
+      walk(c.result, `${method}.result`, found);
+    }
+    expect(found).toEqual([]);
+  });
+
   test("the provider errors keep their codes; the old key is the same error", () => {
     expect(RpcErrors.providerUnavailable.code).toBe(4005);
     expect(RpcErrors.claudeUnavailable).toBe(RpcErrors.providerUnavailable);

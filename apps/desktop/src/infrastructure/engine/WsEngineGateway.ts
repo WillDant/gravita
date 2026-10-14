@@ -203,6 +203,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.codexProfileSignOut, {});
   }
 
+  validateCursorKey(): Promise<RpcResult<"cursorKey.validate">> {
+    return this.call(Methods.cursorKeyValidate, {});
+  }
+
   spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">> {
     return this.call(Methods.terminalSpawn, params);
   }

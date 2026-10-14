@@ -12,6 +12,7 @@ describe("hash routes", () => {
     { level: "session", projectId: "p", sessionId: "s", agentId: "a" },
     { level: "squad", projectId: "p", squadId: "sq-1" },
     { level: "squad", projectId: "p", squadId: "sq/1", taskId: "api-routes" },
+    { level: "settings" },
   ];
 
   it("round-trip through the hash", () => {

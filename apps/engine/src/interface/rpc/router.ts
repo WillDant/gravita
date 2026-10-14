@@ -9,6 +9,7 @@ import {
 import type { z } from "zod";
 import type { Logger } from "../../application/ports/logger";
 import type { CodexProfileControl } from "../../application/ports/squad-profile";
+import type { CursorKeyStatus } from "../../application/services/cursor-key-status";
 import type { PlanUsageMonitor } from "../../application/services/plan-usage-monitor";
 import type { TerminalManager } from "../../application/services/terminal-manager";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
@@ -102,6 +103,8 @@ export interface RouterDeps {
   codexProfile?: CodexProfileControl;
   /** Embedded terminals; absent: every terminal method answers that they're unsupported. */
   terminals?: { spawn: SpawnTerminal; manager: TerminalManager };
+  /** The state of the Cursor key pasted in Gravita; absent when Cursor can't run here. */
+  cursorKey?: CursorKeyStatus;
 }
 
 const OK = { ok: true } as const;
@@ -184,6 +187,11 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "codexProfile.signOut": async () => {
       await codexProfile().signOut();
       return OK;
+    },
+    // Checks the key the desktop shell handed over; only its state comes back, never the key.
+    "cursorKey.validate": () => {
+      if (!d.cursorKey) throw new ProviderUnavailableError("cursor", "not-found");
+      return d.cursorKey.check();
     },
     "terminal.spawn": (p) => terminals().spawn.execute(p),
     "terminal.write": (p) => {

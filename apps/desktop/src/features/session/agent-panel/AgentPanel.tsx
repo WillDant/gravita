@@ -12,6 +12,7 @@ import { ago, compact, t } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { usd } from "@/shared/presenters/money";
 import { planWindows, windowLine } from "@/shared/presenters/planUsage";
+import { sessionProvider } from "@/shared/presenters/selectors";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { basename, cn } from "@/shared/utils";
 import { useAccountPlan, useUsage } from "@/state/hooks";
@@ -193,7 +194,7 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
  * knows which, Claude Code's dollars show as what they are: API-equivalent.
  */
 function SessionUsage({ session, now }: { session: SessionState; now: number }) {
-  const provider = session.provider === "codex" ? "codex" : "claude";
+  const provider = sessionProvider(session);
   const plan = useAccountPlan(provider);
   const usage = useUsage();
   const readings = planWindows(usage, provider);

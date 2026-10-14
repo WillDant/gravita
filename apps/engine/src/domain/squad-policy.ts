@@ -8,7 +8,7 @@ import {
   tokenCost,
 } from "@gravita/core";
 import type {
-  AgentProvider,
+  SquadAgentProvider as AgentProvider,
   PlanRole,
   SquadModels,
   SquadPhase,

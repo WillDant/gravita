@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useSyncExternalStore } from "react";
 import type { EngineGateway } from "@/infrastructure/engine/EngineGateway";
 import {
+  type CursorKeyBridge,
   createSignInOpener,
   type OpenSignIn,
   type PickFolder,
@@ -23,6 +24,8 @@ export interface AppServices {
   pickFolder?: PickFolder;
   /** Opens Codex's sign-in link in the user's browser (a default one when absent). */
   openSignIn?: OpenSignIn;
+  /** Where the Cursor key is stored; absent in the browser, where it can't be set. */
+  cursorKey?: CursorKeyBridge;
   /** Which OS notifications to send while Gravita is in the background. */
   notificationPrefs: NotificationPrefsStore;
 }
@@ -32,6 +35,7 @@ const NavigateContext = createContext<((route: Route) => void) | null>(null);
 const ThemeContext = createContext<(() => void) | null>(null);
 const PickFolderContext = createContext<PickFolder | undefined>(undefined);
 const OpenSignInContext = createContext<OpenSignIn>(createSignInOpener());
+const CursorKeyContext = createContext<CursorKeyBridge | undefined>(undefined);
 const NotificationPrefsContext = createContext<NotificationPrefsStore | null>(null);
 
 function required<T>(value: T | null, name: string): T {
@@ -53,9 +57,11 @@ export function AppProviders({
           <ThemeContext.Provider value={services.toggleTheme}>
             <PickFolderContext.Provider value={services.pickFolder}>
               <OpenSignInContext.Provider value={services.openSignIn ?? createSignInOpener()}>
-                <NotificationPrefsContext.Provider value={services.notificationPrefs}>
-                  {children}
-                </NotificationPrefsContext.Provider>
+                <CursorKeyContext.Provider value={services.cursorKey}>
+                  <NotificationPrefsContext.Provider value={services.notificationPrefs}>
+                    {children}
+                  </NotificationPrefsContext.Provider>
+                </CursorKeyContext.Provider>
               </OpenSignInContext.Provider>
             </PickFolderContext.Provider>
           </ThemeContext.Provider>
@@ -71,6 +77,7 @@ export const useNavigate = (): ((route: Route) => void) =>
 export const useToggleTheme = (): (() => void) => required(useContext(ThemeContext), "Theme");
 export const usePickFolder = (): PickFolder | undefined => useContext(PickFolderContext);
 export const useOpenSignIn = (): OpenSignIn => useContext(OpenSignInContext);
+export const useCursorKeyBridge = (): CursorKeyBridge | undefined => useContext(CursorKeyContext);
 
 /** The notification preferences and their setter (persisted by the store). */
 export function useNotificationPrefs(): [

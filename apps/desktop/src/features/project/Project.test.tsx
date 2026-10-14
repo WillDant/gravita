@@ -31,6 +31,6 @@ describe("Project", () => {
       await flush();
     });
     expect(screen.getByRole("heading", { name: "New squad" })).toBeTruthy();
-    expect((screen.getByLabelText("Folder") as HTMLInputElement).value).toBe("/work/todo");
+    expect(screen.getByLabelText("Folder").textContent).toContain("/work/todo");
   });
 });

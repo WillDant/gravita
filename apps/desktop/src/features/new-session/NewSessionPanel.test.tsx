@@ -14,7 +14,11 @@ setLocale("en");
 
 const state = stateOf(started("s1", 5, "p1"));
 
-function renderPanel(props: { defaultFolder?: string } = {}, gateway = new FakeGateway()) {
+function renderPanel(
+  props: { defaultFolder?: string } = {},
+  gateway = new FakeGateway(),
+  pickFolder?: () => Promise<string | null>,
+) {
   const onClose = vi.fn();
   const view = renderWithApp(
     <NewSessionPanel
@@ -23,12 +27,13 @@ function renderPanel(props: { defaultFolder?: string } = {}, gateway = new FakeG
       onClose={onClose}
       {...props}
     />,
-    { state, gateway },
+    { state, gateway, ...(pickFolder ? { pickFolder } : {}) },
   );
   return { ...view, onClose };
 }
 
 const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
+const folderField = () => screen.getByLabelText("Folder");
 const start = async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Start session" }));
@@ -36,24 +41,32 @@ const start = async () => {
   });
 };
 
+const agentRadios = () => screen.getAllByRole("radio", { name: /Claude Code|Codex|Cursor/ });
+const agentChoice = () => screen.getByRole("group", { name: "Agent" });
+const offered = (label: string) =>
+  [...(field(label) as unknown as HTMLSelectElement).options].map((o) => o.textContent);
+
 describe("NewSessionPanel", () => {
   it("asks for the folder, then the message, before starting", async () => {
-    const { gateway } = renderPanel();
+    const { gateway, store } = renderPanel();
+    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    await act(flush);
     await start();
     expect(screen.getByText("Choose the folder the agent will work in.")).toBeTruthy();
-    expect(field("Folder").getAttribute("aria-invalid")).toBe("true");
+    expect(folderField().getAttribute("aria-invalid")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "app" }));
-    expect(field("Folder").value).toBe("/work/app");
+    expect(folderField().textContent).toContain("/work/app");
     await start();
     expect(screen.getByText("Write the first message.")).toBeTruthy();
     expect(gateway.callsOf("startSession")).toEqual([]);
   });
 
   it("starts with the chosen settings and opens the new session", async () => {
-    const { gateway, navigate } = renderPanel({ defaultFolder: "/work/p1" });
+    const { gateway, navigate, store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
     gateway.startResult = { sessionId: "s-new", projectId: "p1" };
-    expect(field("Folder").value).toBe("/work/p1");
+    expect(folderField().textContent).toContain("/work/p1");
     await act(flush);
 
     fireEvent.change(field("First message"), { target: { value: " Fix the login " } });
@@ -88,7 +101,8 @@ describe("NewSessionPanel", () => {
   ])("explains engine error %o", async (error, text) => {
     const gateway = new FakeGateway();
     gateway.failures.startSession = new GatewayError(error.code, error.message);
-    const { navigate } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
+    const { navigate, store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
+    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
     fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
 
@@ -102,7 +116,8 @@ describe("NewSessionPanel", () => {
       RpcErrors.notLoggedIn.code,
       RpcErrors.notLoggedIn.message,
     );
-    renderPanel({ defaultFolder: "/work/p1" }, gateway);
+    const { store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
+    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
     fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
 
@@ -110,11 +125,36 @@ describe("NewSessionPanel", () => {
     expect(screen.getByRole("button", { name: "Copy /login" })).toBeTruthy();
   });
 
+  it("blocks start and shows login steps when Claude Code is logged out", async () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: false } })),
+    );
+    await act(flush);
+    expect(screen.getByRole("heading", { name: "Log in to Claude Code" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+  });
+
   it("closes with Escape and Cancel", () => {
     const { onClose } = renderPanel();
-    fireEvent.keyDown(field("Folder"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("heading", { name: "New session" }), { key: "Escape" });
     fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]!);
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("sets the folder from the native picker", async () => {
+    const pickFolder = vi.fn(async () => "/picked/proj");
+    const { store } = renderPanel({}, new FakeGateway(), pickFolder);
+    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    await act(flush);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Choose folder…" }));
+      await flush();
+    });
+    expect(pickFolder).toHaveBeenCalled();
+    expect(folderField().textContent).toContain("/picked/proj");
   });
 });
 
@@ -125,32 +165,41 @@ const engine = (providers: Providers, demo = false): EngineStatus => ({
   indexing: { done: 0, total: 0 },
   demo,
 });
-const BOTH: Providers = { claude: { found: true }, codex: { found: true, loggedIn: true } };
+const BOTH: Providers = { claude: { found: true, loggedIn: true }, codex: { found: true, loggedIn: true } };
 const CODEX_MODELS = [
   { value: "gpt-5.5-codex", displayName: "GPT-5.5 Codex" },
   { value: "gpt-5.5-mini", displayName: "GPT-5.5 mini" },
 ];
 
-const agentChoice = () => screen.queryByRole("group", { name: "Agent" });
-const offered = (label: string) =>
-  [...(field(label) as unknown as HTMLSelectElement).options].map((o) => o.textContent);
-
 describe("NewSessionPanel with Claude Code and Codex", () => {
   it.each<[string, EngineStatus]>([
-    ["only Claude Code is installed", engine({ claude: { found: true } })],
-    ["Codex isn't installed", engine({ claude: { found: true }, codex: { found: false } })],
+    ["only Claude Code is installed", engine({ claude: { found: true, loggedIn: true } })],
+    ["Codex isn't installed", engine({ claude: { found: true, loggedIn: true }, codex: { found: false } })],
     [
       "Codex is older than Gravita supports",
-      engine({ claude: { found: true }, codex: { found: true, outdated: true } }),
+      engine({ claude: { found: true, loggedIn: true }, codex: { found: true, outdated: true } }),
     ],
     ["it is the demo", engine(BOTH, true)],
-  ])("offers no choice of agent when %s", (_, status) => {
+  ])("always offers Claude Code, Codex and Cursor when %s", (_, status) => {
     const { store } = renderPanel({ defaultFolder: "/work/p1" });
     act(() => store.getState().setEngineStatus(status));
-    expect(agentChoice()).toBeNull();
+    expect(agentChoice()).toBeTruthy();
+    expect(agentRadios().map((r) => r.getAttribute("value"))).toEqual(
+      expect.arrayContaining(["claude", "codex", "cursor"]),
+    );
   });
 
-  it("starts Codex, with no choice offered, when Codex is the only agent that can run", async () => {
+  it("disables Codex and Cursor in demo mode", () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() => store.getState().setEngineStatus(engine(BOTH, true)));
+    expect(screen.getByRole("radio", { name: "Codex" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("radio", { name: "Cursor" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("radio", { name: "Claude Code" }).hasAttribute("disabled")).toBe(
+      false,
+    );
+  });
+
+  it("starts Codex when it is the only agent that can run", async () => {
     const { store, gateway } = renderPanel({ defaultFolder: "/work/p1" });
     gateway.modelsResult = { models: CODEX_MODELS };
     act(() =>
@@ -161,7 +210,10 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
         ),
     );
     await act(flush);
-    expect(agentChoice()).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Codex" }));
+      await flush();
+    });
     expect(offered("Permissions")).toEqual([
       "Ask before acting",
       "Edit in this folder",
@@ -172,6 +224,23 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     expect(gateway.callsOf("startSession")).toEqual([
       expect.objectContaining({ provider: "codex", permissionMode: "ask" }),
     ]);
+  });
+
+  it("shows Codex install steps when Codex is chosen but not installed", async () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store
+        .getState()
+        .setEngineStatus(engine({ claude: { found: true, loggedIn: true }, codex: { found: false } })),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Codex" }));
+      await flush();
+    });
+    expect(screen.getByRole("heading", { name: "Connect Codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
   });
 
   it("starts a Codex session with Codex's models and modes", async () => {
@@ -244,7 +313,7 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
       store
         .getState()
         .setEngineStatus(
-          engine({ claude: { found: true }, codex: { found: true, loggedIn: false } }),
+          engine({ claude: { found: true, loggedIn: true }, codex: { found: true, loggedIn: false } }),
         ),
     );
     expect(screen.queryByRole("heading", { name: "Sign in to Codex" })).toBeNull();
@@ -254,6 +323,9 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     });
     expect(screen.getByRole("heading", { name: "Sign in to Codex" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy codex login" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
   });
 
   it("shows Codex's sign-in steps when the engine says Codex isn't logged in", async () => {
@@ -271,5 +343,123 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("Codex isn't logged in.");
     expect(screen.getByRole("button", { name: "Copy codex login" })).toBeTruthy();
+  });
+});
+
+describe("NewSessionPanel with Cursor", () => {
+  const VALID = { source: "app", state: "valid" } as const;
+  const ALL: Providers = { ...BOTH, cursor: { found: true, credential: VALID } };
+  const CURSOR_MODELS = [
+    { value: "default", displayName: "Auto" },
+    { value: "gpt-5.5", displayName: "GPT-5.5" },
+  ];
+
+  it("offers Cursor next to the other agents, with its own models and modes", async () => {
+    const { store, gateway } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() => store.getState().setEngineStatus(engine(ALL)));
+    await act(flush);
+    expect(screen.getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(
+      expect.arrayContaining(["claude", "codex", "cursor"]),
+    );
+
+    gateway.modelsResult = { models: CURSOR_MODELS };
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(gateway.callsOf("models")).toContainEqual({ provider: "cursor" });
+    expect(offered("Model")[0]).toBe("Auto");
+    expect(offered("Permissions")).toEqual(["Agent", "Plan first", "Ask (read only)"]);
+    expect(field("Permissions").value).toBe("agent");
+    // Cursor has no mode that acts without asking, nor a terminal of its own here.
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Run in" })).toBeNull();
+
+    fireEvent.change(field("Permissions"), { target: { value: "ask" } });
+    fireEvent.change(field("First message"), { target: { value: "Explain the login" } });
+    await start();
+    expect(gateway.callsOf("startSession")).toEqual([
+      { cwd: "/work/p1", prompt: "Explain the login", provider: "cursor", permissionMode: "ask" },
+    ]);
+    expect(gateway.callsOf("spawnTerminal")).toEqual([]);
+  });
+
+  it("shows install steps when Cursor is chosen but its CLI is missing", async () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store
+        .getState()
+        .setEngineStatus(engine({ claude: { found: true, loggedIn: true }, cursor: { found: false } })),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(screen.getByRole("heading", { name: "Connect Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+  });
+
+  it("shows update steps when Cursor CLI is outdated", async () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store
+        .getState()
+        .setEngineStatus(
+          engine({ claude: { found: true, loggedIn: true }, cursor: { found: true, outdated: true } }),
+        ),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(screen.getByRole("heading", { name: "Update Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+  });
+
+  it("points to Settings, not a login, when Cursor is chosen without a key", async () => {
+    const { store, navigate } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store.getState().setEngineStatus(
+        engine({
+          claude: { found: true, loggedIn: true },
+          cursor: { found: true, credential: { source: "none", state: "missing" } },
+        }),
+      ),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(screen.getByRole("heading", { name: "Cursor API key not set" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(navigate).toHaveBeenCalledWith({ level: "settings" });
+    expect(screen.queryByRole("button", { name: /Copy .*(login|CURSOR_API_KEY)/ })).toBeNull();
+  });
+
+  it("blocks start when the engine says Cursor's key was turned down", async () => {
+    const { store } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() =>
+      store.getState().setEngineStatus(
+        engine({
+          claude: { found: true, loggedIn: true },
+          cursor: { found: true, credential: { source: "app", state: "invalid" } },
+        }),
+      ),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(screen.getByRole("heading", { name: "Cursor API key not working" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start session" }).hasAttribute("disabled")).toBe(
+      true,
+    );
   });
 });

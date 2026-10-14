@@ -8,7 +8,7 @@ import {
   type SessionState,
   sessionCounts,
 } from "@gravita/core";
-import type { AgentProvider } from "@gravita/protocol/constants";
+import { AGENT_PROVIDERS, type AgentProvider } from "@gravita/protocol/constants";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 
 export type SessionStatus = "waiting" | "running" | "idle" | "done" | "error" | "detached";
@@ -31,10 +31,10 @@ export function sessionTitle(s: SessionState): string | undefined {
 
 /**
  * The agent that runs a session. Events also carry "gravita" and "fake" providers, and
- * everything before Codex was Claude Code, so anything but Codex reads as Claude Code.
+ * everything before Codex was Claude Code, so anything but a known agent reads as Claude Code.
  */
 export function sessionProvider(s: Pick<SessionState, "provider">): AgentProvider {
-  return s.provider === "codex" ? "codex" : "claude";
+  return AGENT_PROVIDERS.find((p) => p === s.provider) ?? "claude";
 }
 
 /** Agents that are working or waiting right now, main first, then by spawn time. */

@@ -1,5 +1,6 @@
 import { outsideOwnership, type PlanIssue } from "@gravita/core";
-import type { AgentProvider, PlanTask, SquadPlan } from "@gravita/protocol";
+import type { PlanTask, SquadPlan } from "@gravita/protocol";
+import type { SquadAgentProvider } from "@gravita/protocol/constants";
 
 // Light edits the Board allows on a proposed plan, as pure functions: rename or rewrite a
 // task, remove one (its dependants stop waiting for it), move one to a role that owns
@@ -20,7 +21,7 @@ export function editTask(
 export function setRoleProvider(
   plan: SquadPlan,
   roleId: string,
-  provider: AgentProvider,
+  provider: SquadAgentProvider,
 ): SquadPlan {
   return {
     ...plan,

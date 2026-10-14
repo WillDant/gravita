@@ -1,7 +1,7 @@
 // Deterministic ids and idempotency keys. Every source (SDK stream, transcript tailer,
 // hooks) must derive the same id for the same thing, across restarts. Never random.
 
-export type Provider = "claude" | "codex" | "gravita" | "fake";
+export type Provider = "claude" | "codex" | "cursor" | "gravita" | "fake";
 
 /** Id of the main agent of a session. */
 export const MAIN_AGENT = "main";

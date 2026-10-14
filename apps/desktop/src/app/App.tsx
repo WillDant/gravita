@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Home } from "@/features/home/Home";
+import { Settings } from "@/features/settings/Settings";
 import { Sidebar } from "@/features/navigation/Sidebar";
 import { NoticeLine } from "@/features/notice/NoticeLine";
 import { Project } from "@/features/project/Project";
@@ -55,6 +56,8 @@ export function App() {
             <p className="p-8 text-ink-2">{t("engine.connecting")}</p>
           ) : route.level === "home" ? (
             <Home />
+          ) : route.level === "settings" ? (
+            <Settings />
           ) : route.level === "project" ? (
             <Project projectId={route.projectId} />
           ) : route.level === "squad" ? (

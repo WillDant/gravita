@@ -4,7 +4,11 @@ import { resolveEndpoint } from "@/infrastructure/engine/resolveEndpoint";
 import { WsEngineGateway } from "@/infrastructure/engine/WsEngineGateway";
 import { domAttention } from "@/infrastructure/platform/attention";
 import { createNotifier } from "@/infrastructure/platform/notifier";
-import { createFolderPicker, createSignInOpener } from "@/infrastructure/platform/tauri";
+import {
+  createCursorKeyBridge,
+  createFolderPicker,
+  createSignInOpener,
+} from "@/infrastructure/platform/tauri";
 import { createTray } from "@/infrastructure/platform/tray";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { startTheme } from "@/infrastructure/theme/themeStorage";
@@ -63,6 +67,7 @@ export function bootstrap(): App {
       toggleTheme: theme.toggle,
       pickFolder: createFolderPicker(),
       openSignIn: createSignInOpener(),
+      cursorKey: createCursorKeyBridge(),
       notificationPrefs,
     },
     dispose: () => {

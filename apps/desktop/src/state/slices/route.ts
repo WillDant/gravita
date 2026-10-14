@@ -2,6 +2,7 @@ import type { Slice } from "../store";
 
 export type Route =
   | { level: "home" }
+  | { level: "settings" }
   | { level: "project"; projectId: string }
   | { level: "session"; projectId: string; sessionId: string; agentId?: string }
   /** A terminal not (yet) running a session; once one starts in it, its session's screen. */

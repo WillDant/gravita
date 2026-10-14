@@ -78,6 +78,12 @@ export interface EngineGateway {
   codexProfileSignIn(): Promise<RpcResult<"codexProfile.signIn">>;
   codexProfileSignOut(): Promise<RpcResult<"codexProfile.signOut">>;
 
+  /**
+   * Checks the Cursor key the desktop shell handed the engine; only its state comes back.
+   * The key itself never travels here: the shell's own commands store it (platform/tauri).
+   */
+  validateCursorKey(): Promise<RpcResult<"cursorKey.validate">>;
+
   // Embedded terminals: a PTY in the engine. Output arrives through `onTerminalOutput`.
   spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">>;
   writeTerminal(params: RpcParams<"terminal.write">): Promise<RpcResult<"terminal.write">>;

@@ -15,5 +15,11 @@ export function canStartChat(running: number, limit = MAX_CHAT_SESSIONS): boolea
 
 /** Whose session modes a runtime speaks: the scripted demo plays Claude Code. */
 export function modesOf(provider: Provider): AgentProvider {
-  return provider === "codex" ? "codex" : "claude";
+  switch (provider) {
+    case "codex":
+    case "cursor":
+      return provider;
+    default:
+      return "claude";
+  }
 }

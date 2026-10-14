@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { CLAUDE_MODES, CODEX_MODES } from "@gravita/protocol/constants";
+import { CLAUDE_MODES, CODEX_MODES, CURSOR_MODES } from "@gravita/protocol/constants";
 import {
   AUTO_MODELS,
   AUTO_MODELS_BY_PROVIDER,
   AUTO_SUBAGENT_MODEL,
+  asClaudeMode,
+  asCodexMode,
+  asCursorMode,
   CLAUDE_MODE_OF,
+  CLAUDE_MODE_OF_CURSOR,
   CODEX_MODE_OF,
+  CURSOR_MODE_OF,
   classifyModel,
   DEFAULT_MODE,
   estimatePlanCost,
@@ -16,6 +21,7 @@ import {
   modelTier,
   PRICES,
   PROVIDER_MODELS,
+  settingsModeOf,
   stepUp,
   TIER_LADDER,
   tierModel,
@@ -110,6 +116,52 @@ describe("session modes across providers", () => {
     expect(modeFor("codex", "workspace")).toBe("workspace");
     expect(modeFor("claude", "fullAccess")).toBe("bypassPermissions");
     expect(modeFor("claude", "plan")).toBe("plan");
-    expect(DEFAULT_MODE).toEqual({ claude: "default", codex: "ask" });
+    expect(DEFAULT_MODE).toEqual({ claude: "default", codex: "ask", cursor: "agent" });
+  });
+
+  test("Cursor's modes: none is full access, and each maps through Claude Code's", () => {
+    expect(CURSOR_MODE_OF).toEqual({
+      default: "agent",
+      acceptEdits: "agent",
+      plan: "plan",
+      bypassPermissions: "agent",
+    });
+    expect(CLAUDE_MODE_OF_CURSOR).toEqual({ agent: "default", plan: "plan", ask: "plan" });
+    for (const m of CURSOR_MODES) {
+      expect(isModeOf("cursor", m)).toBe(true);
+      expect(CLAUDE_MODES).toContain(CLAUDE_MODE_OF_CURSOR[m]);
+    }
+    expect(isModeOf("cursor", "fullAccess")).toBe(false);
+    expect(isModeOf("cursor", "bypassPermissions")).toBe(false);
+    expect(isModeOf("claude", "agent")).toBe(false);
+    expect(isModeOf("codex", "agent")).toBe(false);
+    expect(modeFor("cursor", "bypassPermissions")).toBe("agent");
+    expect(modeFor("cursor", "plan")).toBe("plan");
+    expect(modeFor("cursor", "agent")).toBe("agent");
+    expect(modeFor("codex", "agent")).toBe("ask");
+    expect(modeFor("claude", "agent")).toBe("default");
+  });
+
+  test("a shared name is read in its provider's terms when the provider is known", () => {
+    // "ask": Codex's asks before acting, Cursor's only answers.
+    expect(asClaudeMode("ask")).toBe("default");
+    expect(asClaudeMode("ask", "codex")).toBe("default");
+    expect(asClaudeMode("ask", "cursor")).toBe("plan");
+    expect(asCursorMode("ask", "cursor")).toBe("ask");
+    expect(asCursorMode("ask", "codex")).toBe("agent");
+    expect(asCodexMode("ask", "cursor")).toBe("ask");
+    expect(asCodexMode("plan", "cursor")).toBe("ask");
+    expect(modeFor("cursor", "ask", "cursor")).toBe("ask");
+  });
+
+  test("settings keep Cursor's ask, which Claude Code's terms would lose", () => {
+    expect(settingsModeOf("cursor", "ask")).toEqual({
+      permissionMode: "plan",
+      providerMode: "ask",
+    });
+    expect(settingsModeOf("cursor", "plan")).toEqual({ permissionMode: "plan" });
+    expect(settingsModeOf("cursor", "agent")).toEqual({ permissionMode: "default" });
+    expect(settingsModeOf("codex", "workspace")).toEqual({ permissionMode: "acceptEdits" });
+    expect(settingsModeOf("claude", "plan")).toEqual({ permissionMode: "plan" });
   });
 });

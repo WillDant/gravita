@@ -46,4 +46,24 @@ What it does:
 
 Tests enforce this: a Codex home with decoy `auth.json`, `config.toml`, `state_5.sqlite`, `history.jsonl`, an archived rollout and a link to the credentials is observed through an audited file system, and every path touched must be under `sessions/`; the home must be byte-for-byte and mtime-for-mtime unchanged afterwards, including after a real engine ran on it (`apps/engine/test/infrastructure/codex-compliance.test.ts`).
 
+## Cursor API key (exception)
+
+Cursor is the one provider whose credential Gravita stores, because you give it one ([ADR 008](adr/008-cursor-provider.md)). If you paste a Cursor API key into Gravita, it is stored only in your macOS Keychain, never written to Gravita's database, logs or files, never shown again in the UI, never sent anywhere except as `CURSOR_API_KEY` in the environment of the `cursor-agent` processes Gravita starts for you, and masked in any agent output Gravita records. "Remove key" deletes it from the Keychain. This key is the only Cursor credential Gravita uses: it never forwards a `CURSOR_API_KEY` from your shell, never relies on a saved `cursor-agent login`, and runs `cursor-agent` so that it neither reads nor overwrites your saved Cursor login. Without a key, Cursor sessions don't start. Claude and Codex credentials are still never read, stored or forwarded.
+
+It never:
+
+- **Sends the key over the app's WebSocket, logs it, or puts it on a command line.** The desktop shell hands it to the engine through the engine's standard input, and the engine keeps it in memory.
+- **Passes your shell's Cursor variables to `cursor-agent`.** Its environment is your login shell's allowlist (`PATH`, `HOME`, locale, proxies) with no `CURSOR_*` or `AGENT_CLI_*` variable, plus the key, `AGENT_CLI_CREDENTIAL_STORE=memory` (the CLI keeps its tokens in memory only) and `NO_OPEN_BROWSER=1`.
+- **Logs you in to Cursor.** It never runs `cursor-agent login` or the ACP `authenticate` method.
+- **Offers Cursor full access.** Cursor chats run in Agent, Plan or Ask mode, and every approval Cursor asks for waits for your answer in Gravita.
+- **Reads anything under `~/.cursor`.** Not your saved login, `cli-config.json`, `chats/` or `acp-sessions/`; Gravita doesn't observe Cursor sessions you run elsewhere.
+- **Lets the web UI read the key back.** The UI can only store, replace or remove it and ask whether one is set; the engine reports the key's state (missing, unchecked, valid, invalid), never its value.
+
+What it does:
+
+- Runs `cursor-agent --version` to show whether the Cursor CLI is installed and recent enough (2026.10.14 or later), and `cursor-agent models` with the environment above to check the key: when a key is set or replaced, when the status is read, and when you press "Check the key".
+- For a chat you start, runs `cursor-agent acp` (your installed CLI, unmodified) in the chat's folder, in a process group of its own that the kill switch, closing the chat or quitting Gravita stops. It identifies itself as `gravita` in the protocol's `clientInfo`.
+
+Tests enforce this: the environment builder (decoy `CURSOR_*`, `AGENT_CLI_*` and `OPENAI_*` variables in the shell never reach `cursor-agent`), the key only in the environment and never on a command line, the stdin channel, no session and no process without a key, masking of a sentinel key in every event, the database, the status, the snapshot and the logs of a scripted session, no RPC method that takes or returns a key, no code path that logs in, calls `authenticate` or opens `~/.cursor`, and the Keychain wrapper (`apps/engine/test/infrastructure/cursor-compliance.test.ts`, `cursor-chat.test.ts`, `cursor-provider.test.ts` and the desktop shell's Rust tests).
+
 If you find Gravita doing anything on the first list, it's a bug: please report it as a security issue (see `SECURITY.md`).

@@ -1,0 +1,2 @@
+{"expect":{"method":"initialize"},"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"image":true,"audio":false,"embeddedContext":false}},"authMethods":[{"id":"cursor_login","name":"Cursor login","description":"Synthetic"}]}}
+{"expect":{"method":"session/new"},"error":{"code":-32000,"message":"Authentication required","data":{"message":"Authentication required. Please run 'agent login' first, then call authenticate() with methodId 'cursor_login'."}}}

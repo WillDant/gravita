@@ -1,5 +1,14 @@
 import type { AgentProvider } from "@gravita/protocol";
 
+const PROVIDER_NAMES: Readonly<Record<AgentProvider, string>> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  cursor: "Cursor",
+};
+
+/** A provider's name in messages (Claude Code, Codex, Cursor). */
+export const providerName = (provider: AgentProvider): string => PROVIDER_NAMES[provider];
+
 /** The session runs outside Gravita (e.g. a terminal), or its request can't be answered here. */
 export class NotControllableError extends Error {
   constructor(readonly sessionId: string) {
@@ -23,9 +32,7 @@ export class ProviderUnavailableError extends Error {
     readonly provider: AgentProvider,
     readonly reason: "not-found" | "outdated",
   ) {
-    super(
-      `${provider === "codex" ? "Codex" : "Claude Code"} ${reason === "outdated" ? "is outdated" : "was not found"}`,
-    );
+    super(`${providerName(provider)} ${reason === "outdated" ? "is outdated" : "was not found"}`);
     this.name = "ProviderUnavailableError";
   }
 }
@@ -46,13 +53,20 @@ export class TooManySessionsError extends Error {
   }
 }
 
-/** A provider's CLI reported it isn't logged in; the user logs in there, never through Gravita. */
+/**
+ * A provider's CLI reported it isn't logged in; the user logs in there, never through Gravita.
+ * Cursor's credential is the API key pasted in Gravita instead (ADR 008): missing or refused.
+ */
 export class NotLoggedInError extends Error {
   constructor(
     readonly provider: AgentProvider,
     readonly sessionId?: string,
   ) {
-    super(`${provider === "codex" ? "Codex" : "Claude Code"} is not logged in`);
+    super(
+      provider === "cursor"
+        ? "No valid Cursor API key is set in Gravita"
+        : `${providerName(provider)} is not logged in`,
+    );
     this.name = "NotLoggedInError";
   }
 }
@@ -192,7 +206,7 @@ export class CheckRefusedError extends Error {
 export class PlanUsageUnavailableError extends Error {
   constructor(readonly provider: AgentProvider) {
     super(
-      `Your ${provider === "codex" ? "Codex" : "Claude"} account has no plan usage limits (it uses an API key), so a squad can't take a share of a plan. Give the squad a dollar budget instead.`,
+      `Your ${provider === "claude" ? "Claude" : providerName(provider)} account has no plan usage limits (it uses an API key), so a squad can't take a share of a plan. Give the squad a dollar budget instead.`,
     );
     this.name = "PlanUsageUnavailableError";
   }

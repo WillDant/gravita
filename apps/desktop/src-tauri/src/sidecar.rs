@@ -1,4 +1,5 @@
-//! The engine sidecar: spawned by us, handed a token over stdin, and killed with its
+//! The engine sidecar: spawned by us, handed a token (and the Cursor key, when the user
+//! stored one: see cursor_key.rs) over stdin, and killed with its
 //! whole process group when the app exits, so no agent keeps running (and spending)
 //! after Gravita closes. The engine also exits on its own when its stdin hits EOF.
 
@@ -38,8 +39,18 @@ fn engine_command() -> Command {
     Command::new(dir.join(name))
 }
 
+/// The first lines the engine reads: the token, then the Cursor key line when one is stored.
+fn write_bootstrap(w: &mut impl Write, token: &str, cursor_key: Option<&str>) -> std::io::Result<()> {
+    w.write_all(format!("{token}\n").as_bytes())?;
+    if let Some(key) = cursor_key {
+        w.write_all(crate::cursor_key::key_message(Some(key)).as_bytes())?;
+    }
+    w.flush()
+}
+
 impl Engine {
-    pub fn spawn() -> Result<Engine, String> {
+    /// Starts the engine; `cursor_key` (from the Keychain) follows the token on its stdin.
+    pub fn spawn(cursor_key: Option<String>) -> Result<Engine, String> {
         let token = random_token();
         let mut cmd = engine_command();
         cmd.args(["--token-stdin", "--port", "0"])
@@ -55,14 +66,22 @@ impl Engine {
         let mut child = cmd.spawn().map_err(|e| format!("couldn't start the engine: {e}"))?;
 
         let mut stdin = child.stdin.take().ok_or("engine stdin unavailable")?;
-        stdin
-            .write_all(format!("{token}\n").as_bytes())
-            .and_then(|_| stdin.flush())
+        write_bootstrap(&mut stdin, &token, cursor_key.as_deref())
             .map_err(|e| format!("couldn't hand the token to the engine: {e}"))?;
 
         let stdout = child.stdout.take().ok_or("engine stdout unavailable")?;
         let port = read_ready_port(stdout)?;
         Ok(Engine { port, token, child: Mutex::new(Some(child)), stdin: Mutex::new(Some(stdin)) })
+    }
+
+    /// One more line on the engine's stdin (a change of the Cursor key).
+    pub fn send_line(&self, line: &str) -> Result<(), String> {
+        let mut guard = self.stdin.lock().map_err(|_| "the engine's input is unavailable")?;
+        let stdin = guard.as_mut().ok_or("the engine has stopped")?;
+        stdin
+            .write_all(line.as_bytes())
+            .and_then(|_| stdin.flush())
+            .map_err(|_| "couldn't reach the engine".to_string())
     }
 
     pub fn shutdown(&self) {
@@ -121,4 +140,22 @@ fn read_ready_port(stdout: std::process::ChildStdout) -> Result<u16, String> {
     });
     rx.recv_timeout(Duration::from_secs(20))
         .map_err(|_| "the engine didn't start in time".to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_bootstrap;
+
+    #[test]
+    fn the_token_comes_first_then_the_key_line() {
+        let mut out = Vec::new();
+        write_bootstrap(&mut out, "tok", Some("crsr_k")).unwrap();
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            "tok\n{\"type\":\"cursorKey\",\"value\":\"crsr_k\"}\n"
+        );
+        let mut out = Vec::new();
+        write_bootstrap(&mut out, "tok", None).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), "tok\n");
+    }
 }

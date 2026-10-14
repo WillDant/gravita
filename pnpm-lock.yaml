@@ -120,6 +120,9 @@ importers:
       '@gravita/adapter-codex':
         specifier: workspace:*
         version: link:../../packages/adapter-codex
+      '@gravita/adapter-cursor':
+        specifier: workspace:*
+        version: link:../../packages/adapter-cursor
       '@gravita/adapter-fake':
         specifier: workspace:*
         version: link:../../packages/adapter-fake
@@ -174,6 +177,22 @@ importers:
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
+
+  packages/adapter-cursor:
+    dependencies:
+      '@gravita/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
+      '@gravita/core':
+        specifier: workspace:*
+        version: link:../core
+      '@gravita/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@types/bun':
+        specifier: 1.4.3
+        version: 1.4.3
 
   packages/adapter-fake:
     dependencies:

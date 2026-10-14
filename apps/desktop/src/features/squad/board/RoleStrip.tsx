@@ -1,6 +1,7 @@
 import type { PlanIssue } from "@gravita/core";
 import { type AgentColor, agentColor } from "@gravita/orbs";
 import type { AgentProvider, PlanRole, PlanTask, SquadPlan } from "@gravita/protocol";
+import { SQUAD_AGENT_PROVIDERS, type SquadAgentProvider } from "@gravita/protocol/constants";
 import { ArrowRightLeft, Pencil, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { Orb } from "@/features/agents/Orb";
@@ -43,7 +44,7 @@ export function RoleStrip({
   /** The agent that runs this role. */
   provider: AgentProvider;
   /** A mixed squad lets the user move the role between Claude Code and Codex. */
-  onProvider?: (provider: AgentProvider) => void;
+  onProvider?: (provider: SquadAgentProvider) => void;
   tasks: PlanTask[];
   estimateUsd?: number;
   issues: PlanIssue[];
@@ -144,10 +145,10 @@ function ProviderSwitch({
 }: {
   role: string;
   provider: AgentProvider;
-  onChange: (provider: AgentProvider) => void;
+  onChange: (provider: SquadAgentProvider) => void;
 }) {
   const name = useId();
-  const options: readonly AgentProvider[] = ["claude", "codex"];
+  const options = SQUAD_AGENT_PROVIDERS;
   return (
     <fieldset className="w-max">
       <legend className="sr-only">{t("squad.board.providerOf", { role })}</legend>

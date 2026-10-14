@@ -1,5 +1,5 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { Bell, House, Languages, MoonStar, Sun, UsersRound } from "lucide-react";
+import { Bell, House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
@@ -68,6 +68,14 @@ export function Sidebar() {
               {waiting}
             </span>
           )}
+        </NavItem>
+        <NavItem
+          active={route.level === "settings"}
+          onClick={() => navigate({ level: "settings" })}
+          icon={<Settings size={16} />}
+          label={t("nav.settings")}
+        >
+          {t("nav.settings")}
         </NavItem>
       </div>
 

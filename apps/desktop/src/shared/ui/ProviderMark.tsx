@@ -9,6 +9,7 @@ import { cn } from "@/shared/utils";
  */
 const MARKS: Readonly<Record<string, { name: string; short: string; label: string }>> = {
   codex: { name: "Codex", short: "Cx", label: "provider.codex.session" },
+  cursor: { name: "Cursor", short: "Cu", label: "provider.cursor.session" },
 };
 
 /**

@@ -7,6 +7,7 @@ import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
 import { CodexNote } from "@/features/connect/CodexNote";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
+import { CursorKeyLine } from "@/features/connect/CursorKeyLine";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
@@ -20,7 +21,13 @@ import { squadNeedsYou } from "@/shared/presenters/squad";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { Button, CountChips } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
-import { useCodexNote, useNow, useProjection, useProviderProblem } from "@/state/hooks";
+import {
+  useCodexNote,
+  useCursorNote,
+  useNow,
+  useProjection,
+  useProviderProblem,
+} from "@/state/hooks";
 
 export function Home() {
   useLocale();
@@ -30,6 +37,7 @@ export function Home() {
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const problem = useProviderProblem();
   const codexNote = useCodexNote();
+  const cursorNote = useCursorNote();
   const empty = summaries.length === 0;
   const [creating, setCreating] = useState<"session" | "squad">();
   const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
@@ -62,6 +70,10 @@ export function Home() {
           {/* Someone who installed Codex hears it's too old on any Home; a missing Codex is
               only mentioned on an empty Home, so Claude-only users aren't nagged. */}
           {codexNote === "outdated" && !empty && <CodexNote note="outdated" className="mt-1.5" />}
+          {cursorNote === "outdated" && !empty && (
+            <CodexNote provider="cursor" note="outdated" className="mt-1.5" />
+          )}
+          <CursorKeyLine className="mt-1.5" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={all} />
@@ -227,6 +239,7 @@ export function Home() {
           <div className="rounded-xl border border-hairline px-5 py-4">
             <p className="max-w-[68ch] text-ink-2">{t("home.empty")}</p>
             {codexNote && <CodexNote note={codexNote} className="mt-2" />}
+            {cursorNote && <CodexNote provider="cursor" note={cursorNote} className="mt-2" />}
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-hairline">

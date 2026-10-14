@@ -1,10 +1,10 @@
 import type { ModelChoice } from "@gravita/core";
 import { squadUsageKey } from "@gravita/core";
 import type { PlanWindow, SquadAutonomy } from "@gravita/protocol";
-import { FolderOpen, UsersRound, X } from "lucide-react";
+import { UsersRound, X } from "lucide-react";
 import { type RefObject, useEffect, useId, useRef } from "react";
-import { usePickFolder } from "@/app/providers";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
+import { FolderField } from "@/features/new-session/FolderField";
 import { t } from "@/shared/i18n/i18n";
 import { windowLine } from "@/shared/presenters/planUsage";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
@@ -68,9 +68,8 @@ export function NewSquadPanel({
   // The briefing and the planner run on Codex only in a Codex-only squad.
   const plannerProvider = form.providers === "codex" ? "codex" : "claude";
   const statusProblem = useProviderProblem(plannerProvider);
-  const pickFolder = usePickFolder();
   const fid = useId();
-  const folderRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLButtonElement>(null);
   const goalRef = useRef<HTMLTextAreaElement>(null);
   const budgetRef = useRef<HTMLInputElement>(null);
   const shareRef = useRef<HTMLInputElement>(null);
@@ -91,7 +90,8 @@ export function NewSquadPanel({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
   useEffect(() => {
-    (defaultFolder ? goalRef : folderRef).current?.focus();
+    if (defaultFolder) goalRef.current?.focus();
+    else folderRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -107,15 +107,6 @@ export function NewSquadPanel({
   useEffect(() => {
     if (profileReady && form.invalid === "providers") form.setProviders(form.providers);
   }, [profileReady]);
-
-  const choose = () => {
-    pickFolder?.().then(
-      (path) => {
-        if (path) form.setFolder(path);
-      },
-      () => {},
-    );
-  };
 
   return (
     <section
@@ -153,39 +144,15 @@ export function NewSquadPanel({
 
         {connect && <ConnectProvider provider={connect.provider} problem={connect.problem} />}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${fid}-folder`} className="text-xs font-semibold text-ink-2">
-            {t("newSession.folder")}
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className={cn(fieldFrame, "min-w-[240px] flex-1")}>
-              <input
-                ref={folderRef}
-                id={`${fid}-folder`}
-                value={form.folder}
-                onChange={(e) => form.setFolder(e.target.value)}
-                placeholder={t("newSession.folderPlaceholder")}
-                spellCheck={false}
-                autoComplete="off"
-                aria-invalid={form.invalid === "folder"}
-                aria-describedby={`${fid}-folder-hint`}
-                className="h-8 w-full bg-transparent px-2.5 font-mono text-xs text-ink outline-none focus-visible:outline-none placeholder:font-sans placeholder:text-sm placeholder:text-ink-3"
-              />
-            </div>
-            {pickFolder && (
-              <Button onClick={choose}>
-                <FolderOpen size={15} aria-hidden="true" />
-                {t("newSession.chooseFolder")}
-              </Button>
-            )}
-          </div>
-          <p
-            id={`${fid}-folder-hint`}
-            className={cn("text-xs", form.invalid === "folder" ? "text-error-ink" : "text-ink-3")}
-          >
-            {form.invalid === "folder" ? t("newSquad.needFolder") : t("newSquad.folderHint")}
-          </p>
-        </div>
+        <FolderField
+          idPrefix={fid}
+          folder={form.folder}
+          onFolder={form.setFolder}
+          invalid={form.invalid === "folder"}
+          errorText={form.invalid === "folder" ? t("newSquad.needFolder") : undefined}
+          hintText={form.invalid === "folder" ? undefined : t("newSquad.folderHint")}
+          focusRef={folderRef}
+        />
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${fid}-goal`} className="text-xs font-semibold text-ink-2">

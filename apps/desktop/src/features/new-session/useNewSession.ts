@@ -15,13 +15,13 @@ export type RunIn = "terminal" | "chat";
 export interface NewSessionForm {
   folder: string;
   message: string;
-  /** The agent the session runs: Claude Code unless Codex is chosen. */
+  /** The agent the session runs: Claude Code unless Codex or Cursor is chosen. */
   provider: AgentProvider;
   /** "" means the provider's own default. */
   model: string;
   /** In the provider's own terms. */
   mode: SessionMode;
-  /** Only offered when the engine can open terminals. */
+  /** Only offered when the engine can open terminals (and never for Cursor). */
   runIn: RunIn;
   setRunIn: (v: RunIn) => void;
   setFolder: (v: string) => void;
@@ -43,12 +43,12 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
   const terminals = useTerminalControl();
   const canTerminal = useTerminalSupported();
   const [chosenRunIn, setRunIn] = useState<RunIn>("terminal");
-  // A terminal is the first choice wherever the engine can open one.
-  const runIn: RunIn = canTerminal ? chosenRunIn : "chat";
   const navigate = useNavigate();
   const [folder, setFolder] = useState(defaultFolder);
   const [message, setMessage] = useState("");
   const [provider, setProvider] = useState<AgentProvider>(DEFAULT_PROVIDER);
+  // A terminal is the first choice wherever the engine can open one; Cursor runs chats only.
+  const runIn: RunIn = canTerminal && provider !== "cursor" ? chosenRunIn : "chat";
   const [model, setModel] = useState("");
   const [mode, setMode] = useState<SessionMode>(DEFAULT_MODE[DEFAULT_PROVIDER]);
   const [busy, setBusy] = useState(false);
@@ -69,7 +69,7 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
     setError(undefined);
     if (empty) return;
     setBusy(true);
-    if (runIn === "terminal") {
+    if (runIn === "terminal" && provider !== "cursor") {
       void terminals
         .spawn({
           cwd,

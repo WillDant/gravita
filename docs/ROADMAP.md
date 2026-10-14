@@ -21,6 +21,9 @@ Run Claude Code, Codex or your shell in a terminal inside Gravita, with the map 
 
 ## Next
 
+### Cursor chats
+Cursor as a third agent: start and steer Cursor chats through the `cursor-agent` you installed (ACP), with approvals, Agent/Plan/Ask modes and your account's models, using a Cursor API key you paste into Gravita and keep in your macOS Keychain. Later: Cursor in Gravita's terminal and observing Cursor sessions you run elsewhere. See [cursor.md](cursor.md).
+
 ### Polish and public launch
 Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater, the landing page, docs, an in-app tour and an accessibility audit.
 

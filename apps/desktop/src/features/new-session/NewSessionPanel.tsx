@@ -1,7 +1,6 @@
 import { AGENT_PROVIDERS, type AgentProvider } from "@gravita/protocol/constants";
-import { FolderOpen, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
-import { usePickFolder } from "@/app/providers";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import {
   BypassWarning,
@@ -12,21 +11,19 @@ import {
 import { t } from "@/shared/i18n/i18n";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
-import { cn, isSendChord, MOD_KEY, tildify } from "@/shared/utils";
+import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
 import {
-  useCanStartWith,
+  useIsDemo,
   useModels,
   useProviderProblem,
   useTerminalSupported,
 } from "@/state/hooks";
+import { FolderField, type RecentFolder } from "./FolderField";
 import { type RunIn, useNewSession } from "./useNewSession";
 
 const RUN_IN: readonly RunIn[] = ["terminal", "chat"];
 
-export interface RecentFolder {
-  name: string;
-  root: string;
-}
+export type { RecentFolder };
 
 /** The header button that opens the inline new-session panel. */
 export function NewSessionButton({
@@ -52,9 +49,8 @@ export function NewSessionButton({
 }
 
 /**
- * Starts a session inline, under the page header (not a modal): folder, first message,
- * the agent (when both Claude Code and Codex can run), model and permissions. On success
- * it opens the new session.
+ * Starts a session inline, under the page header (not a modal): agent, folder, first message,
+ * model and permissions. On success it opens the new session.
  */
 export function NewSessionPanel({
   id,
@@ -68,48 +64,31 @@ export function NewSessionPanel({
   onClose: () => void;
 }) {
   const form = useNewSession(defaultFolder);
-  // The choice only exists when both agents can run; otherwise sessions are Claude Code's.
-  const canClaude = useCanStartWith("claude");
-  const canCodex = useCanStartWith("codex");
-  const chooses = canClaude && canCodex;
-  const canTerminal = useTerminalSupported();
+  const isDemo = useIsDemo();
+  const canTerminal = useTerminalSupported() && form.provider !== "cursor";
   const models = useModels(form.provider);
   const statusProblem = useProviderProblem(form.provider);
-  const pickFolder = usePickFolder();
   const fieldId = useId();
-  const folderRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLButtonElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
+  const providerBlocked = statusProblem !== undefined;
   // An error names its provider; otherwise the chosen agent's status.
   const connect =
     form.error?.connect ?? (statusProblem && { provider: form.provider, problem: statusProblem });
 
+  const disabledProviders: readonly AgentProvider[] = isDemo ? ["codex", "cursor"] : [];
+
   // Land where the typing starts: the message when the folder is known.
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
   useEffect(() => {
-    (defaultFolder ? messageRef : folderRef).current?.focus();
+    if (defaultFolder) messageRef.current?.focus();
+    else folderRef.current?.focus();
   }, []);
-
-  // Without a choice, the agent is the one that can run: Codex when it is the only one,
-  // else Claude Code (whose connect steps show when it can't run either).
-  const only: AgentProvider = canCodex && !canClaude ? "codex" : "claude";
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only when what can run changes.
-  useEffect(() => {
-    if (!chooses && form.provider !== only) form.setProvider(only);
-  }, [chooses, only]);
 
   useEffect(() => {
     if (form.missing === "folder") folderRef.current?.focus();
     if (form.missing === "message") messageRef.current?.focus();
   }, [form.missing]);
-
-  const choose = () => {
-    pickFolder?.().then(
-      (path) => {
-        if (path) form.setFolder(path);
-      },
-      () => {},
-    );
-  };
 
   return (
     <section
@@ -142,62 +121,25 @@ export function NewSessionPanel({
           </button>
         </div>
 
+        <ProviderChoice
+          name={`${fieldId}-provider`}
+          providers={AGENT_PROVIDERS}
+          disabled={disabledProviders}
+          value={form.provider}
+          onChange={form.setProvider}
+        />
+
         {connect && <ConnectProvider provider={connect.provider} problem={connect.problem} />}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${fieldId}-folder`} className="text-xs font-semibold text-ink-2">
-            {t("newSession.folder")}
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className={cn(fieldFrame, "min-w-[260px] flex-1")}>
-              <input
-                ref={folderRef}
-                id={`${fieldId}-folder`}
-                value={form.folder}
-                onChange={(e) => form.setFolder(e.target.value)}
-                placeholder={t("newSession.folderPlaceholder")}
-                spellCheck={false}
-                autoComplete="off"
-                aria-invalid={form.missing === "folder"}
-                aria-describedby={form.missing === "folder" ? `${fieldId}-folder-err` : undefined}
-                className="h-8 w-full bg-transparent px-2.5 font-mono text-xs text-ink outline-none focus-visible:outline-none placeholder:font-sans placeholder:text-sm placeholder:text-ink-3"
-              />
-            </div>
-            {pickFolder && (
-              <Button onClick={choose}>
-                <FolderOpen size={15} aria-hidden="true" />
-                {t("newSession.chooseFolder")}
-              </Button>
-            )}
-          </div>
-          {form.missing === "folder" && (
-            <p id={`${fieldId}-folder-err`} className="text-xs text-error-ink">
-              {t("newSession.needFolder")}
-            </p>
-          )}
-          {recent.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-ink-3">{t("newSession.recent")}</span>
-              {recent.map((r) => (
-                <button
-                  key={r.root}
-                  type="button"
-                  title={tildify(r.root)}
-                  aria-pressed={form.folder === r.root}
-                  onClick={() => form.setFolder(r.root)}
-                  className={cn(
-                    "h-6 max-w-[220px] truncate rounded-full px-2.5 text-xs font-medium transition-colors",
-                    form.folder === r.root
-                      ? "bg-ink text-ground"
-                      : "bg-panel text-ink-2 hover:bg-panel-2 hover:text-ink",
-                  )}
-                >
-                  {r.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <FolderField
+          idPrefix={fieldId}
+          folder={form.folder}
+          onFolder={form.setFolder}
+          invalid={form.missing === "folder"}
+          errorText={form.missing === "folder" ? t("newSession.needFolder") : undefined}
+          recent={recent}
+          focusRef={folderRef}
+        />
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${fieldId}-message`} className="text-xs font-semibold text-ink-2">
@@ -236,13 +178,6 @@ export function NewSessionPanel({
               onChange={form.setRunIn}
             />
           )}
-          {chooses && (
-            <ProviderChoice
-              name={`${fieldId}-provider`}
-              value={form.provider}
-              onChange={form.setProvider}
-            />
-          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${fieldId}-model`} className="text-xs font-semibold text-ink-2">
               {t("newSession.model")}
@@ -253,7 +188,7 @@ export function NewSessionPanel({
               value={form.model}
               onChange={form.setModel}
               provider={form.provider}
-              withDefault
+              withDefault={form.provider !== "cursor"}
               className="w-52"
             />
           </div>
@@ -283,7 +218,12 @@ export function NewSessionPanel({
           <Button variant="ghost" onClick={onClose}>
             {t("newSession.cancel")}
           </Button>
-          <Button type="submit" variant="primary" aria-busy={form.busy}>
+          <Button
+            type="submit"
+            variant="primary"
+            aria-busy={form.busy}
+            disabled={providerBlocked}
+          >
             {form.busy ? t("newSession.starting") : t("newSession.start")}
           </Button>
         </div>
@@ -295,18 +235,27 @@ export function NewSessionPanel({
 /** Which agent runs the session. */
 function ProviderChoice({
   name,
+  providers,
+  disabled = [],
   value,
   onChange,
 }: {
   name: string;
+  providers: readonly AgentProvider[];
+  disabled?: readonly AgentProvider[];
   value: AgentProvider;
   onChange: (provider: AgentProvider) => void;
 }) {
+  const blocked = new Set(disabled);
   return (
     <Segmented
       name={name}
       legend={t("newSession.provider")}
-      options={AGENT_PROVIDERS.map((p) => ({ value: p, label: t(`newSession.provider.${p}`) }))}
+      options={providers.map((p) => ({
+        value: p,
+        label: t(`newSession.provider.${p}`),
+        disabled: blocked.has(p),
+      }))}
       value={value}
       onChange={onChange}
     />
@@ -326,7 +275,7 @@ function Segmented<T extends string>({
 }: {
   name: string;
   legend: string;
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: string; disabled?: boolean }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -338,8 +287,12 @@ function Segmented<T extends string>({
           <label
             key={o.value}
             className={cn(
-              "flex cursor-pointer items-center rounded-md px-3 text-sm font-medium transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-focus",
-              value === o.value ? "bg-ground text-ink shadow-panel" : "text-ink-2 hover:text-ink",
+              "flex items-center rounded-md px-3 text-sm font-medium transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-focus",
+              o.disabled
+                ? "cursor-not-allowed text-ink-3 opacity-50"
+                : "cursor-pointer text-ink-2 hover:text-ink",
+              !o.disabled && value === o.value && "bg-ground text-ink shadow-panel",
+              !o.disabled && value !== o.value && "text-ink-2",
             )}
           >
             <input
@@ -347,6 +300,7 @@ function Segmented<T extends string>({
               name={name}
               value={o.value}
               checked={value === o.value}
+              disabled={o.disabled}
               onChange={() => onChange(o.value)}
               className="sr-only"
             />

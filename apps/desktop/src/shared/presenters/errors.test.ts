@@ -21,6 +21,17 @@ describe("provider errors", () => {
     });
   });
 
+  it("send Cursor to its key panel, never to a login", () => {
+    expect(describeError(failure(RpcErrors.providerUnavailable, { provider: "cursor" }))).toEqual({
+      text: "Cursor's CLI isn't available on this Mac.",
+      connect: { provider: "cursor", problem: "missing" },
+    });
+    expect(describeError(failure(RpcErrors.notLoggedIn, { provider: "cursor" }))).toEqual({
+      text: "Cursor needs a working API key set in Gravita.",
+      connect: { provider: "cursor", problem: "keyMissing" },
+    });
+  });
+
   it("are Claude Code's when the engine names no provider (older engines)", () => {
     expect(describeError(failure(RpcErrors.claudeUnavailable))).toEqual({
       text: "Claude Code isn't available on this Mac.",

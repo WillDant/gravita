@@ -24,6 +24,8 @@ export interface ControlSlice {
    * (a failure can retry).
    */
   loadModels: (provider?: AgentProvider) => void;
+  /** Refetches models even when the provider was already `ready` (e.g. after Cursor session/new). */
+  reloadModels: (provider?: AgentProvider) => void;
   /** The session just started from Gravita, until the projection catches up with it. */
   startingSessionId?: string;
   startSession: (
@@ -57,6 +59,9 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
   loadModels: (provider = "claude") => {
     const status = get().modelsStatus[provider];
     if (status === "loading" || status === "ready") return;
+    get().reloadModels(provider);
+  },
+  reloadModels: (provider = "claude") => {
     const mark = (next: ModelsStatus, models?: ModelOption[]) =>
       set((s) => ({
         modelsStatus: { ...s.modelsStatus, [provider]: next },
