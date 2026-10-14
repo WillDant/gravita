@@ -58,6 +58,15 @@ const ROOTS = [
   "v2/ToolRequestUserInputParams",
   "v2/ToolRequestUserInputResponse",
   "v2/McpServerElicitationRequestResponse",
+  // Gravita's own Codex profile for squads: sign in, out, and the end of a sign-in.
+  "v2/LoginAccountParams",
+  "v2/LoginAccountResponse",
+  "v2/CancelLoginAccountParams",
+  "v2/CancelLoginAccountResponse",
+  "v2/LogoutAccountResponse",
+  "v2/AccountLoginCompletedNotification",
+  // Whether a squad session's `gravita` MCP server started.
+  "v2/McpServerStatusUpdatedNotification",
   // Shapes the code above names on their own.
   "ResponseItem",
   "v2/AskForApproval",
