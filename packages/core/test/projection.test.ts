@@ -306,4 +306,33 @@ describe("session model", () => {
     ] as GravitaEvent[]);
     expect(state.sessions["codex:s1"]?.model).toBe("gpt-6-luna");
   });
+
+  test("a resumed session's main agent comes back from detached", () => {
+    const base = {
+      projectId: "p1",
+      sessionId: "r1",
+      source: "registry",
+      provider: "claude",
+    } as const;
+    const at = (n: number) => new Date(Date.UTC(2026, 9, 14, 12, 0, n)).toISOString();
+    const events = [
+      {
+        ...base,
+        key: "s",
+        ts: at(0),
+        type: "session.started",
+        data: { kind: "external", cwd: "/w" },
+      },
+      { ...base, key: "p1", ts: at(1), type: "session.presence", data: { pid: 1, status: "idle" } },
+      { ...base, key: "d1", ts: at(2), type: "session.detached", data: { pid: 1 } },
+    ] as GravitaEvent[];
+    const detached = applyAll(emptyState(), events).sessions.r1!;
+    expect(detached.agents.main!.lifecycle).toBe("detached");
+    const resumed = applyAll(emptyState(), [
+      ...events,
+      { ...base, key: "p2", ts: at(3), type: "session.presence", data: { pid: 2, status: "idle" } },
+    ] as GravitaEvent[]).sessions.r1!;
+    expect(resumed.live).toBe(true);
+    expect(resumed.agents.main!.lifecycle).toBe("idle");
+  });
 });

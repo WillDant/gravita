@@ -191,10 +191,14 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
     case "session.titled":
       s.title = e.data.title;
       return;
-    case "session.presence":
+    case "session.presence": {
+      // A detached session that shows up again was resumed: its main agent is back.
+      const main = s.agents[MAIN_AGENT];
+      if (!s.live && main?.lifecycle === "detached") main.lifecycle = "idle";
       s.presence = e.data.status;
       s.live = true;
       return;
+    }
     case "session.detached":
       s.live = false;
       for (const a of Object.values(s.agents)) {

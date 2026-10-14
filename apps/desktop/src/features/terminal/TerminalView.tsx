@@ -72,7 +72,9 @@ export function TerminalView({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-none items-center gap-2 border-b border-hairline px-4 py-1.5 text-xs">
         <SquareTerminal size={14} aria-hidden="true" className="flex-none text-ink-3" />
-        <span className="font-semibold text-ink">{t(`terminal.title.${terminal.command}`)}</span>
+        <span className="flex-none font-semibold whitespace-nowrap text-ink">
+          {t(`terminal.title.${terminal.command}`)}
+        </span>
         <span className="min-w-0 truncate font-mono text-ink-3" title={terminal.cwd}>
           {tildify(terminal.cwd)}
         </span>
