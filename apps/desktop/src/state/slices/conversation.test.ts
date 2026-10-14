@@ -4,7 +4,7 @@ import { GatewayError } from "@/infrastructure/engine/GatewayError";
 import { ev, NOW } from "@/test/events";
 import { FakeGateway } from "@/test/FakeGateway";
 import { createAppStore } from "../store";
-import { CONVERSATION_REFRESH_MS, dedupeMessages } from "./conversation";
+import { CONVERSATION_REFRESH_MS, dedupeMessages, hasArrived } from "./conversation";
 
 const msg = (uuid: string, text: string, role: "user" | "assistant" = "assistant") =>
   ({ uuid, role, ts: "2026-10-12T12:00:00.000Z", text }) satisfies ConversationMessage;
@@ -24,6 +24,25 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("conversation slice", () => {
+  it("matches a sent message to the transcript's copy by text, not an older one", () => {
+    const pending = { sessionId: "s1", text: "hi", ts: "2026-10-12T12:00:00.000Z" };
+    expect(hasArrived([msg("u1", " hi ", "user")], pending)).toBe(true);
+    expect(hasArrived([msg("a1", "hi")], pending)).toBe(false);
+    expect(
+      hasArrived([{ ...msg("u0", "hi", "user"), ts: "2026-10-12T11:00:00.000Z" }], pending),
+    ).toBe(false);
+  });
+
+  it("drops the sent message when sending fails", async () => {
+    const { gateway, store } = setup();
+    gateway.failures.sendMessage = new GatewayError(1, "nope");
+    const sent = store.getState().sendMessage("s1", "hi");
+    expect(store.getState().pendingMessage?.text).toBe("hi");
+    await settle();
+    await sent;
+    expect(store.getState().pendingMessage).toBeUndefined();
+  });
+
   it("dedupes by uuid, keeping first position and latest text", () => {
     expect(dedupeMessages([msg("a", "1"), msg("b", "2"), msg("a", "1+")])).toEqual([
       msg("a", "1+"),

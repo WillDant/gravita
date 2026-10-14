@@ -121,10 +121,14 @@ body {
   color: var(--ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 6px;
+/* In the base layer so a field inside a framed control (focus-visible:outline-none) can hand
+   its ring to the frame; unlayered, this rule would beat every utility. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 * {

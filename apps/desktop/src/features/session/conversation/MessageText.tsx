@@ -1,4 +1,6 @@
 import { memo, useMemo } from "react";
+import { t } from "@/shared/i18n/i18n";
+import { CopyButton } from "@/shared/ui/CopyButton";
 import { type Block, type Inline, parseMessage } from "./parseMessage";
 
 /** A message's text as paragraphs, lists and code. Text nodes only, never HTML. */
@@ -45,12 +47,19 @@ function BlockView({ block: b }: { block: Block }) {
     }
     case "code":
       return (
-        <pre
-          data-lang={b.lang}
-          className="overflow-x-auto rounded-lg bg-panel px-3 py-2.5 font-mono text-xs leading-relaxed text-ink"
-        >
-          <code>{b.text}</code>
-        </pre>
+        <div className="group/code relative">
+          <pre
+            data-lang={b.lang}
+            className="overflow-x-auto rounded-lg bg-panel px-3 py-2.5 pr-10 font-mono text-xs leading-relaxed text-ink"
+          >
+            <code>{b.text}</code>
+          </pre>
+          <CopyButton
+            text={b.text}
+            label={t("conversation.copyCode")}
+            className="absolute top-1.5 right-1.5 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100"
+          />
+        </div>
       );
   }
 }

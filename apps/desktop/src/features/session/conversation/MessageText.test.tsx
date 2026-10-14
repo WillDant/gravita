@@ -76,7 +76,8 @@ describe("MessageText", () => {
     const { container } = render(<MessageText text={evil} />);
 
     for (const tag of ["script", "img", "b", "iframe", "svg"]) {
-      expect(container.querySelector(tag)).toBeNull();
+      // The copy button's own icon is the one svg allowed (decorative, aria-hidden).
+      expect(container.querySelector(`${tag}:not([aria-hidden="true"])`)).toBeNull();
     }
     expect(container.textContent).toContain("<script>window.__pwned = true</script>");
     expect(container.textContent).toContain('<img src="x" onerror="window.__pwned = true">');

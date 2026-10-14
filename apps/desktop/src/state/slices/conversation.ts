@@ -16,9 +16,19 @@ export interface ConversationView {
   status: "loading" | "ready" | "failed";
 }
 
+/** A message the user just sent, shown until the transcript brings it back. */
+export interface PendingMessage {
+  sessionId: string;
+  text: string;
+  /** When it was sent (ISO), to match it against the transcript's copy. */
+  ts: string;
+}
+
 export interface ConversationSlice {
   /** Full text of the open session's messages, while the Conversation lens shows it. */
   conversation?: ConversationView;
+  pendingMessage?: PendingMessage;
+  setPendingMessage: (pending: PendingMessage | undefined) => void;
   openConversation: (sessionId: string) => void;
   closeConversation: (sessionId: string) => void;
   /** Fetches the open conversation again, keeping what's shown meanwhile. */
@@ -34,6 +44,21 @@ export function dedupeMessages(messages: readonly ConversationMessage[]): Conver
   return [...byUuid.values()];
 }
 
+/** Clock skew between the UI and the transcript that still counts as "the same send". */
+const PENDING_SKEW_MS = 5_000;
+
+/** Whether the transcript already carries the message the user sent. */
+export function hasArrived(
+  messages: readonly ConversationMessage[],
+  pending: PendingMessage,
+): boolean {
+  const sent = Date.parse(pending.ts) - PENDING_SKEW_MS;
+  const text = pending.text.trim();
+  return messages.some(
+    (m) => m.role === "user" && m.text.trim() === text && Date.parse(m.ts) >= sent,
+  );
+}
+
 export const createConversationSlice: Slice<ConversationSlice> = (gateway) => (set, get) => {
   let request = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -43,7 +68,13 @@ export const createConversationSlice: Slice<ConversationSlice> = (gateway) => (s
     gateway.conversation({ sessionId }).then(
       ({ messages }) => {
         if (mine !== request || get().conversation?.sessionId !== sessionId) return;
-        set({ conversation: { sessionId, messages: dedupeMessages(messages), status: "ready" } });
+        const deduped = dedupeMessages(messages);
+        const pending = get().pendingMessage;
+        const arrived = pending?.sessionId === sessionId && hasArrived(deduped, pending);
+        set({
+          conversation: { sessionId, messages: deduped, status: "ready" },
+          ...(arrived ? { pendingMessage: undefined } : {}),
+        });
       },
       () => {
         const cur = get().conversation;
@@ -55,6 +86,7 @@ export const createConversationSlice: Slice<ConversationSlice> = (gateway) => (s
   };
 
   return {
+    setPendingMessage: (pendingMessage) => set({ pendingMessage }),
     openConversation: (sessionId) => {
       const cur = get().conversation;
       if (cur?.sessionId === sessionId && cur.status !== "failed") return;

@@ -64,6 +64,7 @@ export function ModelSelect({
   id,
   label,
   className,
+  variant,
 }: {
   models: ModelOption[];
   value: string;
@@ -73,6 +74,7 @@ export function ModelSelect({
   id?: string;
   label?: string;
   className?: string;
+  variant?: "field" | "ghost";
 }) {
   const known = value === "" || models.some((m) => m.value === value);
   return (
@@ -82,6 +84,7 @@ export function ModelSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={className}
+      variant={variant}
     >
       {(withDefault || value === "") && <option value="">{t(MODEL_DEFAULT[provider])}</option>}
       {!known && <option value={value}>{value}</option>}
@@ -103,6 +106,7 @@ export function ModeSelect({
   id,
   label,
   className,
+  variant,
 }: {
   value: SessionMode;
   onChange: (mode: SessionMode) => void;
@@ -116,6 +120,7 @@ export function ModeSelect({
   id?: string;
   label?: string;
   className?: string;
+  variant?: "field" | "ghost";
 }) {
   const { modes, fullAccess, label: copy } = PROVIDER_MODES[provider];
   const offered = modes.filter((m) => m !== fullAccess || allowBypass || value === fullAccess);
@@ -126,6 +131,7 @@ export function ModeSelect({
       value={value}
       onChange={(e) => onChange(e.target.value as SessionMode)}
       className={className}
+      variant={variant}
     >
       {offered.map((m) => (
         <option key={m} value={m}>

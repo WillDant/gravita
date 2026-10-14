@@ -22,3 +22,18 @@ export const MOD_KEY =
 export function isSendChord(e: { key: string; metaKey: boolean; ctrlKey: boolean }): boolean {
   return e.key === "Enter" && (e.metaKey || e.ctrlKey);
 }
+
+/**
+ * The chat composer's send key: return sends, shift-return breaks the line, and the ⌘↩ chord
+ * keeps working. A return that confirms an IME composition never sends.
+ */
+export function isComposerSend(e: {
+  key: string;
+  shiftKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  nativeEvent?: { isComposing?: boolean };
+}): boolean {
+  if (e.key !== "Enter" || e.nativeEvent?.isComposing) return false;
+  return !e.shiftKey || e.metaKey || e.ctrlKey;
+}

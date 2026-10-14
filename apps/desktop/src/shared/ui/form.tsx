@@ -9,20 +9,40 @@ import {
 } from "react";
 import { cn } from "@/shared/utils";
 
-/** A native select dressed as a secondary button: familiar, keyboard-complete, 32px. */
-export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+const SELECT_LOOK = {
+  /** A secondary button: bordered, on ground. */
+  field:
+    "h-8 rounded-lg border border-hairline-strong bg-ground pr-7 pl-2.5 text-sm text-ink hover:bg-panel",
+  /** A quiet pill for toolbars inside a field (the composer): no border until hovered. */
+  ghost:
+    "h-7 rounded-md bg-transparent pr-6 pl-2 text-xs text-ink-2 hover:bg-panel-2 hover:text-ink focus-visible:bg-panel-2",
+} as const;
+
+/** A native select dressed as a button: familiar, keyboard-complete, 32px (28px as a ghost). */
+export function Select({
+  className,
+  children,
+  variant = "field",
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { variant?: keyof typeof SELECT_LOOK }) {
   return (
     <span className={cn("relative inline-flex min-w-0", className)}>
       <select
-        className="h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-hairline-strong bg-ground pr-7 pl-2.5 text-sm font-medium text-ink transition-colors hover:bg-panel disabled:cursor-default disabled:opacity-60"
+        className={cn(
+          "w-full min-w-0 cursor-pointer appearance-none truncate font-medium transition-colors disabled:cursor-default disabled:opacity-60",
+          SELECT_LOOK[variant],
+        )}
         {...props}
       >
         {children}
       </select>
       <ChevronDown
-        size={14}
+        size={variant === "ghost" ? 12 : 14}
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ink-3"
+        className={cn(
+          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-3",
+          variant === "ghost" ? "right-1.5" : "right-2",
+        )}
       />
     </span>
   );

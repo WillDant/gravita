@@ -73,7 +73,13 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
     if (r.ok) set({ startingSessionId: r.value.sessionId });
     return r;
   },
-  sendMessage: (sessionId, text) => done(() => gateway.sendMessage({ sessionId, text })),
+  sendMessage: async (sessionId, text) => {
+    // The conversation shows the message right away; the transcript's copy replaces it.
+    get().setPendingMessage({ sessionId, text, ts: new Date(get().now).toISOString() });
+    const r = await done(() => gateway.sendMessage({ sessionId, text }));
+    if (!r.ok && get().pendingMessage?.text === text) get().setPendingMessage(undefined);
+    return r;
+  },
   interrupt: (sessionId) => done(() => gateway.interruptSession({ sessionId })),
   stopAgent: (sessionId, agentId) => done(() => gateway.stopAgent({ sessionId, agentId })),
   setModel: (sessionId, model) => done(() => gateway.setModel({ sessionId, model })),
