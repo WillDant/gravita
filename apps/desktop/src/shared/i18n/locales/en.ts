@@ -457,7 +457,6 @@ export const en = {
   "squad.board.roleBudget": "Role budget, or its share of the estimate",
   "squad.board.noTasks": "No tasks for this role.",
   "squad.board.foundation": "Foundation",
-  "squad.board.onOpus": "Runs on Opus: this one matters most to get right.",
   "squad.board.byModel": "The estimate by model",
   "squad.board.after": "After {tasks}",
   "squad.board.edit": "Edit {task}",
@@ -652,6 +651,48 @@ export const en = {
   "squad.banner.shareTooLow": "The new share must be above what's used ({used}%) and at most 100%.",
   "squad.board.planHint":
     "Estimates are API-equivalent dollars. The squad pauses once it has used {limit}% of your {window}.",
+  "newSquad.providers": "Who builds it",
+  "newSquad.providers.claude": "Claude Code only",
+  "newSquad.providers.claude.hint": "Every role, and the planner, on Claude Code.",
+  "newSquad.providers.codex": "Codex only",
+  "newSquad.providers.codex.hint": "Every role, and the planner, on Codex.",
+  "newSquad.providers.mixed": "Mixed",
+  "newSquad.providers.mixed.hint":
+    "The planner gives each role Claude Code or Codex; you can change it on the Board.",
+  "newSquad.codexProfile.why":
+    "Squads run Codex in a clean profile of Gravita's own, so they don't inherit your MCP servers or hooks. Sign in to it once, with your ChatGPT account.",
+  "newSquad.codexProfile.signIn": "Sign in to Codex for squads",
+  "newSquad.codexProfile.waiting":
+    "Finish signing in in your browser; this updates by itself when Codex is done.",
+  "newSquad.codexProfile.again": "Open the sign-in page again",
+  "newSquad.codexProfile.signedIn": "Codex for squads is signed in.",
+  "newSquad.codexProfile.signedInPlan": "Codex for squads is signed in ({plan} plan).",
+  "newSquad.codexProfile.openFailed": "Gravita couldn't open your browser. Try again.",
+  "newSquad.budget.unknownCodex": "Usage shows here once Codex has read your plan.",
+  "newSquad.budget.planHintCodex":
+    "Codex roles are measured in plan usage. The squad pauses once it has used this share; other use of the same account counts too.",
+  "newSquad.budget.planHintMixed":
+    "Claude Code's and Codex's windows are counted apart, and the squad pauses once either has used this share. Other use of the same accounts counts too.",
+  "squad.model.codexEffort": "{model} · {effort}",
+  "squad.model.effort.none": "no reasoning",
+  "squad.model.effort.minimal": "minimal effort",
+  "squad.model.effort.low": "low effort",
+  "squad.model.effort.medium": "medium effort",
+  "squad.model.effort.high": "high effort",
+  "squad.model.effort.xhigh": "extra-high effort",
+  "squad.model.effort.ultra": "ultra effort",
+  "squad.board.providerOf": "Who runs {role}",
+  "squad.board.onStrong": "Runs on the strongest tier: this one matters most to get right.",
+  "newSquad.models.codex.auto": "Automatic",
+  "newSquad.models.codex.auto.hint":
+    "Codex at medium reasoning effort for most work, high where it matters; steps up only when a task struggles.",
+  "newSquad.models.codex.opus": "High effort everywhere",
+  "newSquad.models.codex.opus.hint":
+    "Codex's most thorough reasoning for every agent. Uses the most.",
+  "newSquad.models.codex.sonnet": "Medium effort everywhere",
+  "newSquad.models.codex.sonnet.hint": "Codex at medium effort for every agent, with no step up.",
+  "newSquad.models.mixedHint":
+    "On Codex roles the same choice sets Codex's reasoning effort: Haiku, Sonnet and Opus become low, medium and high.",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -1,13 +1,14 @@
 import type { PlanIssue } from "@gravita/core";
 import { type AgentColor, agentColor } from "@gravita/orbs";
-import type { PlanRole, PlanTask, SquadPlan } from "@gravita/protocol";
+import type { AgentProvider, PlanRole, PlanTask, SquadPlan } from "@gravita/protocol";
 import { ArrowRightLeft, Pencil, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { Orb } from "@/features/agents/Orb";
 import { t } from "@/shared/i18n/i18n";
 import { usd } from "@/shared/presenters/money";
-import { roleCode, roleColorKey } from "@/shared/presenters/squad";
+import { modelLabel, roleCode, roleColorKey } from "@/shared/presenters/squad";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { Button, LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { titleOf } from "../model";
@@ -27,22 +28,31 @@ export interface TaskEdits {
 export function RoleStrip({
   plan,
   role,
+  provider,
+  onProvider,
   tasks,
   estimateUsd,
   issues,
   taskIssues,
-  onOpus,
+  strong,
   notes,
   edits,
 }: {
   plan: SquadPlan;
   role: PlanRole;
+  /** The agent that runs this role. */
+  provider: AgentProvider;
+  /** A mixed squad lets the user move the role between Claude Code and Codex. */
+  onProvider?: (provider: AgentProvider) => void;
   tasks: PlanTask[];
   estimateUsd?: number;
   issues: PlanIssue[];
   taskIssues: Map<string, PlanIssue[]>;
-  /** Tasks the squad's model policy runs on Opus (marked on their cards). */
-  onOpus?: ReadonlySet<string>;
+  /**
+   * Tasks the squad's model policy runs on their provider's strongest tier, with that
+   * model (marked on their cards).
+   */
+  strong?: ReadonlyMap<string, string>;
   notes: Map<string, string[]>;
   edits: TaskEdits;
 }) {
@@ -65,6 +75,7 @@ export function RoleStrip({
           />
           <LineBadge agentType={key} code={roleCode(role)} title={role.name} size={18} />
           <h3 className="min-w-0 flex-1 truncate text-md font-semibold">{role.name}</h3>
+          {!onProvider && <ProviderMark provider={provider} />}
           <span className="tabular text-xs text-ink-2" title={t("squad.board.roleBudget")}>
             {role.budgetUsd !== undefined
               ? usd(role.budgetUsd)
@@ -83,6 +94,9 @@ export function RoleStrip({
             </li>
           ))}
         </ul>
+        {onProvider && (
+          <ProviderSwitch role={role.name} provider={provider} onChange={onProvider} />
+        )}
         {role.charter && <p className="line-clamp-2 text-xs text-ink-3">{role.charter}</p>}
         {issues.map((i) => (
           <p key={i.message} className="text-xs font-medium text-error-ink">
@@ -107,7 +121,7 @@ export function RoleStrip({
             task={task}
             color={color}
             issues={taskIssues.get(task.id) ?? []}
-            opus={onOpus?.has(task.id) ?? false}
+            {...(strong?.has(task.id) ? { strongModel: strong.get(task.id) } : {})}
             notes={notes.get(task.id) ?? []}
             edits={edits}
           />
@@ -119,12 +133,55 @@ export function RoleStrip({
 
 type Mode = "view" | "edit" | "move" | "remove";
 
+/**
+ * Which agent runs the role, as a two-way segmented control (a mixed squad only): the
+ * user may move a role between Claude Code and Codex before approving.
+ */
+function ProviderSwitch({
+  role,
+  provider,
+  onChange,
+}: {
+  role: string;
+  provider: AgentProvider;
+  onChange: (provider: AgentProvider) => void;
+}) {
+  const name = useId();
+  const options: readonly AgentProvider[] = ["claude", "codex"];
+  return (
+    <fieldset className="w-max">
+      <legend className="sr-only">{t("squad.board.providerOf", { role })}</legend>
+      <div className="grid grid-cols-2 gap-0.5 rounded-lg bg-panel p-0.5">
+        {options.map((p) => (
+          <label
+            key={p}
+            className={cn(
+              "flex h-6 cursor-pointer items-center rounded-md px-2.5 text-xs font-semibold transition-colors has-focus-visible:outline-2 has-focus-visible:outline-focus",
+              provider === p ? "bg-ground text-ink shadow-panel" : "text-ink-2 hover:text-ink",
+            )}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={p}
+              checked={provider === p}
+              onChange={() => onChange(p)}
+              className="sr-only"
+            />
+            {t(`newSession.provider.${p}`)}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function TaskStop({
   plan,
   task,
   color,
   issues,
-  opus,
+  strongModel,
   notes,
   edits,
 }: {
@@ -132,7 +189,8 @@ function TaskStop({
   task: PlanTask;
   color: AgentColor;
   issues: PlanIssue[];
-  opus: boolean;
+  /** Set when the task runs on its provider's strongest tier: that model. */
+  strongModel?: string;
   notes: string[];
   edits: TaskEdits;
 }) {
@@ -246,14 +304,14 @@ function TaskStop({
                 {t("squad.board.foundation")}
               </span>
             )}
-            {opus && (
+            {strongModel && (
               // Signage, not a status: hairline ring, ink text, no colour of its own.
               <span
-                title={t("squad.board.onOpus")}
+                title={t("squad.board.onStrong")}
                 className="rounded-full border border-hairline px-1.5 font-semibold text-ink-2"
               >
-                {t("newSquad.model.opus")}
-                <span className="sr-only">{`. ${t("squad.board.onOpus")}`}</span>
+                {modelLabel(strongModel)}
+                <span className="sr-only">{`. ${t("squad.board.onStrong")}`}</span>
               </span>
             )}
             {task.dependsOn.length > 0 && (

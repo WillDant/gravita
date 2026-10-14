@@ -1,5 +1,11 @@
 import type { GravitaState, UsageLimitState } from "@gravita/core";
-import type { AccountPlan, EngineStatus, GravitaEvent, ProviderStatus } from "@gravita/protocol";
+import type {
+  AccountPlan,
+  CodexProfileStatus,
+  EngineStatus,
+  GravitaEvent,
+  ProviderStatus,
+} from "@gravita/protocol";
 import type { AgentProvider } from "@gravita/protocol/constants";
 import { createContext, useContext, useEffect } from "react";
 import { useStore } from "zustand";
@@ -162,10 +168,29 @@ export function useAccountPlan(provider: AgentProvider = "claude"): AccountPlan 
  * the new-squad panel): once on mount and on each reconnect. Cheap by design: the engine
  * reads through a running session at most once a minute and never starts one.
  */
-export function useUsageRefresh(provider: AgentProvider = "claude") {
+export function useUsageRefresh(provider: AgentProvider | null = "claude") {
   const refresh = useAppStore((s) => s.refreshUsage);
   const connection = useConnection();
   useEffect(() => {
-    if (connection === "online") void refresh(provider);
+    // null: nothing to read (a caller that needs a provider only sometimes).
+    if (provider && connection === "online") void refresh(provider);
   }, [refresh, connection, provider]);
+}
+
+/**
+ * Gravita's own Codex profile, which squads run Codex in: undefined until the engine
+ * looked (or where it can't run Codex).
+ */
+export const useCodexProfile = (): CodexProfileStatus | undefined =>
+  useAppStore((s) =>
+    s.engineStatus?.demo ? undefined : s.engineStatus?.providers?.codex?.squadProfile,
+  );
+
+/** Asks the engine to read the Codex profile while the caller is mounted (and online). */
+export function useCodexProfileRefresh(enabled: boolean) {
+  const read = useAppStore((s) => s.readCodexProfile);
+  const connection = useConnection();
+  useEffect(() => {
+    if (enabled && connection === "online") void read();
+  }, [read, connection, enabled]);
 }

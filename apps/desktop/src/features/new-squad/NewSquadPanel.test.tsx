@@ -185,3 +185,127 @@ describe("NewSquadPanel", () => {
     expect(Number.isNaN(parseUsd("twelve"))).toBe(true);
   });
 });
+
+describe("NewSquadPanel with Codex", () => {
+  const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
+  const withCodex = (profile?: { loggedIn: boolean; planType?: string; signingIn?: boolean }) => {
+    const claude = { found: true, account: { plan: "limited" as const } };
+    return {
+      providers: {
+        claude,
+        codex: { found: true, ...(profile ? { squadProfile: profile } : {}) },
+      },
+      claude,
+      indexing: { done: 0, total: 0 },
+      demo: false,
+    } satisfies EngineStatus;
+  };
+
+  function renderCodexPanel(profile?: { loggedIn: boolean; planType?: string }) {
+    const gateway = new FakeGateway();
+    const view = renderWithApp(
+      <NewSquadPanel id="nq" defaultFolder="/work/p1" onClose={() => {}} />,
+      {
+        state,
+        gateway,
+      },
+    );
+    act(() => view.store.getState().setEngineStatus(withCodex(profile)));
+    return view;
+  }
+
+  it("offers who builds it only when Codex is installed", async () => {
+    renderPanel();
+    await act(flush);
+    expect(screen.queryByRole("radio", { name: /Codex only/ })).toBeNull();
+    cleanup();
+    renderCodexPanel({ loggedIn: true });
+    await act(flush);
+    expect(radio(/Claude Code only/).checked).toBe(true);
+    expect(radio(/Codex only/)).toBeTruthy();
+    expect(radio(/Mixed/).closest("label")?.textContent).toContain(
+      "you can change it on the Board",
+    );
+  });
+
+  it("explains Gravita's Codex profile and signs in to it through Codex's own page", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { gateway, store } = renderCodexPanel({ loggedIn: false });
+    await act(flush);
+    fireEvent.click(radio(/Mixed/));
+    await act(flush);
+    // The panel read the profile when a choice with Codex in it was made.
+    expect(gateway.callsOf("codexProfileStatus")).toHaveLength(1);
+    expect(screen.getByText(/don't inherit your MCP servers or hooks/)).toBeTruthy();
+    // Starting without it: the sign-in is what's missing, and nothing is created.
+    fireEvent.change(field("What should the squad build?"), { target: { value: "A todo app" } });
+    await start();
+    expect(gateway.callsOf("createSquad")).toEqual([]);
+    const signIn = screen.getByRole("button", { name: "Sign in to Codex for squads" });
+    expect(document.activeElement).toBe(signIn);
+    await act(async () => {
+      fireEvent.click(signIn);
+      await flush();
+    });
+    expect(gateway.callsOf("codexProfileSignIn")).toHaveLength(1);
+    expect(open).toHaveBeenCalledWith(
+      "https://auth.openai.com/oauth/authorize?client_id=codex",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    // Codex finished the browser step: the engine's status says so.
+    act(() => store.getState().setEngineStatus(withCodex({ loggedIn: true, planType: "team" })));
+    expect(screen.getByText("Codex for squads is signed in (team plan).")).toBeTruthy();
+    await start();
+    expect(gateway.callsOf("createSquad")).toMatchObject([
+      { providers: "mixed", budget: { mode: "plan" } },
+    ]);
+    open.mockRestore();
+  });
+
+  it("never opens a link that isn't OpenAI's sign-in page", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { gateway } = renderCodexPanel({ loggedIn: false });
+    gateway.signInResult = { authUrl: "https://evil.example/login" };
+    await act(flush);
+    fireEvent.click(radio(/Codex only/));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sign in to Codex for squads" }));
+      await flush();
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toContain("couldn't open your browser");
+    open.mockRestore();
+  });
+
+  it("a Codex squad's budget is a share of the plan even on an API-key Claude account", async () => {
+    const gateway = new FakeGateway();
+    const view = renderWithApp(
+      <NewSquadPanel id="nq" defaultFolder="/work/p1" onClose={() => {}} />,
+      {
+        state,
+        gateway,
+      },
+    );
+    const s = withCodex({ loggedIn: true });
+    act(() =>
+      view.store.getState().setEngineStatus({
+        ...s,
+        providers: { ...s.providers, claude: { found: true, account: { plan: "api" } } },
+      }),
+    );
+    await act(flush);
+    expect(field("Budget")).toBeTruthy();
+    fireEvent.click(radio(/Codex only/));
+    expect(screen.queryByLabelText("Budget")).toBeNull();
+    expect(screen.getByText(/Codex roles are measured in plan usage/)).toBeTruthy();
+    // Its models are Codex's efforts, said that way.
+    expect(radio(/High effort everywhere/)).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /Opus everywhere/ })).toBeNull();
+    fireEvent.change(field("What should the squad build?"), { target: { value: "A todo app" } });
+    await start();
+    expect(gateway.callsOf("createSquad")).toMatchObject([
+      { providers: "codex", budget: { mode: "plan", maxPercent: 20 } },
+    ]);
+  });
+});

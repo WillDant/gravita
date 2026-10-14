@@ -1,7 +1,15 @@
-import { modelFamily, outsideOwnership, type SquadState, squadTaskModel } from "@gravita/core";
+import {
+  inProvider,
+  modelTier,
+  outsideOwnership,
+  roleProviderOf,
+  type SquadState,
+  squadTaskModel,
+  tierModel,
+} from "@gravita/core";
 import { useState } from "react";
 import { t } from "@/shared/i18n/i18n";
-import { roleCode, roleColorKey } from "@/shared/presenters/squad";
+import { modelLabel, roleCode, roleColorKey } from "@/shared/presenters/squad";
 import { Button, LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { useAppStore } from "@/state/hooks";
@@ -9,12 +17,18 @@ import type { SquadView, TaskView } from "../model";
 import { useSquadAction } from "../useSquadAction";
 
 /**
- * The model a stuck task can retry with, when its next run wouldn't use it already (the
- * squad's policy may have stepped it up to Opus by itself).
+ * The model a stuck task can retry with: its provider's strongest tier (Opus, or Codex at
+ * high effort), when its next run wouldn't use it already (the squad's policy may have
+ * stepped it up by itself).
  */
 export function strongerModel(q: SquadState, view: SquadView, task: TaskView): string | undefined {
+  const provider = roleProviderOf(
+    q.providers,
+    view.plan?.roles.find((r) => r.id === task.role),
+  );
   const next = view.plan ? squadTaskModel(q, view.plan, task.task.id) : undefined;
-  return modelFamily(next ?? q.models.roles) === "opus" ? undefined : "opus";
+  const model = next ?? inProvider(q.models.roles, provider);
+  return modelTier(model, provider) === "high" ? undefined : tierModel(provider, "high");
 }
 
 /**
@@ -55,7 +69,7 @@ export function TaskDecision({
         </Button>
         {stronger && (
           <Button aria-busy={retry.busy} onClick={() => void retry.run(q.id, id, stronger)}>
-            {t("squad.decide.retryStronger", { model: t(`newSquad.model.${stronger}`) })}
+            {t("squad.decide.retryStronger", { model: modelLabel(stronger) })}
           </Button>
         )}
       </div>

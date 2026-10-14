@@ -24,6 +24,11 @@ export interface SquadSlice {
   ) => Promise<CommandResult<RpcResult<"squad.deliver">>>;
   /** Asks for fresh plan usage (cheap: the engine reads through a running session, if any). */
   refreshUsage: (provider?: AgentProvider) => Promise<CommandResult>;
+  /** Reads Gravita's Codex profile for squads (its status arrives in the engine status). */
+  readCodexProfile: () => Promise<CommandResult>;
+  /** Starts signing the profile in: the link the browser opens. */
+  signInCodexProfile: () => Promise<CommandResult<RpcResult<"codexProfile.signIn">>>;
+  signOutCodexProfile: () => Promise<CommandResult>;
 }
 
 export const createSquadSlice: Slice<SquadSlice> = (gateway) => (set) => ({
@@ -45,4 +50,7 @@ export const createSquadSlice: Slice<SquadSlice> = (gateway) => (set) => ({
     done(() => gateway.reassignTask({ squadId, taskId, role })),
   deliverSquad: (squadId, mode) => attempt(() => gateway.deliverSquad({ squadId, mode })),
   refreshUsage: (provider) => done(() => gateway.refreshUsage(provider ? { provider } : {})),
+  readCodexProfile: () => done(() => gateway.codexProfileStatus()),
+  signInCodexProfile: () => attempt(() => gateway.codexProfileSignIn()),
+  signOutCodexProfile: () => done(() => gateway.codexProfileSignOut()),
 });

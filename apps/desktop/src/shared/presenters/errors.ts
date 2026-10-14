@@ -60,6 +60,9 @@ export function describeError(error: GatewayError): ErrorView {
       return { text: t("error.dirtyWorktree") };
     case KnownErrors.ghUnavailable:
       return { text: t("error.ghUnavailable") };
+    case KnownErrors.codexProfileSignedOut:
+      // The engine's words say which: the profile isn't signed in, or a dollar budget.
+      return { text: error.message };
     case LocalErrors.offline:
       return { text: t("error.offline") };
     case LocalErrors.timeout:

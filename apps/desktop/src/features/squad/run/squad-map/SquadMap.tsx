@@ -13,6 +13,7 @@ import {
   type LabelPrimitive,
   type LinePrimitive,
   layoutSquadMap,
+  MARK_W,
   type MapHead,
   PLANNER_ORB,
   type SquadMapInput,
@@ -79,7 +80,14 @@ export function SquadMap({
   const planner = sessionHead(view.planner?.session, now);
 
   const input: SquadMapInput = {
-    roles: view.roles.map((r) => ({ id: r.id, colorKey: r.colorKey, name: r.name, code: r.code })),
+    roles: view.roles.map((r) => ({
+      id: r.id,
+      colorKey: r.colorKey,
+      name: r.name,
+      code: r.code,
+      // Claude Code stays unmarked; a Codex role carries the provider's short mark.
+      ...(r.provider === "codex" ? { mark: "Cx", markTitle: t("newSession.provider.codex") } : {}),
+    })),
     tasks: view.tasks.map((x) => ({
       id: x.task.id,
       role: x.role,
@@ -549,7 +557,7 @@ function LabelMark({ label: l }: { label: LabelPrimitive }) {
       <rect
         x={l.x - 2}
         y={l.y - 10}
-        width={l.textW + 27}
+        width={l.textW + 27 + (l.mark ? MARK_W + 6 : 0)}
         height={20}
         rx={6}
         fill="var(--ground)"
@@ -579,6 +587,31 @@ function LabelMark({ label: l }: { label: LabelPrimitive }) {
       >
         {l.text}
       </text>
+      {l.mark && (
+        // The provider as signage: an outlined ink pill, never a brand colour.
+        <g>
+          <rect
+            x={l.x + 25 + l.textW}
+            y={l.y - 7.5}
+            width={MARK_W}
+            height={15}
+            rx={7.5}
+            fill="var(--ground)"
+            className="stroke-hairline-strong"
+            strokeWidth={1}
+          />
+          <text
+            x={l.x + 25 + l.textW + MARK_W / 2}
+            y={l.y + 3.5}
+            textAnchor="middle"
+            fontSize={9.5}
+            fontWeight={600}
+            className="fill-ink-2"
+          >
+            {l.mark}
+          </text>
+        </g>
+      )}
     </g>
   );
 }

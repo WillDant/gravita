@@ -53,4 +53,5 @@ export const KnownErrors = {
   squadPhase: RpcErrors.squadPhase.code,
   dirtyWorktree: RpcErrors.dirtyWorktree.code,
   ghUnavailable: RpcErrors.ghUnavailable.code,
+  codexProfileSignedOut: RpcErrors.codexProfileSignedOut.code,
 } as const;

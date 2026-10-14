@@ -1,6 +1,6 @@
 import type { SessionCounts } from "@gravita/core";
 import { agentColor, lineCode } from "@gravita/orbs";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { agentTypeLabel } from "@/shared/presenters/agent";
 import type { SessionStatus } from "@/shared/presenters/selectors";
@@ -131,7 +131,10 @@ export function Button({
   className,
   variant = "secondary",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "ghost";
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
     <button
       type="button"

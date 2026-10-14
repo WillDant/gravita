@@ -53,6 +53,10 @@ export interface MapRole {
   colorKey: string;
   name: string;
   code: string;
+  /** A provider mark after the name ("Cx" for a Codex role); none for Claude Code. */
+  mark?: string;
+  /** The mark's full words, for the label's title ("Codex"). */
+  markTitle?: string;
 }
 
 export interface MapTask {
@@ -178,7 +182,12 @@ export interface LabelPrimitive {
   textW: number;
   /** The trunk's label sits on the line like a metro name; roles' sit in the gutter. */
   trunk: boolean;
+  /** A provider mark drawn as an outlined pill after the name ("Cx"). */
+  mark?: string;
 }
+
+/** The width of a provider mark's pill in the gutter. */
+export const MARK_W = 20;
 
 export interface ZonePrimitive {
   /** Dotted rules where one phase of the line hands over to the next. */
@@ -545,17 +554,19 @@ export function layoutSquadMap(input: SquadMapInput, frame: Frame): SquadMapLayo
   // Names: roles in the gutter beside their lane, the trunk on its own line.
   const labels: LabelPrimitive[] = roles.map((r) => {
     const y = laneY(roleLane.get(r.id) ?? 1);
-    const text = fitText(r.name, GUTTER - 36);
+    // A provider mark takes its pill's room from the name.
+    const text = fitText(r.name, GUTTER - 36 - (r.mark ? MARK_W + 6 : 0));
     return {
       id: r.id,
       colorKey: r.colorKey,
       code: r.code,
       text,
-      full: r.name,
+      full: r.markTitle ? `${r.name} · ${r.markTitle}` : r.name,
       x: 12,
       y,
       textW: text.length * CHAR_W,
       trunk: false,
+      ...(r.mark ? { mark: r.mark } : {}),
     };
   });
   // The trunk is named once, in the gutter like every other line.

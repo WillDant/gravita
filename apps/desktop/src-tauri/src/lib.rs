@@ -1,5 +1,6 @@
 mod engine_http;
 mod sidecar;
+mod sign_in;
 mod tray;
 
 use serde::Serialize;
@@ -42,7 +43,12 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![engine_info, tray::tray_update])
+        .invoke_handler(tauri::generate_handler![
+            engine_info,
+            tray::tray_update,
+            // Codex's sign-in page for squads, and nothing else (see sign_in.rs).
+            sign_in::open_sign_in_url
+        ])
         .build(tauri::generate_context!())
         .expect("error while building Gravita");
 

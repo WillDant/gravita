@@ -187,6 +187,18 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.usageRefresh, params);
   }
 
+  codexProfileStatus(): Promise<RpcResult<"codexProfile.status">> {
+    return this.call(Methods.codexProfileStatus, {});
+  }
+
+  codexProfileSignIn(): Promise<RpcResult<"codexProfile.signIn">> {
+    return this.call(Methods.codexProfileSignIn, {});
+  }
+
+  codexProfileSignOut(): Promise<RpcResult<"codexProfile.signOut">> {
+    return this.call(Methods.codexProfileSignOut, {});
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }

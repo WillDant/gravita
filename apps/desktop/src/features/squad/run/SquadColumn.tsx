@@ -14,6 +14,7 @@ import { firstQuestion } from "@/features/questions/questions";
 import { ago, t } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { usd } from "@/shared/presenters/money";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import type { RoleView, SquadView, TaskView } from "../model";
@@ -245,6 +246,7 @@ function StuckTask({
             <span className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-2">
               <LineBadge agentType={role.colorKey} code={role.code} title={role.name} size={14} />
               {role.name}
+              <ProviderMark provider={role.provider} compact />
             </span>
           )}
           {task.reason && (
