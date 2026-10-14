@@ -3,16 +3,12 @@ import { en } from "./en";
 import { ptBR } from "./pt-BR";
 
 describe("locales", () => {
-  it("translate every squad string into Brazilian Portuguese", () => {
-    const keys = Object.keys(en).filter(
-      (k) =>
-        k.startsWith("squad.") ||
-        k.startsWith("newSquad.") ||
-        k.startsWith("error.") ||
-        k.startsWith("usage."),
-    );
-    expect(keys.length).toBeGreaterThan(200);
+  it("translate every string into Brazilian Portuguese, the product name aside", () => {
+    const keys = Object.keys(en).filter((k) => k !== "app.name");
+    expect(keys.length).toBeGreaterThan(500);
     expect(keys.filter((k) => !(k in ptBR))).toEqual([]);
+    // Nothing translated that English doesn't have: a typo'd key would never show.
+    expect(Object.keys(ptBR).filter((k) => !(k in en))).toEqual([]);
   });
 
   it("keep the same {params} in both languages", () => {
@@ -22,5 +18,12 @@ describe("locales", () => {
         JSON.stringify(params(v ?? "")) !== JSON.stringify(params(en[k as keyof typeof en])),
     );
     expect(drift).toEqual([]);
+  });
+
+  it("say that Gravita observes Claude Code or Codex, in both languages", () => {
+    for (const key of ["home.empty", "project.empty"] as const) {
+      expect(en[key]).toContain("Claude Code or Codex");
+      expect(ptBR[key]).toContain("Claude Code ou o Codex");
+    }
   });
 });

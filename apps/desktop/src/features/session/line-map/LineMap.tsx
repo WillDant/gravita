@@ -9,7 +9,7 @@ import {
 import type { GravitaEvent } from "@gravita/protocol";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
-import { agentName } from "@/shared/presenters/agent";
+import { agentName, agentTypeLabel, displayId } from "@/shared/presenters/agent";
 import { type AgentInfo, layoutLineMap } from "./geometry";
 import { Heads } from "./Heads";
 import { Interchanges } from "./Interchanges";
@@ -79,7 +79,7 @@ export function LineMap({ session, events, now, selectedAgentId, onSelectAgent }
     live: isRecentlyLive(session, now),
     agents,
     selectedAgentId,
-    texts: { main: t("agent.main"), hold: t("map.hold") },
+    texts: { main: t("agent.main"), hold: t("map.hold"), type: agentTypeLabel },
   });
 
   // The 1/3 rule over the orbs riding the map: who may bounce or pop right now.
@@ -110,7 +110,7 @@ export function LineMap({ session, events, now, selectedAgentId, onSelectAgent }
 
   const lineName = (agentId: string) => {
     const line = map.lines.find((l) => l.agentId === agentId);
-    return line ? agentName(line) : agentId;
+    return line ? agentName(line) : displayId(agentId);
   };
 
   return (

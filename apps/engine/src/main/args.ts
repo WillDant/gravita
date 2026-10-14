@@ -8,7 +8,7 @@ export interface EngineArgs {
   claudeHome: string;
   /**
    * `--codex-home` (default `~/.codex`): where Codex keeps its sessions. Read-only, like
-   * `--claude-home`; the engine takes it now and reads it once Codex sessions are observed.
+   * `--claude-home`, and only its `sessions/` folder is ever read.
    */
   codexHome: string;
   lookbackDays: number;

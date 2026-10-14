@@ -174,6 +174,8 @@ describe("deep-observe forward.sh", () => {
         devOrigins: [],
         token: "engine-token",
         detectClaude: async () => ({ found: false }),
+        detectCodex: async () => ({ found: false }),
+        codexHome: join(home, ".codex"),
       });
       try {
         const payload = JSON.stringify({

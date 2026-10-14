@@ -21,6 +21,7 @@ import { ProjectionService } from "../application/services/projection-service";
 import { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
+import { TranscriptRouter } from "../application/services/transcript-router";
 import type { SquadOrchestrator } from "../application/squad/squad-orchestrator";
 import { AnnounceProject } from "../application/usecases/announce-project";
 import { AnswerQuestion } from "../application/usecases/answer-question";
@@ -53,14 +54,19 @@ import { ClaudeDetector } from "../infrastructure/claude/claude-cli-locator";
 import { DetectedClaudeEnvironment } from "../infrastructure/claude/claude-environment";
 import { ClaudeHookTranslator } from "../infrastructure/claude/claude-hook-translator";
 import { ClaudePlanUsageSource } from "../infrastructure/claude/claude-plan-usage";
+import { ClaudeSessionSource } from "../infrastructure/claude/claude-session-source";
 import { Registry } from "../infrastructure/claude/registry";
 import {
   ClaudeSdkRuntimeFactory,
   type QueryFn,
 } from "../infrastructure/claude/sdk/claude-sdk-runtime";
-import { TailScheduler } from "../infrastructure/claude/tail-scheduler";
 import { TranscriptDiscovery } from "../infrastructure/claude/transcript-discovery";
 import { ClaudeTranscriptReader, noTranscripts } from "../infrastructure/claude/transcript-reader";
+import { CodexDetector } from "../infrastructure/codex/codex-detector";
+import { CodexPresence } from "../infrastructure/codex/codex-presence";
+import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-discovery";
+import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
+import { CodexTranscriptReader } from "../infrastructure/codex/codex-transcript-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
 import { GhCli } from "../infrastructure/git/gh-cli";
@@ -68,6 +74,7 @@ import { type Env, GitRunner } from "../infrastructure/git/git-runner";
 import { SqliteCheckpointStore } from "../infrastructure/persistence/sqlite-checkpoint-store";
 import { openDatabase } from "../infrastructure/persistence/sqlite-database";
 import { SqliteEventStore } from "../infrastructure/persistence/sqlite-event-store";
+import { TailScheduler } from "../infrastructure/sessions/tail-scheduler";
 import { FsHookSpool } from "../infrastructure/system/fs-hook-spool";
 import { FsRuntimeFile } from "../infrastructure/system/fs-runtime-file";
 import { GitProjectDirectory } from "../infrastructure/system/git-project-directory";
@@ -193,10 +200,13 @@ export interface CoreOptions {
   logger?: Logger;
   ids?: IdGenerator;
   projectDirectory?: ProjectDirectory;
+  /** Claude Code's transcripts, for the Conversation lens (real mode). */
   transcripts?: TranscriptReader;
+  /** Codex's rollouts, for the Conversation lens of Codex sessions (real mode). */
+  codexTranscripts?: TranscriptReader;
   /** Absent: `session.start` answers that the provider is unavailable (demo mode). */
   chat?: ChatOptions;
-  /** Where Codex keeps its sessions (`--codex-home`); nothing reads it yet. */
+  /** Where Codex keeps its sessions (`--codex-home`); its `sessions/` is read, never written. */
   codexHome?: string;
   /** Absent: no squad toolkit (demo mode, most tests). */
   squad?: SquadOptions;
@@ -247,6 +257,14 @@ export function createCore(o: CoreOptions): EngineCore {
     demo: o.demo,
   });
   const ingest = new IngestEvents(events, projection, broadcaster);
+  // Each session's conversation comes from its own provider's files.
+  const transcripts = new TranscriptRouter(
+    {
+      claude: o.transcripts ?? noTranscripts,
+      ...(o.codexTranscripts ? { codex: o.codexTranscripts } : {}),
+    },
+    (id) => projection.session(id)?.provider ?? (id.startsWith("codex:") ? "codex" : undefined),
+  );
   const runtimes = new InMemorySessionRuntimeRegistry(ingest, clock);
   const projects = new AnnounceProject(
     o.projectDirectory ?? new GitProjectDirectory(),
@@ -301,7 +319,7 @@ export function createCore(o: CoreOptions): EngineCore {
         ingest,
         projection,
         events,
-        transcripts: o.transcripts ?? noTranscripts,
+        transcripts,
         projects,
         workspace,
         ids,
@@ -336,7 +354,7 @@ export function createCore(o: CoreOptions): EngineCore {
       setModel: new SetModel(runtimes, settings),
       setPermissionMode: new SetPermissionMode(runtimes, settings),
       answerQuestion: new AnswerQuestion(runtimes),
-      getConversation: new GetConversation(o.transcripts ?? noTranscripts),
+      getConversation: new GetConversation(transcripts),
       listModels: new ListModels(runtimes, clock, logger),
       stopAll,
       ...(squads ? { squads } : {}),
@@ -387,6 +405,8 @@ export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHom
   demoSeed?: number;
   /** Tests replace it, so a real-mode engine doesn't look for the user's `claude`. */
   detectClaude?: () => Promise<ProviderStatus>;
+  /** Tests replace it, so a real-mode engine doesn't look for the user's `codex`. */
+  detectCodex?: () => Promise<ProviderStatus>;
 }
 
 export interface RunningEngine {
@@ -414,7 +434,10 @@ export function startEngine(opts: EngineOptions): RunningEngine {
 
   // Real mode: each provider's CLI detection runs once at start; a session started before
   // it finished waits for it. The login shell's environment is captured once and cached.
-  const detectors: ProviderDetector[] = [new ClaudeDetector(opts.detectClaude)];
+  const detectors: ProviderDetector[] = [
+    new ClaudeDetector(opts.detectClaude),
+    new CodexDetector(opts.detectCodex),
+  ];
   const detections = new Map<AgentProvider, Promise<ProviderStatus>>();
   const detected = (provider: AgentProvider) =>
     detections.get(provider) ?? Promise.resolve<ProviderStatus>({ found: false });
@@ -429,15 +452,28 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         debug: process.env.GRAVITA_DEBUG === "1",
       };
 
+  // Codex's sessions are read from <codexHome>/sessions only (see docs/COMPLIANCE.md).
+  const clock = new SystemClock();
+  const codexHome = opts.codexHome ?? join(homedir(), ".codex");
+  const codexDiscovery = new CodexSessionDiscovery({
+    codexHome,
+    lookbackDays: opts.lookbackDays,
+    clock,
+    onSkip: (path, reason) => stderrLogger.log(`skipped ${path}: ${reason}`),
+  });
   const core = createCore({
     dbPath,
     demo: opts.demo,
-    ...(opts.codexHome ? { codexHome: opts.codexHome } : {}),
+    clock,
+    codexHome,
     ...(chat ? { chat } : {}),
     ...(opts.demo
       ? {}
       : {
           transcripts: new ClaudeTranscriptReader({ claudeHome: opts.claudeHome }),
+          codexTranscripts: new CodexTranscriptReader({
+            locate: (threadId) => codexDiscovery.locate(threadId),
+          }),
           squad: {
             worktreesRoot,
             // A Dock-launched app lacks the profile's PATH; checks need it to find pnpm & co.
@@ -447,7 +483,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
   });
   // Previews of transcripts live here: owner-only.
   if (!opts.demo) chmodSync(dbPath, 0o600);
-  const { clock, logger, broadcaster, ingest, projection, runtimes } = core;
+  const { logger, broadcaster, ingest, projection, runtimes } = core;
   // Squads that were working when the engine last stopped wait, paused, for the user.
   core.squads?.recover();
   // Plan usage is read while plan squads work (through their own running sessions).
@@ -511,23 +547,36 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       clock,
       logger,
     });
+    const codexPresence = new CodexPresence({ ingest, clock });
     const tails = new TailScheduler({
-      discovery: new TranscriptDiscovery({
-        claudeHome: opts.claudeHome,
-        lookbackDays: opts.lookbackDays,
-        clock,
-        isLive: registry.isLive,
-      }),
+      sources: [
+        new ClaudeSessionSource({
+          discovery: new TranscriptDiscovery({
+            claudeHome: opts.claudeHome,
+            lookbackDays: opts.lookbackDays,
+            clock,
+            isLive: registry.isLive,
+          }),
+          clock,
+          isLive: registry.isLive,
+        }),
+        new CodexSessionSource({
+          discovery: codexDiscovery,
+          presence: codexPresence,
+          clock,
+          logger,
+        }),
+      ],
       ingest,
       checkpoints: core.checkpoints,
       projects: core.projects,
       status: broadcaster,
       clock,
       logger,
-      isLive: registry.isLive,
       ownership: runtimes,
     });
     registry.start();
+    codexPresence.start();
     tails.start();
     const spool = new DrainHookSpool(
       new FsHookSpool(join(opts.dataDir, "spool")),
@@ -542,6 +591,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     }, SPOOL_DRAIN_MS);
     stops.push(
       () => registry.stop(),
+      () => codexPresence.stop(),
       () => tails.stop(),
       () => clearInterval(drainTimer),
     );

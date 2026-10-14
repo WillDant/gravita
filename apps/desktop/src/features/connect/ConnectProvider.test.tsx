@@ -2,7 +2,7 @@ import type { EngineStatus } from "@gravita/protocol";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/shared/i18n/i18n";
-import { problemOf } from "@/state/hooks";
+import { codexNoteOf, problemOf } from "@/state/hooks";
 import { ConnectProvider } from "./ConnectProvider";
 
 afterEach(cleanup);
@@ -23,9 +23,38 @@ describe("connect guidance per provider", () => {
     expect(screen.getByRole("button", { name: "Copy /login" })).toBeTruthy();
   });
 
-  it("shows nothing for a provider without guidance yet", () => {
-    const { container } = render(<ConnectProvider provider="codex" problem="missing" />);
-    expect(container.innerHTML).toBe("");
+  it("shows Codex's install steps: Homebrew, or npm, then open it", () => {
+    render(<ConnectProvider provider="codex" problem="missing" />);
+    expect(screen.getByRole("heading", { name: "Connect Codex" })).toBeTruthy();
+    const steps = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(steps).toEqual([
+      expect.stringContaining("1. Install it with Homebrew"),
+      expect.stringContaining("Or with npm"),
+      expect.stringContaining("2. Open Codex in your Terminal and sign in"),
+    ]);
+    expect(screen.getByRole("button", { name: "Copy brew install --cask codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy npm install -g @openai/codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy codex" })).toBeTruthy();
+  });
+
+  it("tells how to update an outdated Codex", () => {
+    render(<ConnectProvider provider="codex" problem="outdated" />);
+    expect(screen.getByRole("heading", { name: "Update Codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy brew upgrade --cask codex" })).toBeTruthy();
+  });
+});
+
+describe("what Gravita says about Codex", () => {
+  const codex = (over: Partial<NonNullable<EngineStatus["providers"]["codex"]>>) =>
+    status({ providers: { claude: { found: true }, codex: { found: true, ...over } } });
+
+  it("is quiet unless the engine looked and found no Codex, or an old one", () => {
+    expect(codexNoteOf(status())).toBeUndefined();
+    expect(codexNoteOf(codex({}))).toBeUndefined();
+    expect(codexNoteOf(codex({ found: false }))).toBe("missing");
+    expect(codexNoteOf(codex({ version: "0.150.0", outdated: true }))).toBe("outdated");
+    expect(codexNoteOf({ ...codex({ found: false }), demo: true })).toBeUndefined();
+    expect(codexNoteOf(undefined)).toBeUndefined();
   });
 });
 

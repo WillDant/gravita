@@ -2,6 +2,7 @@ import type { SessionCounts } from "@gravita/core";
 import { agentColor, lineCode } from "@gravita/orbs";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { t } from "@/shared/i18n/i18n";
+import { agentTypeLabel } from "@/shared/presenters/agent";
 import type { SessionStatus } from "@/shared/presenters/selectors";
 import { cn } from "@/shared/utils";
 
@@ -23,7 +24,7 @@ export function LineBadge({
   const c = agentColor(agentType);
   return (
     <span
-      title={title ?? (agentType === "main" ? t("agent.main") : agentType)}
+      title={title ?? (agentType === "main" ? t("agent.main") : agentTypeLabel(agentType))}
       className={cn(
         "inline-flex flex-none items-center justify-center rounded-full font-bold leading-none",
         dim && "opacity-40",

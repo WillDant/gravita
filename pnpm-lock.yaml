@@ -108,6 +108,9 @@ importers:
       '@gravita/adapter-claude':
         specifier: workspace:*
         version: link:../../packages/adapter-claude
+      '@gravita/adapter-codex':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codex
       '@gravita/adapter-fake':
         specifier: workspace:*
         version: link:../../packages/adapter-fake
@@ -139,6 +142,22 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+    devDependencies:
+      '@types/bun':
+        specifier: 1.4.3
+        version: 1.4.3
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+
+  packages/adapter-codex:
+    dependencies:
+      '@gravita/core':
+        specifier: workspace:*
+        version: link:../core
+      '@gravita/protocol':
+        specifier: workspace:*
+        version: link:../protocol
     devDependencies:
       '@types/bun':
         specifier: 1.4.3

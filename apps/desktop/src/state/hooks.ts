@@ -74,6 +74,22 @@ export function useProviderProblem(
   return useAppStore((s) => problemOf(s.engineStatus, provider));
 }
 
+/**
+ * What Gravita says about Codex: "missing" once the engine looked and found none, else
+ * "outdated" when it is older than Gravita supports. Codex is optional, so unlike
+ * `problemOf` an engine that doesn't look for it says nothing; never in demo mode.
+ */
+export function codexNoteOf(
+  status: EngineStatus | undefined,
+): Extract<ProviderProblem, "missing" | "outdated"> | undefined {
+  const codex = status && !status.demo ? status.providers?.codex : undefined;
+  if (!codex) return undefined;
+  if (!codex.found) return "missing";
+  return codex.outdated ? "outdated" : undefined;
+}
+
+export const useCodexNote = () => useAppStore((s) => codexNoteOf(s.engineStatus));
+
 const NO_MODELS: ModelOption[] = [];
 
 /** A provider's models (Claude Code's by default), loaded once on first use. */

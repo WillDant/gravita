@@ -237,3 +237,33 @@ describe("questions, settings and Gravita prompts", () => {
     expect(s.agents.main!.lifecycle).toBe("active");
   });
 });
+
+describe("session model", () => {
+  test("session.started names the model until session.settings changes it", () => {
+    const base = {
+      ts: "2026-10-13T10:00:00.000Z",
+      source: "codex-rollout" as const,
+      provider: "codex" as const,
+      projectId: "p",
+      sessionId: "codex:s1",
+    };
+    const state = applyAll(emptyState(), [
+      {
+        ...base,
+        key: "session:codex:s1:started",
+        type: "session.started",
+        data: { kind: "external", cwd: "/r", model: "gpt-6-sol" },
+      },
+    ] as GravitaEvent[]);
+    expect(state.sessions["codex:s1"]?.model).toBe("gpt-6-sol");
+    applyAll(state, [
+      {
+        ...base,
+        key: "settings:codex:s1:1",
+        type: "session.settings",
+        data: { model: "gpt-6-luna" },
+      },
+    ] as GravitaEvent[]);
+    expect(state.sessions["codex:s1"]?.model).toBe("gpt-6-luna");
+  });
+});

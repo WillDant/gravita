@@ -3,6 +3,7 @@ import type { ConversationMessage, GravitaEvent } from "@gravita/protocol";
 import { MAIN_AGENT } from "@gravita/protocol/ids";
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { clock, t, useLocale } from "@/shared/i18n/i18n";
+import { agentTypeLabel } from "@/shared/presenters/agent";
 import { Button, LineBadge } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { useAppStore, useConversation, useSessionEvents } from "@/state/hooks";
@@ -161,7 +162,7 @@ function SpawnChip({
   const body = (
     <>
       <LineBadge agentType={agentType} size={16} />
-      <span className="truncate">{agentType}</span>
+      <span className="truncate">{agentTypeLabel(agentType)}</span>
     </>
   );
   const chip =

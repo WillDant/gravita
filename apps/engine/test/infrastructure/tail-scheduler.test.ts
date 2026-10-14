@@ -3,8 +3,9 @@ import { appendFile, cp, mkdir, readdir, stat, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import type { SessionOwnership } from "../../src/application/ports/session-runtime";
 import { AnnounceProject } from "../../src/application/usecases/announce-project";
-import { TailScheduler } from "../../src/infrastructure/claude/tail-scheduler";
+import { ClaudeSessionSource } from "../../src/infrastructure/claude/claude-session-source";
 import { TranscriptDiscovery } from "../../src/infrastructure/claude/transcript-discovery";
+import { TailScheduler } from "../../src/infrastructure/sessions/tail-scheduler";
 import { GitProjectDirectory } from "../../src/infrastructure/system/git-project-directory";
 import { createCore, type EngineCore } from "../../src/main/container";
 import { withTempDir } from "../helpers";
@@ -24,12 +25,18 @@ async function treeState(dir: string): Promise<string[]> {
 
 function tailsFor(home: string, core: EngineCore, ownership: SessionOwnership = core.runtimes) {
   return new TailScheduler({
-    discovery: new TranscriptDiscovery({
-      claudeHome: home,
-      lookbackDays: 14,
-      clock: core.clock,
-      isLive: () => false,
-    }),
+    sources: [
+      new ClaudeSessionSource({
+        discovery: new TranscriptDiscovery({
+          claudeHome: home,
+          lookbackDays: 14,
+          clock: core.clock,
+          isLive: () => false,
+        }),
+        clock: core.clock,
+        isLive: () => false,
+      }),
+    ],
     ingest: core.ingest,
     checkpoints: core.checkpoints,
     projects: new AnnounceProject(
@@ -40,7 +47,6 @@ function tailsFor(home: string, core: EngineCore, ownership: SessionOwnership = 
     status: core.broadcaster,
     clock: core.clock,
     logger: core.logger,
-    isLive: () => false,
     ownership,
   });
 }

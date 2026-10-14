@@ -12,6 +12,7 @@ import { ago, compact, t } from "@/shared/i18n/i18n";
 import { agentName, permissionSummary } from "@/shared/presenters/agent";
 import { usd } from "@/shared/presenters/money";
 import { planWindows, windowLine } from "@/shared/presenters/planUsage";
+import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { basename, cn } from "@/shared/utils";
 import { useAccountPlan, useUsage } from "@/state/hooks";
 import { StopAgent } from "./StopAgent";
@@ -53,7 +54,10 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
       <div className="flex flex-none items-start gap-3 border-b border-hairline px-5 pt-4 pb-4">
         <Orb color={color} persona={persona} size={48} label={agentName(agent)} seed={agent.id} />
         <div className="min-w-0 flex-1 pt-0.5">
-          <h2 className="truncate text-md font-bold tracking-[-0.01em]">{agentName(agent)}</h2>
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-md font-bold tracking-[-0.01em]">{agentName(agent)}</h2>
+            <ProviderMark provider={session.provider} />
+          </div>
           <p className={cn("text-sm leading-snug", waiting ? "text-waiting-ink" : "text-ink-2")}>
             {t(persona.label.key, persona.label.params)}
           </p>
@@ -154,7 +158,7 @@ export function AgentPanel({ session, agent, events, now, onClose, onSelect }: A
                         seed={c.id}
                       />
                       <span className="min-w-0 flex-1 truncate text-sm">
-                        <span className="font-semibold">{c.agentType}</span>{" "}
+                        <span className="font-semibold">{agentName(c)}</span>{" "}
                         <span className="text-ink-2">{t(p.label.key, p.label.params)}</span>
                       </span>
                     </button>

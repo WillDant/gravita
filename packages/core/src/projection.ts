@@ -167,6 +167,8 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       s.kind = e.data.kind;
       s.cwd = e.data.cwd;
       if (e.data.gitBranch) s.gitBranch = e.data.gitBranch;
+      // Codex rollouts name the model up front; a later session.settings still wins.
+      if (e.data.model && !s.model) s.model = e.data.model;
       if (e.ts && (!s.startedTs || e.ts < s.startedTs)) s.startedTs = e.ts;
       if (project && project.root === project.id) {
         project.root = e.data.cwd;
