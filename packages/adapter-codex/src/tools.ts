@@ -111,8 +111,6 @@ export interface CodeModeCall {
 }
 
 const CODE_MODE_CALL = /\btools\.([A-Za-z_]\w*)\(\s*/g;
-const STRING_LITERAL = /^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\$]|\\.)*`)/;
-const CMD_FIELD = /^\{\s*["']?cmd["']?\s*:\s*/;
 
 /**
  * The tools a code-mode script calls (`await tools.exec_command({cmd: "…"})`,
@@ -121,19 +119,17 @@ const CMD_FIELD = /^\{\s*["']?cmd["']?\s*:\s*/;
  * a command built at run time leaves `cmd` out.
  */
 export function codeModeCalls(script: string): CodeModeCall[] {
+  const reader = new ScriptReader(script);
   const out: CodeModeCall[] = [];
   for (const m of script.matchAll(CODE_MODE_CALL)) {
     const tool = m[1]!;
-    const rest = script.slice((m.index ?? 0) + m[0].length);
+    const arg = (m.index ?? 0) + m[0].length;
     const call: CodeModeCall = { tool };
     if (tool === "exec_command") {
-      const field = CMD_FIELD.exec(rest);
-      const lit = field && STRING_LITERAL.exec(rest.slice(field[0].length));
-      const cmd = lit ? jsString(lit[1]!) : undefined;
+      const cmd = reader.cmdField(arg);
       if (cmd) call.cmd = cmd;
     } else if (tool === APPLY_PATCH) {
-      const lit = STRING_LITERAL.exec(rest);
-      const patch = lit ? jsString(lit[1]!) : undefined;
+      const patch = reader.literal(arg)?.value;
       if (patch) call.patch = patch;
     }
     out.push(call);
@@ -153,20 +149,179 @@ export function codeModePatch(script: string): string {
     .join("\n");
 }
 
-/** A JS string literal's value, read as JSON (a single-quoted or template one is requoted). */
-function jsString(lit: string): string | undefined {
-  const json = lit.startsWith('"')
-    ? lit
-    : `"${lit
-        .slice(1, -1)
-        .replace(/\\(['`])/g, "$1")
-        .replace(/\n/g, "\\n")
-        .replace(/(^|[^\\])"/g, '$1\\"')}"`;
-  try {
-    return JSON.parse(json) as string;
-  } catch {
-    // An escape JSON doesn't know: the script's first line stands for the call.
+/** A string literal read from a script: its value, and the index just past it. */
+interface Literal {
+  value: string;
+  end: number;
+}
+
+const ESCAPES: Record<string, string> = {
+  n: "\n",
+  t: "\t",
+  r: "\r",
+  b: "\b",
+  f: "\f",
+  v: "\v",
+  "0": "\0",
+};
+const HEX = /^[0-9a-fA-F]+$/;
+const isSpace = (c: string) => c === " " || c === "\n" || c === "\t" || c === "\r";
+const isIdent = (c: string) =>
+  (c >= "a" && c <= "z") ||
+  (c >= "A" && c <= "Z") ||
+  (c >= "0" && c <= "9") ||
+  c === "_" ||
+  c === "$";
+/** How far into an object `cmdField` looks (strings count once, whatever their length). */
+const OBJECT_SCAN_LIMIT = 256;
+/** How deeply nested a value before `cmd` may be. */
+const MAX_DEPTH = 8;
+
+/**
+ * Reads the JS string literals of one script, each decoded once. A literal that can't be
+ * read (unterminated, a bad escape, or a template with `${…}`) fails at some point, and so
+ * does any literal of the same quote opened inside it, so that is remembered: a script full
+ * of broken quotes still reads in linear time.
+ */
+class ScriptReader {
+  private readonly decoded = new Map<number, Literal | undefined>();
+  /** Per quote, the widest stretch a literal failed over: [opened at, failed at]. */
+  private readonly failed: Record<string, [number, number]> = {};
+
+  constructor(private readonly src: string) {}
+
+  /** The string literal opening at `i`, if there is one. */
+  literal(i: number): Literal | undefined {
+    const quote = this.src[i];
+    if (quote !== '"' && quote !== "'" && quote !== "`") return undefined;
+    const failed = this.failed[quote];
+    if (failed && i > failed[0] && i < failed[1]) return undefined;
+    if (this.decoded.has(i)) return this.decoded.get(i);
+    const lit = this.decode(i, quote);
+    this.decoded.set(i, lit);
+    return lit;
+  }
+
+  private decode(start: number, quote: string): Literal | undefined {
+    const src = this.src;
+    let value = "";
+    let run = start + 1;
+    let i = run;
+    const fail = () => {
+      const prev = this.failed[quote];
+      if (!prev || i > prev[1]) this.failed[quote] = [start, i];
+      return undefined;
+    };
+    while (i < src.length) {
+      const c = src[i]!;
+      if (c === quote) return { value: value + src.slice(run, i), end: i + 1 };
+      if (c === "\\") {
+        value += src.slice(run, i);
+        const esc = this.escape(i + 1);
+        if (!esc) return fail();
+        value += esc.value;
+        i = run = esc.end;
+        continue;
+      }
+      if (quote === "`") {
+        // A template with a substitution is built at run time.
+        if (c === "$" && src[i + 1] === "{") return fail();
+        // Its raw line breaks are part of it, CRLF read as LF.
+        if (c === "\r") {
+          value += `${src.slice(run, i)}\n`;
+          i = run = src[i + 1] === "\n" ? i + 2 : i + 1;
+          continue;
+        }
+      } else if (c === "\n" || c === "\r") return fail();
+      i++;
+    }
+    return fail();
+  }
+
+  /** The escape sequence whose backslash is at `i - 1`. */
+  private escape(i: number): Literal | undefined {
+    const src = this.src;
+    const c = src[i];
+    if (c === undefined) return undefined;
+    if (c === "x") {
+      const hex = src.slice(i + 1, i + 3);
+      return hex.length === 2 && HEX.test(hex)
+        ? { value: String.fromCharCode(Number.parseInt(hex, 16)), end: i + 3 }
+        : undefined;
+    }
+    if (c === "u" && src[i + 1] === "{") {
+      const close = src.indexOf("}", i + 2);
+      const hex = close < 0 ? "" : src.slice(i + 2, close);
+      const code = hex.length <= 6 && HEX.test(hex) ? Number.parseInt(hex, 16) : -1;
+      return code >= 0 && code <= 0x10ffff
+        ? { value: String.fromCodePoint(code), end: close + 1 }
+        : undefined;
+    }
+    if (c === "u") {
+      const hex = src.slice(i + 1, i + 5);
+      return hex.length === 4 && HEX.test(hex)
+        ? { value: String.fromCharCode(Number.parseInt(hex, 16)), end: i + 5 }
+        : undefined;
+    }
+    // A line continuation adds nothing.
+    if (c === "\r") return { value: "", end: src[i + 1] === "\n" ? i + 2 : i + 1 };
+    if (c === "\n" || c === " " || c === " ") return { value: "", end: i + 1 };
+    // `\'`, `\"`, `` \` ``, `\\` and any other character stand for themselves.
+    return { value: ESCAPES[c] ?? c, end: i + 1 };
+  }
+
+  /**
+   * The `cmd` of the object literal opening at `i` (`{workdir: "/x", cmd: "ls"}`), when it
+   * is a literal string. Scans the object's own keys up to its closing brace, stepping over
+   * strings and nested values; gives up on a string it can't read, or after a while.
+   */
+  cmdField(i: number): string | undefined {
+    const src = this.src;
+    if (src[i] !== "{") return undefined;
+    let depth = 0;
+    // A key starts right after the object's own `{` or `,`.
+    let atKey = false;
+    for (let j = i, steps = 0; j < src.length && steps < OBJECT_SCAN_LIMIT; steps++) {
+      const c = src[j]!;
+      if (isSpace(c)) {
+        j++;
+        continue;
+      }
+      let isCmd = false;
+      let end = j + 1;
+      if (c === '"' || c === "'" || c === "`") {
+        const lit = this.literal(j);
+        if (!lit) return undefined;
+        isCmd = c !== "`" && lit.value === "cmd";
+        end = lit.end;
+      } else if (isIdent(c)) {
+        while (end < src.length && isIdent(src[end]!)) end++;
+        isCmd = end - j === 3 && src.startsWith("cmd", j);
+      } else if (c === "{" || c === "[" || c === "(") {
+        if (++depth > MAX_DEPTH) return undefined;
+      } else if ((c === "}" || c === "]" || c === ")") && --depth === 0) return undefined;
+      if (isCmd && atKey && depth === 1) {
+        const value = this.valueAfterColon(end);
+        if (value !== null) return value;
+      }
+      atKey = depth === 1 && (c === "{" || c === ",");
+      j = end;
+    }
     return undefined;
+  }
+
+  /**
+   * After a key ending at `i`: the string after its `:` (undefined when the value isn't a
+   * literal string), or null when no `:` follows (it wasn't a key).
+   */
+  private valueAfterColon(i: number): string | undefined | null {
+    const src = this.src;
+    let j = i;
+    while (j < src.length && isSpace(src[j]!)) j++;
+    if (src[j] !== ":") return null;
+    j++;
+    while (j < src.length && isSpace(src[j]!)) j++;
+    return this.literal(j)?.value;
   }
 }
 
