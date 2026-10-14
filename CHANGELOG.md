@@ -4,6 +4,14 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Conversation
+- **A composer that feels like a chat:** one card with the message on top and a quiet toolbar under it (model, permissions, send). Return sends, shift-return breaks the line, and ⌘↩ still works. The send button fills once there is something to send.
+- **See the agent work:** a shimmering line under the conversation says what the main agent is doing now ("Main agent is editing auth.ts"), from the moment you send.
+- **Your message shows right away,** before the transcript catches up.
+- **Tool calls between messages** fold into one line ("Read 3 files · Ran 2 commands") that opens into the steps.
+- **Copy** a message or a code block, and jump back to the latest message after scrolling up.
+- Fields inside a framed control no longer draw a second focus ring.
+
 ## [0.3.0-beta] - 2026-10-14
 
 Codex support: OpenAI's Codex alongside Claude Code, in observation, chats and squads, and budgets in plan usage for both.

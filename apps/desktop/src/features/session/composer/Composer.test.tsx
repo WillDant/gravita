@@ -27,25 +27,42 @@ function renderComposer() {
 const settle = () => act(flush);
 
 describe("Composer", () => {
-  it("sends with ⌘↩ or Ctrl↩, not with a plain return, and clears the box", async () => {
+  it("sends with return, keeps shift-return for new lines, and still takes ⌘↩", async () => {
     const { gateway, box } = renderComposer();
 
     fireEvent.change(box, { target: { value: "Add tests" } });
-    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
     expect(gateway.callsOf("sendMessage")).toEqual([]);
 
-    fireEvent.keyDown(box, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(box, { key: "Enter" });
     await settle();
     expect(box.value).toBe("");
 
     fireEvent.change(box, { target: { value: "  Then lint  " } });
-    fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+    fireEvent.keyDown(box, { key: "Enter", metaKey: true });
     await settle();
 
     expect(gateway.callsOf("sendMessage")).toEqual([
       { sessionId: "s", text: "Add tests" },
       { sessionId: "s", text: "Then lint" },
     ]);
+  });
+
+  it("never sends from a return that confirms an IME composition", async () => {
+    const { gateway, box } = renderComposer();
+    fireEvent.change(box, { target: { value: "にほん" } });
+    fireEvent.keyDown(box, { key: "Enter", isComposing: true });
+    await settle();
+    expect(gateway.callsOf("sendMessage")).toEqual([]);
+    expect(box.value).toBe("にほん");
+  });
+
+  it("fills the send button once there is something to send", () => {
+    const { box } = renderComposer();
+    const sendButton = screen.getByRole("button", { name: "Send" });
+    expect(sendButton.className).not.toContain("bg-ink");
+    fireEvent.change(box, { target: { value: "go" } });
+    expect(sendButton.className).toContain("bg-ink");
   });
 
   it("shows 'sending…' while the engine works, then the mapped error, keeping the text", async () => {
