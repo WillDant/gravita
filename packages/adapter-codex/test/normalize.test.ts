@@ -143,9 +143,8 @@ describe("exec-and-patch", () => {
     expect(started.find((e) => e.data.kind === "web")?.data.target).toEqual({
       query: "express health check endpoint",
     });
-    expect(started.find((e) => e.data.name === "exec")?.data.target.cmd).toStartWith(
-      "const r = await tools.exec_command",
-    );
+    // A code-mode script shows the command it runs, not the script around it.
+    expect(started.find((e) => e.data.name === "exec")?.data.target.cmd).toBe("pnpm test");
     const done = new Map(ofType(events, "tool.completed").map((e) => [e.data.toolUseId, e.data]));
     expect(done.size).toBe(started.length);
     expect(done.get("codex:call_test")?.ok).toBe(false);

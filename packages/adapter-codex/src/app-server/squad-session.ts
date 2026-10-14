@@ -102,7 +102,9 @@ const UNSUPPORTED = new Set(["$schema", "minLength", "maxLength", "format", "def
  * A JSON Schema in the strict form Codex's structured output (`outputSchema`) needs: every
  * object closes (`additionalProperties: false`) and lists all its properties as required,
  * an optional property becoming one that may be null, and keywords strict mode refuses
- * dropped. Gravita still checks the answer with its own schema (`withoutNulls` first).
+ * dropped. A dropped length limit moves into the field's description, so the model still
+ * knows it (without it, a real planner wrote an acceptance line over 200 characters). Gravita
+ * still checks the answer with its own schema (`withoutNulls` first).
  */
 export function strictOutputSchema(schema: Json): Json {
   const walk = (node: unknown): unknown => {
@@ -113,6 +115,9 @@ export function strictOutputSchema(schema: Json): Json {
       if (UNSUPPORTED.has(k)) continue;
       out[k] = k === "properties" || k === "definitions" || k === "$defs" ? mapValues(v) : walk(v);
     }
+    const limit = lengthNote(node as Json);
+    if (limit)
+      out.description = typeof out.description === "string" ? `${out.description} ${limit}` : limit;
     if (out.type === "object" && out.properties && typeof out.properties === "object") {
       const props = out.properties as Json;
       const required = new Set(Array.isArray(out.required) ? (out.required as string[]) : []);
@@ -128,6 +133,16 @@ export function strictOutputSchema(schema: Json): Json {
     return Object.fromEntries(Object.entries(v as Json).map(([k, x]) => [k, walk(x)]));
   };
   return walk(schema) as Json;
+}
+
+/** A string's length limits in words, e.g. "At most 200 characters." */
+function lengthNote(node: Json): string | undefined {
+  const min = typeof node.minLength === "number" && node.minLength > 1 ? node.minLength : undefined;
+  const max = typeof node.maxLength === "number" ? node.maxLength : undefined;
+  if (min !== undefined && max !== undefined) return `Between ${min} and ${max} characters.`;
+  if (max !== undefined) return `At most ${max} characters.`;
+  if (min !== undefined) return `At least ${min} characters.`;
+  return undefined;
 }
 
 /** A property that may also be null. */

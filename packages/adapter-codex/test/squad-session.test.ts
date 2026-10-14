@@ -121,6 +121,8 @@ describe("the plan's schema for Codex's structured output", () => {
     expect(text).not.toContain("minLength");
     expect(text).not.toContain("maxLength");
     expect(text).not.toContain("$schema");
+    // The limits stay known to the model, in words.
+    expect(text).toContain("At most 200 characters.");
     const role = objects(schema).find(
       (o) => (o.properties as object) && "owns" in (o.properties as object),
     );

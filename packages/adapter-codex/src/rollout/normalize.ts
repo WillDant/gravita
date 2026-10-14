@@ -6,8 +6,10 @@ import { codexCallId, codexItemId } from "../ids";
 import { fileChangesOf, parsePatch } from "../patch";
 import {
   APPLY_PATCH,
+  CODE_MODE,
+  codeModePatch,
   codexInputPreview,
-  codexToolKind,
+  codexToolKindOf,
   codexToolName,
   codexToolTarget,
   patchTextOf,
@@ -120,7 +122,8 @@ function outputOk(name: string, output: unknown, text: string): boolean {
   if (isObject(output) && typeof output.success === "boolean") return output.success;
   const exit = text.match(/Process exited with code (-?\d+)/);
   if (exit) return exit[1] === "0";
-  if (/^Script failed\b/m.test(text)) return false;
+  // A script that failed, or a call cut short by an interrupt.
+  if (/^(Script failed|aborted by user)\b/m.test(text)) return false;
   if (text.trim().startsWith("{")) {
     // Older versions: `{"output": "...", "metadata": {"exit_code": 1}}`.
     const code = num(obj(parseArgs(text), "metadata"), "exit_code");
@@ -523,12 +526,17 @@ export class RolloutNormalizer {
   ) {
     const toolUseId = codexCallId(callId);
     const call: PendingCall = { name };
-    const patchText = name === APPLY_PATCH ? patchTextOf(input) : "";
-    // A code-mode script may carry a patch too; its files are the script's changes.
-    const patch = parsePatch(patchText || (typeof input === "string" ? input : ""));
+    // A code-mode script may apply patches too; their files are the script's changes.
+    const patchText =
+      name === APPLY_PATCH
+        ? patchTextOf(input)
+        : name === CODE_MODE && typeof input === "string"
+          ? codeModePatch(input)
+          : "";
+    const patch = parsePatch(patchText);
     if (patch.length) call.files = fileChangesOf(patch);
     this.state.calls[callId] = call;
-    const kind = codexToolKind(name);
+    const kind = codexToolKindOf(name, input);
     out.push({
       ...this.base(ts),
       key: keys.toolStarted(toolUseId),

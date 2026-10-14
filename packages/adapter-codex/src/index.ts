@@ -89,9 +89,15 @@ export {
 } from "./rollout/tail";
 export {
   APPLY_PATCH,
+  CODE_MODE,
+  type CodeModeCall,
+  codeModeCalls,
+  codeModeCommands,
+  codeModePatch,
   codexInputPreview,
   codexToolCall,
   codexToolKind,
+  codexToolKindOf,
   codexToolName,
   codexToolTarget,
   GRAVITA_TOOL_PREFIX,

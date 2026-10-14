@@ -4,21 +4,41 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.3.0-beta] - 2026-10-13
+
+Codex support: OpenAI's Codex alongside Claude Code, in observation, chats and squads, and budgets in plan usage for both.
+
+### Codex
+- **Your Codex sessions, live:** sessions you run in a terminal, an editor or the Codex app show up with their subagents, tools, tokens and plan usage, read-only from Codex's session files (`~/.codex/sessions`).
+- **Codex chats:** choose Codex in the new-session panel. Codex streams its work, asks before acting (Ask before acting, Edit in this folder, or Full access), takes follow-ups that steer the turn in progress, and can be interrupted. Approvals and questions come to Gravita; models are Codex's own list. Chats use your own `codex` and its login.
+- **Code mode understood:** Codex runs its calls inside small scripts; the map shows what each script does (the command, the files a patch edits, the MCP or web tool it calls), not the script.
+- **The kill switch and the six-chat cap** count Codex chats too.
+
 ### Squad
+- **Codex roles:** build with Claude Code only, Codex only, or a mix, chosen per role (Claude by default); the Board shows each role's provider and lets you change it.
+- **Gravita's Codex profile:** squads run Codex in a home of Gravita's own (`~/.gravita/codex-home`), never your `~/.codex`, so they never load your MCP servers, hooks or plugins. You sign in to it once with ChatGPT, through Codex itself; Gravita never sees the token.
+- **Same rules on Codex:** a role's sandbox is its worktree, every request Codex makes goes through the ownership guard and the squad's autonomy, the commit gate still decides, and Gravita's role tools reach Codex as a loopback MCP server bound to one session by a token.
+- **Codex plans:** a Codex planner answers with a structured plan (`outputSchema`); the schema's length limits travel to the model in words, since strict mode can't enforce them.
 - **Budgets in plan usage:** a squad's budget is a share of your plan ("use at most 20% of my weekly limit", or of the 5-hour window), measured as the change since the squad started building, per provider. It warns at 75%, pauses at 100%, and goes on with a bigger share. A window that resets mid-squad carries what was used. Other use of the same account counts, and the screens say so.
 - Accounts without plan limits (an API key) keep dollar budgets; a plan share on such an account is refused with a clear error. Squads created with dollars keep working.
 - **Plan usage everywhere:** Home shows each provider's 5-hour and weekly usage with its reset time (orange only when the plan is close to its limit), the new-squad panel shows the window next to the share, and a session shows plan usage, or its cost for an API key.
 
+### Fixed
+- An interrupted Codex call no longer shows as a success.
+
 ### Engine protocol
-- Groundwork for Codex support; nothing changes for Claude Code users.
 - `engine.status` reports each provider under `providers`; `claude` stays as a deprecated copy of `providers.claude` for one version.
 - `models.list {provider}` lists a provider's models; `claude.models` is a deprecated alias.
 - Errors 4005 (`providerUnavailable`, formerly `claudeUnavailable`) and 4008 (`notLoggedIn`) have provider-neutral messages and name the provider in `error.data`.
 - `session.start` takes an optional `provider` (Claude Code by default); session modes are in the provider's own terms.
-- The engine takes `--codex-home` (default `~/.codex`), not read yet.
+- The engine takes `--codex-home` (default `~/.codex`); only its `sessions/` folder is read.
 - `usage.limits` (ephemeral): a plan window's usage per provider, kept in `GravitaState.usage` and in snapshots. `budget.baseline` records where a plan squad's count starts (and restarts after a reset).
 - `squad.create` takes `budget` (`{mode: "plan", maxPercent, window}` or `{mode: "usd", amount}`); `budgetUsd` stays accepted. `squad.resume` takes `maxPercent`. Budget levels carry `unit: "points"` for plan squads.
 - `ProviderStatus.account.plan` (`limited` or `api`); `usage.refresh` asks for a fresh reading through a running session; error 4014 `planUsageUnavailable`.
+- `session.start` with `provider: "codex"` starts a Codex chat; Codex modes are `ask`, `workspace` and `fullAccess`. `models.list {provider: "codex"}` lists Codex's own models.
+- `squad.create` takes `providers` (`claude`, `codex` or `mixed`) and a plan role takes `provider`.
+- `codexProfile.status`, `codexProfile.signIn` and `codexProfile.signOut` manage Gravita's Codex profile for squads; `engine.status` reports it under `providers.codex.squadProfile`.
+- Events from Codex carry `source: "codex-rpc"` (a chat or squad session Gravita runs) or `"codex-rollout"` (Codex's session files), with the same keys for the same fact.
 
 ## [0.2.0-beta] - 2026-10-13
 
@@ -62,5 +82,6 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.3.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta
 [0.2.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.2.0-beta
 [0.1.0-alpha]: https://github.com/WillDant/gravita/releases/tag/v0.1.0-alpha

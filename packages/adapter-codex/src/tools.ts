@@ -33,6 +33,8 @@ const KIND_BY_NAME: Record<string, ToolKind> = {
   grep_files: "search",
   web_search: "web",
   web_search_call: "web",
+  // Code mode's web tool (search and open pages).
+  web__run: "web",
   spawn_agent: "agent",
   update_plan: "todo",
   request_user_input: "ask",
@@ -96,12 +98,127 @@ const firstLine = (text: string) =>
     .map((l) => l.trim())
     .find(Boolean) ?? "";
 
+/** The code-mode script tool: a JS script that runs other tools. */
+export const CODE_MODE = "exec";
+
+/** A tool a code-mode script calls, with what Gravita can read of its input. */
+export interface CodeModeCall {
+  tool: string;
+  /** exec_command's `cmd`. */
+  cmd?: string;
+  /** apply_patch's patch text. */
+  patch?: string;
+}
+
+const CODE_MODE_CALL = /\btools\.([A-Za-z_]\w*)\(\s*/g;
+const STRING_LITERAL = /^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\$]|\\.)*`)/;
+const CMD_FIELD = /^\{\s*["']?cmd["']?\s*:\s*/;
+
+/**
+ * The tools a code-mode script calls (`await tools.exec_command({cmd: "…"})`,
+ * `tools.apply_patch("*** Begin Patch…")`, `tools.mcp__gravita__complete_task(…)`), in order,
+ * so the map shows what the script does and not the script. Only literal strings are read;
+ * a command built at run time leaves `cmd` out.
+ */
+export function codeModeCalls(script: string): CodeModeCall[] {
+  const out: CodeModeCall[] = [];
+  for (const m of script.matchAll(CODE_MODE_CALL)) {
+    const tool = m[1]!;
+    const rest = script.slice((m.index ?? 0) + m[0].length);
+    const call: CodeModeCall = { tool };
+    if (tool === "exec_command") {
+      const field = CMD_FIELD.exec(rest);
+      const lit = field && STRING_LITERAL.exec(rest.slice(field[0].length));
+      const cmd = lit ? jsString(lit[1]!) : undefined;
+      if (cmd) call.cmd = cmd;
+    } else if (tool === APPLY_PATCH) {
+      const lit = STRING_LITERAL.exec(rest);
+      const patch = lit ? jsString(lit[1]!) : undefined;
+      if (patch) call.patch = patch;
+    }
+    out.push(call);
+  }
+  return out;
+}
+
+/** The shell commands a code-mode script runs through `tools.exec_command`. */
+export function codeModeCommands(script: string): string[] {
+  return codeModeCalls(script).flatMap((c) => (c.cmd ? [c.cmd] : []));
+}
+
+/** The patches a code-mode script applies through `tools.apply_patch`, as one patch text. */
+export function codeModePatch(script: string): string {
+  return codeModeCalls(script)
+    .flatMap((c) => (c.patch ? [c.patch] : []))
+    .join("\n");
+}
+
+/** A JS string literal's value, read as JSON (a single-quoted or template one is requoted). */
+function jsString(lit: string): string | undefined {
+  const json = lit.startsWith('"')
+    ? lit
+    : `"${lit
+        .slice(1, -1)
+        .replace(/\\(['`])/g, "$1")
+        .replace(/\n/g, "\\n")
+        .replace(/(^|[^\\])"/g, '$1\\"')}"`;
+  try {
+    return JSON.parse(json) as string;
+  } catch {
+    // An escape JSON doesn't know: the script's first line stands for the call.
+    return undefined;
+  }
+}
+
+/** One call of a script on one line, and how many more the script makes after it. */
+const more = (text: string, calls: number) => (calls > 1 ? `${text} (+${calls - 1})` : text);
+
+/** What a code-mode script is about: its first tool call, read like a call of its own. */
+function scriptView(script: string): { kind: ToolKind; target: ToolTarget; preview?: string } {
+  const calls = codeModeCalls(script);
+  const first = calls[0];
+  if (!first) return { kind: "bash", target: {} };
+  if (first.cmd !== undefined)
+    return { kind: "bash", target: { cmd: preview(more(first.cmd, calls.length)) } };
+  if (first.tool === APPLY_PATCH) {
+    const files = first.patch ? parsePatch(first.patch) : [];
+    const path = files[0]?.path;
+    return {
+      kind: "edit",
+      target: path ? { path } : {},
+      ...(files.length
+        ? { preview: more(files.map((f) => f.movedTo ?? f.path).join(", "), calls.length) }
+        : {}),
+    };
+  }
+  const kind = first.tool === "exec_command" ? "bash" : codexToolKind(first.tool);
+  return {
+    kind: kind === "other" ? "bash" : kind,
+    target: {},
+    preview: more(first.tool, calls.length),
+  };
+}
+
+/**
+ * A tool's kind, from its name and, for a code-mode script, from what the script calls (a
+ * script that applies a patch is an edit, one that calls an MCP tool is an MCP call).
+ */
+export function codexToolKindOf(name: string, input: Input | string): ToolKind {
+  if (name === CODE_MODE && typeof input === "string") return scriptView(input).kind;
+  return codexToolKind(name);
+}
+
 /** What a Codex tool call works on, as `tool.started` carries it. */
 export function codexToolTarget(name: string, input: Input | string): ToolTarget {
   if (typeof input === "string") {
     if (name === APPLY_PATCH) {
       const path = parsePatch(input)[0]?.path;
       return path ? { path } : {};
+    }
+    if (name === CODE_MODE) {
+      // A command built at run time can't be read: the script's first line stands for it.
+      const view = scriptView(input);
+      if (Object.keys(view.target).length || view.kind !== "bash") return view.target;
     }
     const line = firstLine(input);
     return line ? { cmd: preview(line) } : {};
@@ -142,6 +259,10 @@ export function codexInputPreview(name: string, input: Input | string): string {
     if (name === APPLY_PATCH) {
       const files = parsePatch(input);
       return preview(files.map((f) => f.movedTo ?? f.path).join(", ") || firstLine(input));
+    }
+    if (name === CODE_MODE) {
+      const view = scriptView(input);
+      return preview(view.preview ?? view.target.cmd ?? firstLine(input));
     }
     return preview(firstLine(input));
   }

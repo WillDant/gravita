@@ -13,10 +13,10 @@ Start and steer Claude Code chats from Gravita through the official Agent SDK (a
 ### Squads — [v0.2.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.2.0-beta)
 A team of role agents builds a goal in parallel git worktrees: a briefing conversation, a plan you approve, enforced path ownership, a merge queue with checks, budgets, and delivery by merge, pull request or branch. Automatic model choice for cost-benefit.
 
-## Next
+### Codex support — [v0.3.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta)
+OpenAI's Codex alongside Claude Code: observe Codex sessions, start and steer Codex chats with your own Codex login, squads whose roles run on Claude Code, Codex or both (with a Gravita profile of Codex you sign in to once), and budgets in plan usage for both providers.
 
-### Codex support
-OpenAI's Codex alongside Claude Code: observe Codex sessions, start Codex chats, "Sign in with ChatGPT" (allowed for open-source apps), and squads that mix both providers.
+## Next
 
 ### Polish and public launch
 Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater, the landing page, docs, an in-app tour and an accessibility audit.

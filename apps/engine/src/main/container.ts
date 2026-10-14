@@ -587,6 +587,13 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     clock,
     onSkip: (path, reason) => stderrLogger.log(`skipped ${path}: ${reason}`),
   });
+  // Squads' Codex sessions keep their rollouts in Gravita's own Codex home; the
+  // Conversation lens looks there when a thread isn't in the user's.
+  const squadCodexSessions = new CodexSessionDiscovery({
+    codexHome: join(opts.dataDir, "codex-home"),
+    lookbackDays: opts.lookbackDays,
+    clock,
+  });
   const core = createCore({
     dbPath,
     demo: opts.demo,
@@ -598,7 +605,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       : {
           transcripts: new ClaudeTranscriptReader({ claudeHome: opts.claudeHome }),
           codexTranscripts: new CodexTranscriptReader({
-            locate: (threadId) => codexDiscovery.locate(threadId),
+            locate: async (threadId) =>
+              (await codexDiscovery.locate(threadId)) ?? squadCodexSessions.locate(threadId),
           }),
           squad: {
             worktreesRoot,
