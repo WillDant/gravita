@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { claudeToolCall } from "@gravita/adapter-claude";
 import type { SquadAutonomy } from "@gravita/protocol";
+import type { GuardedCall } from "@gravita/protocol/tools";
 import {
   isNetworkCommand,
   rolePermission,
@@ -211,6 +212,43 @@ describe("autonomy policy", () => {
       test(`${autonomy}: ${tool} ${JSON.stringify(input)} → ${want[autonomy]}`, () => {
         expect(rolePermission(autonomy, claudeToolCall(tool, input))).toBe(want[autonomy] as never);
       });
+
+  test("a call leaving the sandbox (a Codex escalation) goes to the user unless Auto", () => {
+    const escapes: GuardedCall[] = [
+      {
+        kind: "shell",
+        paths: [],
+        command: "pnpm --filter api exec tsx src/index.ts",
+        tool: "exec_command",
+        sandboxEscape: true,
+      },
+      {
+        kind: "read",
+        paths: [],
+        command: "cat ~/.ssh/config",
+        tool: "exec_command",
+        sandboxEscape: true,
+      },
+      { kind: "edit", paths: ["src/a.ts"], tool: "permissions", sandboxEscape: true },
+      { kind: "other", paths: [], tool: "permissions", sandboxEscape: true },
+    ];
+    for (const call of escapes)
+      expect([
+        rolePermission("auto", call),
+        rolePermission("guarded", call),
+        rolePermission("ask", call),
+      ]).toEqual(["allow", "ask", "ask"]);
+    // The same local command inside the sandbox stays automatic under Guarded.
+    const inside = { ...escapes[0]!, sandboxEscape: false };
+    expect(rolePermission("guarded", inside)).toBe("allow");
+    // Questions and Gravita's role tools are unaffected.
+    expect(rolePermission("auto", { kind: "ask", paths: [], tool: "q", sandboxEscape: true })).toBe(
+      "ask",
+    );
+    expect(
+      rolePermission("ask", { kind: "gravita", paths: [], tool: "t", sandboxEscape: true }),
+    ).toBe("allow");
+  });
 
   test.each([
     ["python3 -m pip install requests", true],

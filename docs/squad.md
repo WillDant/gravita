@@ -37,10 +37,10 @@ A role on Codex works like any other role: same worktree, same paths, same role 
 | Autonomy | Codex asks Gravita about | Sandbox |
 | --- | --- | --- |
 | Ask | every edit and every command that isn't a known read-only one | the worktree, no network |
-| Guarded | what needs more than the sandbox (the network, writing outside the worktree) | the worktree, no network |
+| Guarded | what needs more than the sandbox (a command run outside it, the network, reading or writing outside the worktree): every such request comes to you | the worktree, no network |
 | Autonomous | nothing | the worktree, with network |
 
-Whatever Codex asks about goes through the same ownership rules first (an edit of another role's folder, or git that changes the repository, is declined, and the agent is told why), then through your autonomy. Edits inside the worktree that Codex doesn't ask about are checked by the commit gate, as for Claude Code.
+Whatever Codex asks about goes through the same ownership rules first (an edit of another role's folder, or git that changes the repository, is declined, and the agent is told why), then through your autonomy: under Guarded, a request to leave the sandbox is never answered for you, even for a local command or a read, and allowing it grants everything it asked for (for that turn only). Edits inside the worktree that Codex doesn't ask about are checked by the commit gate, as for Claude Code.
 
 ## What it costs
 
@@ -85,7 +85,7 @@ On a subscription, dollar amounts (the estimate, what each role spent) are what 
 ## Autonomy
 
 - **Ask:** every action other than reading goes to you.
-- **Guarded:** agents edit files and run local commands on their own; anything that reaches the network or installs packages (`curl`, `npm install`, `pnpm add`, web fetches…) asks you first.
+- **Guarded:** agents edit files and run local commands on their own; anything that reaches the network or installs packages (`curl`, `npm install`, `pnpm add`, web fetches…) asks you first, and so does anything a Codex agent wants to run outside its sandbox.
 - **Autonomous:** agents don't ask, except when they have a question for you.
 
 Whatever you choose, a role can never edit another role's folders, the shared files (lockfiles, the root `package.json`, CI config), or anything outside its own copy of the repository, and it can't commit, push, merge or switch branches: Gravita does all of that.

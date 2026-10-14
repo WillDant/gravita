@@ -92,4 +92,6 @@ export interface GuardedCall {
   agentId?: string;
   /** The agent's working directory at the time of the call. */
   cwd?: string;
+  /** The call asks to run beyond the session's sandbox (Codex escalations). */
+  sandboxEscape?: boolean;
 }

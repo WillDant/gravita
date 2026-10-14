@@ -275,15 +275,142 @@ describe("squads with Codex roles", () => {
     });
   }, 60_000);
 
+  test("Guarded: a Codex role's way out of its sandbox comes to the user, after the guard", async () => {
+    await withTempDir(async (tmp) => {
+      const seen: Record<string, unknown> = {};
+      const h = squadCore(
+        tmp,
+        async (a) => {
+          if (a.isBriefing) return;
+          if (a.isPlanner) {
+            await a.prompt(1);
+            return a.result({ structured: mixedPlan(), cost: 0.4 });
+          }
+          return claudeRole(a);
+        },
+        {
+          codex: async (a) => {
+            if (!a.isRole) return;
+            if ((await a.taskId()) === "scaffold-api") {
+              const apiFile = join(a.cwd, "apps/api/src/index.ts");
+              seen.apiFile = apiFile;
+              // An escalated git push: the guard declines it before anyone is asked.
+              seen.push = await a.requestCommand("git push origin HEAD", {
+                reason: "needs the network",
+              });
+              // Write access outside the role's paths (as a sandbox entry): declined too.
+              seen.foreign = await a.requestPermissions({
+                fileSystem: {
+                  read: null,
+                  write: null,
+                  entries: [
+                    {
+                      path: { type: "path", path: join(a.cwd, "apps/web/src/x.ts") },
+                      access: "write",
+                    },
+                  ],
+                },
+              });
+              // A local command that wants out of the sandbox: the user decides (allows).
+              seen.escalated = await a.requestCommand("pnpm --filter api exec tsx src/index.ts", {
+                reason: "run outside the sandbox",
+              });
+              // The network and a read outside the worktree: the user decides (denies).
+              seen.denied = await a.requestPermissions(
+                {
+                  network: { enabled: true },
+                  fileSystem: { read: ["/etc/hosts"], write: null },
+                },
+                "check the API",
+              );
+              // Its own file and the network: the user allows, so all of it is granted.
+              seen.granted = await a.requestPermissions({
+                network: { enabled: true },
+                fileSystem: {
+                  read: null,
+                  write: null,
+                  entries: [{ path: { type: "path", path: apiFile }, access: "write" }],
+                },
+              });
+            }
+            await codexRole(a);
+          },
+        },
+      );
+      try {
+        const cwd = await folder(tmp);
+        const { squadId } = await h.squads.create({
+          cwd,
+          brief: "A todo app",
+          budget: PLAN_BUDGET,
+          autonomy: "guarded",
+          providers: "mixed",
+        });
+        h.squads.plan({ squadId });
+        await h.squads.idle(squadId);
+        await h.squads.approvePlan({ squadId, plan: h.squad(squadId).plan as SquadPlan });
+
+        // The user's answers, in order, to what reaches Needs you.
+        const requests = () => h.events("permission.requested");
+        const answer = async (n: number, decision: "allow" | "deny") => {
+          await until(() => requests().length >= n, `request ${n}`);
+          const e = requests()[n - 1]!;
+          const { requestId } = e.data as { requestId: string };
+          await h.core.runtimes
+            .get(e.sessionId ?? "")!
+            .respondPermission(e.agentId!, requestId, decision);
+          return e;
+        };
+        const escalated = await answer(1, "allow");
+        expect(escalated.provider).toBe("codex");
+        expect((escalated.data as { toolName: string }).toolName).toBe("exec_command");
+        expect((escalated.data as { inputPreview: string }).inputPreview).toContain(
+          "pnpm --filter api exec tsx src/index.ts",
+        );
+        const denied = await answer(2, "deny");
+        expect((denied.data as { inputPreview: string }).inputPreview).toBe(
+          "check the API (network access, read /etc/hosts)",
+        );
+        await answer(3, "allow");
+        await h.squads.idle(squadId);
+        expect(h.codexFailures).toEqual([]);
+        expect(h.squad(squadId).phase).toBe("deliver");
+
+        expect(seen.push).toBe("decline");
+        expect(seen.foreign).toEqual({});
+        expect(seen.escalated).toBe("accept");
+        expect(seen.denied).toEqual({});
+        expect(seen.granted).toEqual({
+          network: { enabled: true },
+          fileSystem: {
+            read: null,
+            write: null,
+            entries: [{ path: { type: "path", path: seen.apiFile }, access: "write" }],
+          },
+        });
+        // Only those three reached the user; the guard's refusals were told to the agent.
+        expect(requests()).toHaveLength(3);
+        const scaffold = h.codexAgents.find((a) => a.isRole && a.turns.length > 0)!;
+        expect(scaffold.steers[0]).toContain("git push");
+        expect(scaffold.steers[1]).toContain("frontend owns apps/web/");
+      } finally {
+        h.stop();
+      }
+    });
+  }, 60_000);
+
   test("a Codex-only squad briefs and plans on Codex: a read-only sandbox, the plan as structured output", async () => {
     await withTempDir(async (tmp) => {
       const answered: string[] = [];
+      const escapes: unknown[] = [];
       const h = squadCore(tmp, async () => {}, {
         codex: async (a) => {
           if (a.isRole) return codexRole(a);
           const first = await a.prompt(1);
           if (a.turns[0]?.outputSchema === undefined) {
-            // The briefing: it reads and talks, then the user asks for the plan.
+            // The briefing: it reads and talks, then the user asks for the plan. Even a read
+            // never leaves its read-only sandbox.
+            escapes.push(await a.requestCommand("cat README.md", { reason: "escalate" }));
             answered.push(first);
             a.say("I know enough to plan.");
             return a.endTurn();
@@ -339,6 +466,7 @@ describe("squads with Codex roles", () => {
           effort: "medium",
         });
         expect(String(briefing?.threadParams?.developerInstructions)).toContain("being briefed");
+        expect(escapes).toEqual(["decline"]);
         // The planner resumes the briefing's thread, read-only and never asking.
         expect(planner?.received.find((m) => m.method === "thread/resume")?.params).toMatchObject({
           threadId: briefing?.threadId,

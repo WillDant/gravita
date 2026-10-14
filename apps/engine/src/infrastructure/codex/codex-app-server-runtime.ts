@@ -133,12 +133,44 @@ function squadAccess(s: ChatRuntimeSpec): CodexSquadAccess {
 
 /**
  * A planning session's answer to an approval (it has no policy of its own): reading is
- * fine, a question goes to the user, anything else is refused (the sandbox is read-only).
+ * fine, a question goes to the user, anything else is refused (the sandbox is read-only,
+ * and nothing leaves it).
  */
 function accessVerdict(call: GuardedCall): PermissionVerdict {
-  if (call.kind === "read") return "allow";
   if (call.kind === "ask") return "ask";
+  if (call.sandboxEscape) return "deny";
+  if (call.kind === "read") return "allow";
   return "deny";
+}
+
+/** The file system part of a permissions request. */
+type FileSystemAsk = NonNullable<
+  CodexProtocol.PermissionsRequestApprovalParams["permissions"]["fileSystem"]
+>;
+
+/** A path of a permissions request as Gravita's guard reads it (special ones spelled out). */
+function permissionPath(p: NonNullable<FileSystemAsk["entries"]>[number]["path"]): string {
+  if (p.type === "path") return p.path;
+  if (p.type === "glob_pattern") return p.pattern;
+  switch (p.value.kind) {
+    case "project_roots":
+      return p.value.subpath ?? ".";
+    case "tmpdir":
+    case "slash_tmp":
+      return "/tmp";
+    case "unknown":
+      return p.value.path;
+    default:
+      return "/";
+  }
+}
+
+/** The paths a permissions request asks to `access`, in its legacy lists and its entries. */
+function permissionPaths(fs: FileSystemAsk | null | undefined, access: "read" | "write"): string[] {
+  if (!fs) return [];
+  const legacy = (access === "write" ? fs.write : fs.read) ?? [];
+  const entries = (fs.entries ?? []).filter((e) => e.access === access);
+  return [...new Set([...legacy, ...entries.map((e) => permissionPath(e.path))])];
 }
 
 /** The text of an assistant message among the raw response items. */
@@ -675,7 +707,12 @@ export class CodexAppServerRuntime implements ChatRuntime {
             ...(p.cwd ? { cwd: p.cwd } : {}),
             ...(p.reason ? { reason: p.reason } : {}),
           },
-          call: codexToolCall(toolName, { cmd: command }, { cwd: p.cwd ?? this.spec.cwd }),
+          // A squad session runs sandboxed and never-asking inside it: Codex asks only for a
+          // command that wants out (escalated, the network), which no read or local rule covers.
+          call: {
+            ...codexToolCall(toolName, { cmd: command }, { cwd: p.cwd ?? this.spec.cwd }),
+            ...(this.isSquad ? { sandboxEscape: true } : {}),
+          },
         });
         return { decision } satisfies CodexProtocol.CommandExecutionRequestApprovalResponse;
       }
@@ -695,27 +732,40 @@ export class CodexAppServerRuntime implements ChatRuntime {
       case "item/permissions/requestApproval": {
         const p = r.params;
         const asked = p.permissions;
-        const writes = asked.fileSystem?.write ?? [];
+        const writes = permissionPaths(asked.fileSystem, "write");
+        const reads = permissionPaths(asked.fileSystem, "read");
+        const network = asked.network?.enabled === true;
+        const wanted =
+          [
+            network ? "network access" : "",
+            ...writes.map((path) => `write ${path}`),
+            ...reads.map((path) => `read ${path}`),
+          ]
+            .filter(Boolean)
+            .join(", ") || "more permissions";
         const decision = await this.approve(id, {
           toolName: "permissions",
           itemId: p.itemId,
           threadId: p.threadId,
-          preview: preview(
-            p.reason ??
-              [asked.network?.enabled ? "network access" : "", ...writes]
-                .filter(Boolean)
-                .join(", "),
-          ),
-          input: { reason: p.reason },
-          // In a squad, write access is judged like the edits it is for (the guard).
+          preview: preview(p.reason ? `${p.reason} (${wanted})` : wanted),
+          input: {
+            ...(p.reason ? { reason: p.reason } : {}),
+            ...(network ? { network } : {}),
+            ...(writes.length ? { write: writes } : {}),
+            ...(reads.length ? { read: reads } : {}),
+          },
+          // In a squad, write access is judged like the edits it is for (the guard), and the
+          // whole request leaves the sandbox: under Guarded it always comes to the user.
           call: {
             kind: this.isSquad && writes.length ? "edit" : "other",
             paths: writes,
             tool: "permissions",
             cwd: p.cwd,
+            ...(this.isSquad ? { sandboxEscape: true } : {}),
           },
         });
-        // Allowed: what it asked, for this turn only. Otherwise nothing.
+        // Allowed (by the user, or by Auto): everything it asked, for this turn only.
+        // Otherwise nothing.
         const granted: CodexProtocol.PermissionsRequestApprovalResponse["permissions"] =
           decision === "accept"
             ? {
