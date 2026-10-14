@@ -37,11 +37,24 @@ export interface CodexRpcMapperOptions {
   /** Map raw response items (true, the default) or, without them, the app-server's items. */
   rawItems?: boolean;
   now: () => string;
+  /**
+   * How long a new subagent's `agent.spawned` waits for its parent's spawn_agent output,
+   * which links the call to the child (as the rollout reader waits for it).
+   */
+  spawnGraceMs?: number;
 }
 
 interface Thread {
   normalizer: RolloutNormalizer;
   agentId: string;
+}
+
+/** A subagent thread whose `agent.spawned` waits for the spawn_agent call that started it. */
+interface PendingSpawn {
+  thread: CodexThread;
+  parentThreadId: string;
+  ts: string;
+  sinceMs: number;
 }
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 12);
@@ -68,10 +81,14 @@ export class CodexRpcMapper {
   private readonly rawItems: boolean;
   /** File change item → the paths it writes (an approval names only the item). */
   private readonly changes = new Map<string, string[]>();
+  /** Subagent thread id → its spawn, until the parent's spawn_agent output links it. */
+  private readonly pendingSpawns = new Map<string, PendingSpawn>();
+  private readonly spawnGraceMs: number;
 
   constructor(private readonly o: CodexRpcMapperOptions) {
     this.model = o.model;
     this.rawItems = o.rawItems ?? true;
+    this.spawnGraceMs = o.spawnGraceMs ?? 3_000;
     this.track(o.rootThreadId.toLowerCase(), MAIN_AGENT, o.rolloutPath ?? "");
   }
 
@@ -86,6 +103,11 @@ export class CodexRpcMapper {
   }
 
   map(n: ServerNotification): GravitaEvent[] {
+    const out = this.mapOne(n);
+    return this.pendingSpawns.size ? [...out, ...this.dueSpawns()] : out;
+  }
+
+  private mapOne(n: ServerNotification): GravitaEvent[] {
     switch (n.method) {
       case "thread/started":
         return this.threadStarted(n.params.thread);
@@ -164,28 +186,51 @@ export class CodexRpcMapper {
     };
   }
 
-  /** A subagent thread joins the session (keyed as the rollout reader keys its spawn). */
+  /**
+   * A subagent thread joins the session. Its `agent.spawned` (keyed as the rollout reader
+   * keys it, so whichever comes first is kept) names the spawn_agent call that started it,
+   * which links the parent's call to the child. The parent's normalizer learns that call
+   * from its output, which may come just after the thread starts: the spawn then waits for
+   * it, a few seconds at most. Its own events show the subagent meanwhile.
+   */
   private threadStarted(thread: CodexThread): GravitaEvent[] {
     const threadId = thread.id.toLowerCase();
     if (this.threads.has(threadId) || !thread.parentThreadId) return [];
-    const parent = this.threads.get(thread.parentThreadId.toLowerCase());
-    if (!parent) return [];
-    const agentId = codexAgentId(threadId);
-    this.track(threadId, agentId, thread.path ?? "");
-    return [
-      {
+    const parentThreadId = thread.parentThreadId.toLowerCase();
+    if (!this.threads.has(parentThreadId)) return [];
+    this.track(threadId, codexAgentId(threadId), thread.path ?? "");
+    const ts = this.o.now();
+    this.pendingSpawns.set(threadId, { thread, parentThreadId, ts, sinceMs: Date.parse(ts) || 0 });
+    return [];
+  }
+
+  /** The spawns now linked to their call, or that waited long enough. */
+  private dueSpawns(): GravitaEvent[] {
+    const out: GravitaEvent[] = [];
+    const nowMs = Date.parse(this.o.now()) || 0;
+    for (const [threadId, p] of this.pendingSpawns) {
+      const parent = this.threads.get(p.parentThreadId);
+      const call = parent?.normalizer.state.spawned[threadId];
+      if (!call && nowMs - p.sinceMs < this.spawnGraceMs) continue;
+      this.pendingSpawns.delete(threadId);
+      const agentId = codexAgentId(threadId);
+      const parentAgentId = parent?.agentId ?? MAIN_AGENT;
+      out.push({
         ...this.base(threadId),
+        ts: p.ts,
         key: keys.agentSpawned(this.o.sessionId, agentId),
         type: "agent.spawned",
         data: {
-          parentAgentId: parent.agentId,
-          agentType: thread.agentRole ?? "default",
-          ...(thread.agentNickname ? { description: thread.agentNickname } : {}),
-          depth: parent.agentId === MAIN_AGENT ? 1 : 2,
+          parentAgentId,
+          ...(call ? { spawnToolUseId: call } : {}),
+          agentType: p.thread.agentRole ?? "default",
+          ...(p.thread.agentNickname ? { description: p.thread.agentNickname } : {}),
+          depth: parentAgentId === MAIN_AGENT ? 1 : 2,
           background: false,
         },
-      },
-    ];
+      });
+    }
+    return out;
   }
 
   private turnStarted(threadId: string, turn: Turn): GravitaEvent[] {

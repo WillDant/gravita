@@ -143,7 +143,14 @@ export const AgentLifecycleStatus = z.enum([
   "killed",
 ]);
 
-export const AgentLifecycle = ev("agent.lifecycle", { status: AgentLifecycleStatus });
+export const AgentLifecycle = ev("agent.lifecycle", {
+  status: AgentLifecycleStatus,
+  /**
+   * The agent took up new work after it had finished (a Codex subagent sent a follow-up):
+   * it is running again, unlike a late `running` report about work already done.
+   */
+  resumed: z.boolean().optional(),
+});
 
 export const AgentCompleted = ev("agent.completed", {
   status: z.enum(["completed", "failed", "killed", "stopped"]),

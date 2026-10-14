@@ -171,6 +171,15 @@ export function buildLineMap(events: GravitaEvent[]): LineMap {
         for (const s of line(agentId).stations) if (s.status === "waiting") s.status = "running";
         break;
       }
+      case "agent.lifecycle": {
+        // A finished subagent sent more work runs on until it completes again.
+        const l = line(agentId);
+        if (e.data.resumed && l.ended) {
+          l.ended = false;
+          delete l.endCol;
+        }
+        break;
+      }
       case "agent.completed": {
         const l = line(agentId);
         if (!l.ended) {

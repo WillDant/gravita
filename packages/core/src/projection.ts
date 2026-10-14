@@ -251,7 +251,9 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
         failed: "failed",
         killed: "stopped",
       };
-      setLifecycle(a, map[e.data.status] ?? a.lifecycle);
+      // New work for a finished agent is the one thing that brings it back.
+      if (e.data.resumed && e.data.status === "running") a.lifecycle = "active";
+      else setLifecycle(a, map[e.data.status] ?? a.lifecycle);
       return;
     }
     case "agent.completed": {
