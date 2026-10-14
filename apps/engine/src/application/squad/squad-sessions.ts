@@ -1,6 +1,7 @@
 import { modeFor } from "@gravita/core";
 import { type AgentProvider, keys, MAIN_AGENT, type SessionMode } from "@gravita/protocol";
 import { preview } from "@gravita/protocol/tools";
+import { SessionStoppedError } from "../../domain/errors";
 import { SQUAD_PROVIDER } from "../../domain/squad-policy";
 import type {
   ChatRuntime,
@@ -130,12 +131,20 @@ export class SquadSessions {
       ...(resumeSessionId ? { resume: true } : {}),
     });
     if (runtime.open) {
-      // Its agent names the session (Codex: a thread), so its id is known only now.
+      // Its agent names the session (Codex: a thread), so its id is known only now. The
+      // kill switch may stop it meanwhile: then it never registers.
+      const opening = this.d.runtimes.opening(runtime);
       try {
         await runtime.open();
       } catch (err) {
         await runtime.dispose().catch(() => {});
-        throw err;
+        throw opening.cancelled ? new SessionStoppedError(provisionalId) : err;
+      } finally {
+        opening.done();
+      }
+      if (opening.cancelled) {
+        await runtime.dispose().catch(() => {});
+        throw new SessionStoppedError(provisionalId);
       }
     }
     const { sessionId } = runtime;

@@ -18,9 +18,10 @@ import { FAKE_CODEX_ENV } from "../squad-fakes";
 // (the browser opens Codex's link; Codex keeps the tokens in the profile), its status, and
 // signing out. The app-server is a fake; nothing is launched for real.
 
-function profileCore(tmp: string, signedIn: { now: boolean }) {
+function profileCore(tmp: string, signedIn: { now: boolean }, more?: (a: FakeCodex) => void) {
   const codex = fakeCodexLauncher(async (a) => {
     a.signedIn = signedIn.now;
+    more?.(a);
   });
   const home = join(tmp, "data", "codex-home");
   const core = createCore({
@@ -120,6 +121,50 @@ describe("Gravita's Codex profile for squads", () => {
         message: "Codex didn't answer with a ChatGPT sign-in link.",
       });
       expect(await codex.agents[0]?.exited).toBeDefined();
+    });
+  });
+
+  test("two quick clicks on sign in start one app-server and get the same link", async () => {
+    await withTempDir(async (tmp) => {
+      const h = profileCore(tmp, { now: false });
+      const [a, b] = await Promise.all([
+        call<{ authUrl: string }>(h.core, "codexProfile.signIn"),
+        call<{ authUrl: string }>(h.core, "codexProfile.signIn"),
+      ]);
+      expect(a.authUrl).toStartWith("https://auth.openai.com/");
+      expect(b).toEqual(a);
+      expect(h.agents).toHaveLength(1);
+      await h.core.codexProfile?.close();
+      await h.agents[0]?.exited;
+    });
+  });
+
+  test("closing stops the sign-in's app-server even when Codex never answers the cancel", async () => {
+    await withTempDir(async (tmp) => {
+      const h = profileCore(tmp, { now: false }, (a) => {
+        a.hangOnLoginCancel = true;
+      });
+      await call(h.core, "codexProfile.signIn");
+      const login = h.agents[0] as FakeCodex;
+      const t = performance.now();
+      await h.core.codexProfile?.close();
+      expect(performance.now() - t).toBeLessThan(1_500);
+      expect(login.received.some((m) => m.method === "account/login/cancel")).toBe(true);
+      expect(await login.exited).toBeDefined();
+      expect(h.status()).toEqual({ loggedIn: false });
+    });
+  });
+
+  test("closing while a sign-in is still starting stops it once it has", async () => {
+    await withTempDir(async (tmp) => {
+      const h = profileCore(tmp, { now: false });
+      const signingIn = call(h.core, "codexProfile.signIn");
+      const closed = h.core.codexProfile?.close();
+      await signingIn;
+      await closed;
+      expect(h.agents).toHaveLength(1);
+      expect(await h.agents[0]?.exited).toBeDefined();
+      expect(h.status()?.signingIn).toBeUndefined();
     });
   });
 

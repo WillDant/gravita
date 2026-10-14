@@ -228,7 +228,7 @@ export class SquadScheduler {
         if (end.sessionId) run.resumeFrom.set(live.taskId, end.sessionId);
         return again("Interrupted; the next run continues where it left off.");
       case "killed":
-        run.resumeFrom.set(live.taskId, end.sessionId);
+        if (end.sessionId) run.resumeFrom.set(live.taskId, end.sessionId);
         again("Stopped with the kill switch; the next run continues where it left off.");
         return this.pause(run, PAUSE_REASONS.killSwitch);
       case "error":
@@ -355,7 +355,11 @@ export class SquadScheduler {
    */
   pause(run: SquadRun, reason: string, onlyRole?: string) {
     const q = this.d.squads.squad(run.squadId);
-    if (q && !q.paused) this.d.emitter.paused(run, reason);
+    if (q && !q.paused) {
+      // A paused squad's meters stop counting: what they reached goes on record first.
+      this.d.budget.keepMeasures(q, true);
+      this.d.emitter.paused(run, reason);
+    }
     for (const live of run.active.values())
       if (!onlyRole || live.roleId === onlyRole) {
         // A run whose session is still starting sees the flag once it has one.

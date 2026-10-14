@@ -68,7 +68,10 @@ import { CodexAccountProbe } from "../infrastructure/codex/codex-account-probe";
 import { CodexAppServerRuntimeFactory } from "../infrastructure/codex/codex-app-server-runtime";
 import { CodexDetector } from "../infrastructure/codex/codex-detector";
 import { DetectedCodexEnvironment } from "../infrastructure/codex/codex-environment";
-import { CodexPlanUsageSource } from "../infrastructure/codex/codex-plan-usage";
+import {
+  CodexPlanUsageSource,
+  CodexSquadPlanUsageSource,
+} from "../infrastructure/codex/codex-plan-usage";
 import { CodexPresence } from "../infrastructure/codex/codex-presence";
 import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-discovery";
 import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
@@ -111,6 +114,9 @@ export const SPOOL_DRAIN_MS = 30_000;
 
 /** How long shutdown waits for the hook being ingested. */
 const HOOKS_CAP_MS = 1_000;
+
+/** How long shutdown waits for a sign-in to Gravita's Codex profile to stop its app-server. */
+const PROFILE_CAP_MS = 3_000;
 
 function withCap(p: Promise<void>, ms: number): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -383,6 +389,10 @@ export function createCore(o: CoreOptions): EngineCore {
     usage = new PlanUsageMonitor({
       sources: [
         new ClaudePlanUsageSource({ runtimes, logger }),
+        // Gravita's Codex profile first: a squad asking for Codex's reading gets its own.
+        ...(codex && codexProfile
+          ? [new CodexSquadPlanUsageSource({ runtimes, profile: codexProfile, logger })]
+          : []),
         ...(codex
           ? [
               new CodexPlanUsageSource({
@@ -775,8 +785,13 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         if (!opts.demo) runtimeFile.removeIfOwned(process.pid);
         for (const stop of stops) stop();
         server.stop();
-        // A hook mid-way (resolving its project) still writes; let it, briefly.
-        await Promise.all([core.disposeRuntimes(), withCap(core.hooks.close(), HOOKS_CAP_MS)]);
+        // A hook mid-way (resolving its project) still writes; let it, briefly. A sign-in to
+        // Gravita's Codex profile stops its app-server, which must not outlive the engine.
+        await Promise.all([
+          core.disposeRuntimes(),
+          withCap(core.hooks.close(), HOOKS_CAP_MS),
+          withCap(core.codexProfile?.close() ?? Promise.resolve(), PROFILE_CAP_MS),
+        ]);
         core.close();
       })();
       return stopping;

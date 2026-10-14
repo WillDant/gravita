@@ -33,12 +33,18 @@ function sq(min: number, key: string, e: Pick<GravitaEvent, "type" | "data">): G
 function usage(
   min: number,
   usedPercent: number,
-  o: { provider?: "claude" | "codex"; window?: string; resetsAt?: string; model?: string } = {},
+  o: {
+    provider?: "claude" | "codex";
+    window?: string;
+    resetsAt?: string;
+    model?: string;
+    account?: "squadProfile";
+  } = {},
 ): GravitaEvent {
   const provider = o.provider ?? "claude";
   const window = o.window ?? "five_hour";
   return {
-    key: keys.usageLimits(provider, window, o.model, `${min}`),
+    key: keys.usageLimits(provider, window, o.model, `${o.account ?? ""}${min}`),
     ts: t(min),
     source: "sdk",
     provider,
@@ -49,6 +55,7 @@ function usage(
       window,
       usedPercent,
       ...(o.model ? { model: o.model } : {}),
+      ...(o.account ? { account: o.account } : {}),
       ...(o.resetsAt !== null ? { resetsAt: o.resetsAt ?? RESET } : {}),
     },
   } as GravitaEvent;
@@ -132,6 +139,56 @@ describe("the meter of one window", () => {
     expect(meterPoints(m)).toBe(points);
   });
 
+  describe("telling a new window from a late reading of the old one", () => {
+    const sec = (min: number, s: number) =>
+      new Date(Date.UTC(2026, 9, 13, 10, min, s)).toISOString();
+    const raised = advanceMeter(m0, at(50, 60));
+
+    test("a reading of the old window just after its reset is ignored, every time", () => {
+      // Read a second after the reset, still naming the reset that just passed.
+      const late = { usedPercent: 60, resetsAt: RESET, ts: sec(60, 1) };
+      expect(advanceMeter(raised, late)).toEqual(raised);
+      expect(advanceMeter(advanceMeter(raised, late), { ...late, ts: sec(62, 0) })).toEqual(raised);
+      // The new window's first reading then counts once: 30 points carried, 3 new.
+      const m = advanceMeter(advanceMeter(raised, late), at(65, 3, NEXT_RESET));
+      expect(m).toMatchObject({ round: 2, carried: 30, last: 3, resetsAt: NEXT_RESET });
+      expect(meterPoints(advanceMeter(m, { ...late, ts: sec(66, 0) }))).toBe(33);
+    });
+
+    test("a reading whose reset time already passed when it was read changes nothing", () => {
+      expect(advanceMeter(raised, at(70, 90, RESET))).toEqual(raised);
+      expect(advanceMeter(raised, at(59, 95, t(58)))).toEqual(raised);
+    });
+
+    test("the next window read a little before the old reset time (clock skew) is new", () => {
+      // Low, but above the baseline: only its later reset time tells.
+      const m = advanceMeter(raised, at(59, 35, NEXT_RESET));
+      expect(m).toMatchObject({ round: 2, carried: 30, baseline: 0, last: 35 });
+      expect(meterPoints(m)).toBe(65);
+    });
+
+    test("a low first reading after the reset, above the baseline, with a later reset time", () => {
+      const m = advanceMeter(raised, at(61, 32, NEXT_RESET));
+      expect(m).toMatchObject({ round: 2, carried: 30, last: 32, resetsAt: NEXT_RESET });
+    });
+
+    test("a reset time that moved by a few seconds is the same window", () => {
+      const jitter = new Date(Date.parse(RESET) + 90_000).toISOString();
+      const m = advanceMeter(raised, at(55, 62, jitter));
+      expect(m).toMatchObject({ round: 1, last: 62, resetsAt: jitter });
+    });
+
+    test("without reset times, a drop below the highest reading after the reset is new", () => {
+      const noReset = { usedPercent: 10, ts: t(61) };
+      expect(advanceMeter(raised, noReset)).toMatchObject({ round: 2, carried: 30, last: 10 });
+      // Before the reset time the same drop is noise (the highest reading stays).
+      expect(advanceMeter(raised, { ...noReset, usedPercent: 40, ts: t(55) })).toMatchObject({
+        round: 1,
+        last: 60,
+      });
+    });
+  });
+
   test("a reset moves to the next round and starts counting from 0", () => {
     const m = advanceMeter(advanceMeter(m0, at(5, 40)), at(70, 4, NEXT_RESET));
     expect(m).toMatchObject({ round: 2, baseline: 0, carried: 10, last: 4, resetsAt: NEXT_RESET });
@@ -211,13 +268,35 @@ describe("a plan squad's share", () => {
       ...building,
       baseline(2, { baseline: 10, provider: "codex" }),
       usage(3, 33),
-      usage(3, 19, { provider: "codex" }),
+      usage(3, 19, { provider: "codex", account: "squadProfile" }),
     ]);
     expect(planShareUsed(squadOf(s), s.usage)).toEqual({
       points: 9,
       byProvider: { claude: 3, codex: 9 },
       provider: "codex",
     });
+  });
+
+  test("a Codex meter counts Gravita's Codex profile: the user's own Codex never moves it", () => {
+    const s = applyAll(emptyState(), [
+      ...building,
+      baseline(2, { baseline: 10, provider: "codex" }),
+      // The user's own Codex (their CLI, their rollouts) on another account.
+      usage(3, 70, { provider: "codex" }),
+      usage(4, 2, { provider: "codex", resetsAt: NEXT_RESET }),
+      usage(5, 14, { provider: "codex", account: "squadProfile" }),
+    ]);
+    expect(planShareUsed(squadOf(s), s.usage).byProvider.codex).toBe(4);
+    expect(squadOf(s).budget.meters?.["codex:five_hour"]).toMatchObject({ round: 1, last: 14 });
+    // Both readings are kept, apart: Home shows the user's, the squad counts its profile's.
+    expect(s.usage["codex:five_hour"]?.usedPercent).toBe(2);
+    expect(s.usage["codex:squadProfile:five_hour"]).toMatchObject({
+      account: "squadProfile",
+      usedPercent: 14,
+    });
+    // A later user reading changes nothing for the squad either.
+    applyAll(s, [usage(6, 95, { provider: "codex" })]);
+    expect(planShareUsed(squadOf(s), s.usage).byProvider.codex).toBe(4);
   });
 
   test("a window reset mid-squad carries what was used and counts the new window from 0", () => {
@@ -244,6 +323,34 @@ describe("a plan squad's share", () => {
       baseline(71, { round: 2, baseline: 0, carried: 12, current: 5 }),
     ]);
     expect(planShareUsed(squadOf(replay), replay.usage).points).toBe(17);
+  });
+
+  test("replayed from stored facts alone (no usage readings), the points used are restored", () => {
+    const measured = (min: number, last: number, round = 1) =>
+      sq(min, keys.budgetMeasured(Q, "claude", "five_hour", round, last), {
+        type: "budget.measured",
+        data: { squadId: Q, provider: "claude", window: "five_hour", round, last },
+      } as Pick<GravitaEvent, "type" | "data">);
+    // Live: readings moved the meter to 41; the guard noted 38 and then 41.
+    const live = applyAll(emptyState(), [...building, usage(5, 38), measured(5, 38), usage(9, 41)]);
+    applyAll(live, [measured(9, 41)]);
+    expect(planShareUsed(squadOf(live), live.usage).points).toBe(11);
+    // A restart replays the stored events only: usage.limits are never stored.
+    const replay = applyAll(emptyState(), [...building, measured(5, 38), measured(9, 41)]);
+    expect(planShareUsed(squadOf(replay), replay.usage).points).toBe(11);
+    expect(squadOf(replay).budget.meters?.["claude:five_hour"]).toMatchObject({
+      round: 1,
+      last: 41,
+      savedLast: 41,
+    });
+    // Out of order, or a measure of another round, changes nothing more.
+    const odd = applyAll(emptyState(), [
+      ...building,
+      measured(9, 41),
+      measured(5, 38),
+      measured(10, 4, 2),
+    ]);
+    expect(planShareUsed(squadOf(odd), odd.usage).points).toBe(11);
   });
 
   test("readings while the squad is paused or finished don't count", () => {

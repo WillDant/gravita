@@ -25,6 +25,11 @@ Codex support: OpenAI's Codex alongside Claude Code, in observation, chats and s
 
 ### Fixed
 - An interrupted Codex call no longer shows as a success.
+- Under Guarded, anything a Codex role asks beyond its sandbox (an escalated command, network, reads or writes outside the worktree) now comes to you instead of being accepted.
+- A plan budget keeps the points a squad used across an engine restart, and a late reading at a window's reset is no longer counted as a new window.
+- A Codex squad counts the plan of Gravita's Codex profile, the account its sessions run on, never your own Codex's.
+- The kill switch also stops sessions that are still starting; role tools over MCP have no idle timeout.
+- Codex events from the live stream and the session files no longer duplicate when items have no id (compaction, reasoning), and a subagent links to the call that spawned it and can take more turns.
 
 ### Engine protocol
 - `engine.status` reports each provider under `providers`; `claude` stays as a deprecated copy of `providers.claude` for one version.

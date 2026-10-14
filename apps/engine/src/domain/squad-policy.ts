@@ -166,6 +166,11 @@ export const PLAN_USAGE_POLL_MS = 3 * 60_000;
 export const PLAN_BASELINE_POLL_MS = 10_000;
 /** The least time between two reads the UI asks for (a chat or squad screen opening). */
 export const PLAN_USAGE_MIN_GAP_MS = 60_000;
+/**
+ * A plan squad's count of a window is noted (`budget.measured`) each time it rose by this
+ * many points since the last note, so a restart loses less than this.
+ */
+export const PLAN_MEASURE_STEP_POINTS = 1;
 /** A reading older than this when the squad starts building isn't its baseline. */
 export const PLAN_BASELINE_MAX_AGE_MS = 10 * 60_000;
 /** How long a usage read on a live session may take before Gravita gives up on it. */

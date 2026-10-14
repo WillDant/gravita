@@ -216,6 +216,17 @@ export class SquadEmitter {
     );
   }
 
+  /** The highest usage a plan squad's count of a provider's window reached in its round. */
+  measured(q: SquadRef, m: Pick<PlanMeter, "provider" | "window" | "round" | "last">) {
+    const last = Math.round(m.last * 100) / 100;
+    this.emit(
+      "budget.measured",
+      keys.budgetMeasured(q.squadId, m.provider, m.window, m.round, last),
+      q.projectId,
+      { squadId: q.squadId, provider: m.provider, window: m.window, round: m.round, last },
+    );
+  }
+
   budgetChanged(
     q: SquadRef,
     c:

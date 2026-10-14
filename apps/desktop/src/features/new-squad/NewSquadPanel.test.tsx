@@ -278,6 +278,31 @@ describe("NewSquadPanel with Codex", () => {
     open.mockRestore();
   });
 
+  it("a Codex squad's share shows the usage of Gravita's Codex profile, not the user's own", async () => {
+    const withUsage = structuredClone(state);
+    const reading = { window: "seven_day" as const, ts: "2026-10-12T10:00:00.000Z" };
+    withUsage.usage = {
+      // The user's own Codex, maybe another ChatGPT account: not what the squad counts.
+      "codex:seven_day": { ...reading, provider: "codex", usedPercent: 81 },
+      "codex:squadProfile:seven_day": {
+        ...reading,
+        provider: "codex",
+        account: "squadProfile",
+        usedPercent: 12,
+      },
+    };
+    const gateway = new FakeGateway();
+    const view = renderWithApp(
+      <NewSquadPanel id="nq" defaultFolder="/work/p1" onClose={() => {}} />,
+      { state: withUsage, gateway },
+    );
+    act(() => view.store.getState().setEngineStatus(withCodex({ loggedIn: true })));
+    await act(flush);
+    fireEvent.click(radio(/Codex only/));
+    expect(screen.getByText(/Weekly: 12% used/)).toBeTruthy();
+    expect(screen.queryByText(/81% used/)).toBeNull();
+  });
+
   it("a Codex squad's budget is a share of the plan even on an API-key Claude account", async () => {
     const gateway = new FakeGateway();
     const view = renderWithApp(

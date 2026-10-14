@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { GravitaEvent } from "@gravita/protocol";
+import { buildLineMap } from "@gravita/core";
+import { GravitaEvent, keys } from "@gravita/protocol";
 import {
   codexSessionId,
   parseRolloutLines,
@@ -228,10 +229,15 @@ describe("aborted-turn", () => {
       "Run the full test suite",
       "Just the unit tests, please",
     ]);
-    // The interrupted command never completes, and the turn's end clears it.
-    expect(ofType(events, "tool.completed").map((e) => e.data.toolUseId)).toEqual([
-      "codex:call_unit",
+    // The interrupted command never gets its output: the turn's end fails it.
+    expect(
+      ofType(events, "tool.completed").map((e) => [e.data.toolUseId, e.data.ok, e.data.error]),
+    ).toEqual([
+      ["codex:call_long", false, "Turn interrupted"],
+      ["codex:call_unit", true, undefined],
     ]);
+    const ends = events.filter((e) => e.type === "tool.completed" || e.type === "turn.completed");
+    expect(ends[0]?.type).toBe("tool.completed");
     const s = project(events);
     expect(s.agents.main?.lifecycle).toBe("idle");
     expect(s.agents.main?.inflight).toEqual({});
@@ -265,5 +271,119 @@ describe("rate-limits", () => {
       cacheRead: 1000,
       cacheWrite: 0,
     });
+  });
+});
+
+describe("a subagent sent more work", () => {
+  const SUB = ROOT(0x9a1);
+  const agentId = `codex:${SUB}`;
+  const sessionId = codexSessionId(ROOT(0x9a0));
+  let clock = 0;
+  const rec = (type: string, payload: Record<string, unknown>) =>
+    JSON.stringify({
+      timestamp: new Date(Date.UTC(2026, 9, 12, 12, 0, clock++)).toISOString(),
+      type,
+      payload,
+    });
+  const item = (payload: Record<string, unknown>) => rec("response_item", payload);
+  const turn = (id: string, prompt: string, callId: string, reply?: string) => [
+    rec("event_msg", { type: "task_started", turn_id: id }),
+    rec("turn_context", { turn_id: id, model: "gpt-5.5-codex-mini" }),
+    item({ type: "message", role: "user", content: [{ type: "input_text", text: prompt }] }),
+    item({
+      type: "function_call",
+      name: "exec_command",
+      arguments: JSON.stringify({ cmd: `run ${callId}` }),
+      call_id: callId,
+    }),
+    ...(reply
+      ? [
+          item({
+            type: "function_call_output",
+            call_id: callId,
+            output: "Process exited with code 0",
+          }),
+          item({
+            type: "message",
+            role: "assistant",
+            id: `msg_${id}`,
+            content: [{ type: "output_text", text: reply }],
+          }),
+        ]
+      : []),
+  ];
+  const lines = parseRolloutLines(
+    [
+      ...turn("s-turn-1", "Map the routes", "call_1", "Two routes."),
+      rec("event_msg", {
+        type: "task_complete",
+        turn_id: "s-turn-1",
+        last_agent_message: "Two routes.",
+        duration_ms: 3000,
+      }),
+      // A follow-up: the second turn's end names no last message.
+      ...turn("s-turn-2", "Now map the pages", "call_2", "Three pages."),
+      rec("event_msg", { type: "task_complete", turn_id: "s-turn-2", duration_ms: 2000 }),
+      // A third turn, interrupted while its command runs.
+      ...turn("s-turn-3", "And the tests", "call_3"),
+      rec("event_msg", { type: "turn_aborted", turn_id: "s-turn-3", reason: "interrupted" }),
+    ].join("\n"),
+  );
+  const normalize = () =>
+    new RolloutNormalizer({
+      projectId: "p1",
+      sessionId,
+      agentId,
+      threadId: SUB,
+      filePath: "/f",
+    }).push(lines);
+
+  test("each turn completes under its own key; the first keeps the key it always had", () => {
+    const events = normalize();
+    expect(new Set(events.map((e) => e.key)).size).toBe(events.length);
+    const completed = keys.agentCompleted(sessionId, agentId);
+    expect(ofType(events, "agent.completed").map((e) => [e.key, e.data])).toEqual([
+      [completed, { status: "completed", summary: "Two routes.", durationMs: 3000 }],
+      // No last message on the turn's end: its last reply is the summary.
+      [`${completed}:s-turn-2`, { status: "completed", summary: "Three pages.", durationMs: 2000 }],
+      [`${completed}:s-turn-3`, { status: "stopped" }],
+    ]);
+    // The later turns wake the subagent up.
+    expect(ofType(events, "agent.lifecycle").map((e) => [e.key, e.data])).toEqual([
+      [
+        keys.agentLifecycle(sessionId, agentId, "running:s-turn-2"),
+        { status: "running", resumed: true },
+      ],
+      [
+        keys.agentLifecycle(sessionId, agentId, "running:s-turn-3"),
+        { status: "running", resumed: true },
+      ],
+    ]);
+    // The interrupted command fails with its turn, before the turn's end.
+    const ends = events.filter((e) => e.type === "tool.completed" || e.type === "agent.completed");
+    expect(ends.slice(-2).map((e) => [e.type, e.data])).toEqual([
+      ["tool.completed", { toolUseId: "codex:call_3", ok: false, error: "Turn interrupted" }],
+      ["agent.completed", { status: "stopped" }],
+    ]);
+  });
+
+  test("the node is at work during a later turn, and nothing is left in flight", () => {
+    const events = normalize();
+    const second = events.findIndex(
+      (e) => e.type === "tool.started" && e.data.toolUseId === "codex:call_2",
+    );
+    const upToSecond = events.slice(0, second + 1);
+    const during = project(upToSecond).agents[agentId];
+    expect(during?.lifecycle).toBe("active");
+    expect(Object.keys(during?.inflight ?? {})).toEqual(["codex:call_2"]);
+    const lineDuring = buildLineMap(upToSecond).lines.find((l) => l.agentId === agentId);
+    expect(lineDuring?.ended).toBe(false);
+
+    const after = project(events).agents[agentId];
+    expect(after?.lifecycle).toBe("stopped");
+    expect(after?.inflight).toEqual({});
+    const line = buildLineMap(events).lines.find((l) => l.agentId === agentId);
+    expect(line?.ended).toBe(true);
+    expect(line?.stations.at(-1)?.status).toBe("error");
   });
 });

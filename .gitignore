@@ -22,3 +22,6 @@ apps/desktop/src-tauri/binaries/*
 *.bun-build
 # Test runner caches
 .vitest/
+
+# Worktrees of local agent sessions
+.claude/worktrees/

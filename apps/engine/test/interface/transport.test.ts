@@ -315,6 +315,34 @@ describe("plain HTTP routes (tray kill switch, Deep Observe hooks, role tools)",
     expect(res.status).toBe(404);
   });
 
+  test("a role tool that takes longer than Bun's idle timeout still answers", async () => {
+    // complete_task commits and runs the task's checks: minutes, not Bun's default 10 s.
+    const m = mcp.mount(
+      [
+        {
+          name: "complete_task",
+          description: "",
+          input: {},
+          handler: async () => {
+            await Bun.sleep(11_500);
+            return { text: "committed" };
+          },
+        },
+      ],
+      "q/backend/slow",
+    );
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "complete_task", arguments: {} },
+    });
+    const res = await post("/mcp", { body, token: m.token });
+    const answer = (await res.json()) as { result: { content: { text: string }[] } };
+    expect(answer.result.content[0]?.text).toBe("committed");
+    m.close();
+  }, 30_000);
+
   test("without a hook token there is no hooks route", async () => {
     const body = JSON.stringify({ session_id: "s", hook_event_name: "Stop" });
     const res = await fetch(`http://127.0.0.1:${server.port}/hooks`, {

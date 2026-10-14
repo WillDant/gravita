@@ -11,6 +11,7 @@ import { canStartChat, countChats, MAX_CHAT_SESSIONS } from "../../domain/chat-p
 import {
   InvalidCwdError,
   InvalidSessionModeError,
+  SessionStoppedError,
   TooManySessionsError,
 } from "../../domain/errors";
 import type { Clock } from "../ports/clock";
@@ -83,12 +84,20 @@ export class StartChat {
       environment,
     });
     if (runtime.open) {
-      // Its agent names the session (Codex: a thread), so its id is known only now.
+      // Its agent names the session (Codex: a thread), so its id is known only now. The
+      // kill switch may stop it meanwhile: then it never registers.
+      const opening = this.d.runtimes.opening(runtime);
       try {
         await runtime.open();
       } catch (err) {
         await runtime.dispose();
-        throw err;
+        throw opening.cancelled ? new SessionStoppedError(provisionalId) : err;
+      } finally {
+        opening.done();
+      }
+      if (opening.cancelled) {
+        await runtime.dispose();
+        throw new SessionStoppedError(provisionalId);
       }
       if (!canStartChat(countChats(this.d.runtimes.all()), limit)) {
         await runtime.dispose();

@@ -6,6 +6,9 @@ import {
   type CodexRpcMapperOptions,
   codexCallId,
   codexSessionId,
+  newThreadState,
+  parseRolloutLines,
+  RolloutNormalizer,
   type ServerNotification,
 } from "../src";
 import { loadScript } from "../src/testing/scripted-app-server";
@@ -293,5 +296,242 @@ describe("code mode", () => {
       toolUseId: codexCallId("call_sleep"),
       ok: false,
     });
+  });
+});
+
+/** A hand-built live stream: notifications for one session, on a clock the test moves. */
+function liveSession(root: string, o: Partial<CodexRpcMapperOptions> = {}) {
+  let ms = Date.parse("2026-10-12T12:00:00.000Z");
+  const mapper = new CodexRpcMapper({
+    projectId: "p1",
+    sessionId: codexSessionId(root),
+    rootThreadId: root,
+    model: "gpt-5.5-codex",
+    now: () => new Date(ms).toISOString(),
+    ...o,
+  });
+  const send = (method: string, params: Record<string, unknown>) =>
+    mapper.map({ method, params } as unknown as ServerNotification);
+  const turn = (id: string, status = "inProgress") => ({
+    id,
+    items: [],
+    itemsView: "notLoaded",
+    status,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+  });
+  return {
+    advance: (by: number) => {
+      ms += by;
+    },
+    raw: (threadId: string, item: Record<string, unknown>) =>
+      send("rawResponseItem/completed", { threadId, turnId: "t", item }),
+    turnStarted: (threadId: string, id: string) =>
+      send("turn/started", { threadId, turn: turn(id) }),
+    turnCompleted: (threadId: string, id: string) =>
+      send("turn/completed", { threadId, turn: turn(id, "completed") }),
+    threadStarted: (id: string, parentThreadId: string, role: string, nickname: string) =>
+      send("thread/started", {
+        thread: { id, parentThreadId, agentRole: role, agentNickname: nickname, path: null },
+      }),
+  };
+}
+
+describe("items without an id of their own", () => {
+  const root = thread(0x9b0);
+  const items = [
+    { type: "reasoning", summary: [], encrypted_content: "gAAAA-synthetic-thought" },
+    { type: "message", role: "assistant", content: [{ type: "output_text", text: "Done." }] },
+    { type: "web_search_call", status: "completed", action: { type: "search", query: "hono" } },
+    { type: "compaction", encrypted_content: "gAAAA-synthetic-summary" },
+    { type: "reasoning", summary: [], encrypted_content: null },
+    // The same words again later in the turn are another message.
+    { type: "message", role: "assistant", content: [{ type: "output_text", text: "Done." }] },
+  ];
+
+  test("get the same keys live and from the rollout, whatever the clocks say", () => {
+    const live = liveSession(root);
+    const fromLive = [
+      ...live.turnStarted(root, "turn-1"),
+      ...items.flatMap((item) => {
+        live.advance(1_000);
+        return live.raw(root, item);
+      }),
+    ];
+    const rollout = parseRolloutLines(
+      [
+        { type: "event_msg", payload: { type: "task_started", turn_id: "turn-1" } },
+        { type: "turn_context", payload: { turn_id: "turn-1", model: "gpt-5.5-codex" } },
+        ...items.map((payload) => ({ type: "response_item", payload })),
+      ]
+        .map((r, i) => JSON.stringify({ timestamp: `2026-10-12T09:30:0${i}.123Z`, ...r }))
+        .join("\n"),
+    );
+    const fromFile = new RolloutNormalizer(
+      {
+        projectId: "p1",
+        sessionId: codexSessionId(root),
+        agentId: "main",
+        threadId: root,
+        filePath: "/f",
+      },
+      { ...newThreadState(), started: true },
+    ).push(rollout);
+    const shared = [
+      "thinking",
+      "message.assistant",
+      "tool.started",
+      "tool.completed",
+      "compact.happened",
+    ];
+    const keysOf = (events: GravitaEvent[]) =>
+      events.filter((e) => shared.includes(e.type)).map((e) => e.key);
+    expect(keysOf(fromLive)).toHaveLength(7);
+    expect(new Set(keysOf(fromLive)).size).toBe(7);
+    expect(keysOf(fromLive)).toEqual(keysOf(fromFile));
+  });
+
+  test("a compaction record keyed by the summary its replacement history keeps", () => {
+    const ctx = {
+      projectId: "p1",
+      sessionId: codexSessionId(root),
+      agentId: "main",
+      threadId: root,
+      filePath: "/f",
+    };
+    const compaction = { type: "compaction", encrypted_content: "gAAAA-synthetic-summary" };
+    const [item] = new RolloutNormalizer(ctx).push(
+      parseRolloutLines(
+        JSON.stringify({
+          timestamp: "2026-10-12T09:00:00Z",
+          type: "response_item",
+          payload: compaction,
+        }),
+      ),
+    );
+    const [record] = new RolloutNormalizer(ctx).push(
+      parseRolloutLines(
+        JSON.stringify({
+          timestamp: "2026-10-12T09:00:01Z",
+          type: "compacted",
+          payload: { message: "", replacement_history: [compaction] },
+        }),
+      ),
+    );
+    expect(item?.type).toBe("compact.happened");
+    expect(record?.key).toBe(item?.key);
+  });
+});
+
+describe("subagents, live", () => {
+  // The `subagents` rollout fixture's session, as the app-server streams it.
+  const root = thread(0x401);
+  const lovelace = thread(0x402);
+  const turing = thread(0x403);
+  const spawnCall = (callId: string, message: string) => ({
+    type: "function_call",
+    name: "spawn_agent",
+    arguments: JSON.stringify({ message, agent_type: "explorer" }),
+    call_id: callId,
+  });
+  const spawnOutput = (callId: string, child: string, nickname: string) => ({
+    type: "function_call_output",
+    call_id: callId,
+    output: JSON.stringify({ agent_id: child, nickname }),
+  });
+
+  function stream(o: Partial<CodexRpcMapperOptions> = {}) {
+    const live = liveSession(root, o);
+    const events: GravitaEvent[] = [];
+    const at = (step: () => GravitaEvent[]) => {
+      live.advance(500);
+      events.push(...step());
+    };
+    at(() => live.turnStarted(root, "turn-1"));
+    at(() => live.raw(root, spawnCall("call_S1", "Map the API routes")));
+    // The child thread starts before its parent hears back from spawn_agent.
+    at(() => live.threadStarted(lovelace, root, "explorer", "Lovelace"));
+    at(() => live.turnStarted(lovelace, "e1-turn"));
+    at(() =>
+      live.raw(lovelace, {
+        type: "function_call",
+        name: "exec_command",
+        arguments: JSON.stringify({ cmd: "ls apps/api/routes" }),
+        call_id: "call_e1_ls",
+      }),
+    );
+    const beforeLink = events.length;
+    at(() => live.raw(root, spawnOutput("call_S1", lovelace, "Lovelace")));
+    // The other one: its spawn output comes first.
+    at(() => live.raw(root, spawnCall("call_S2", "Map the web pages")));
+    at(() => live.raw(root, spawnOutput("call_S2", turing, "Turing")));
+    at(() => live.threadStarted(turing, root, "explorer", "Turing"));
+    at(() =>
+      live.raw(lovelace, {
+        type: "function_call_output",
+        call_id: "call_e1_ls",
+        output: "Process exited with code 0\nOutput:\nusers.ts\nposts.ts",
+      }),
+    );
+    at(() =>
+      live.raw(lovelace, {
+        type: "message",
+        id: "msg_e1",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Two route files: users and posts." }],
+      }),
+    );
+    at(() => live.turnCompleted(lovelace, "e1-turn"));
+    return { events, beforeLink, live };
+  }
+
+  test("a spawn names its call, so the conversation's spawn chip links to it", async () => {
+    const { events, beforeLink } = stream();
+    // Not announced before its call is known; its own events already show it.
+    expect(ofType(events.slice(0, beforeLink), "agent.spawned")).toEqual([]);
+    expect(events.slice(0, beforeLink).some((e) => e.agentId === `codex:${lovelace}`)).toBe(true);
+    const file = await scenarioEvents("subagents");
+    const strip = (e: GravitaEvent) => [e.key, e.agentId, e.data];
+    expect(ofType(events, "agent.spawned").map(strip)).toEqual(
+      ofType(file, "agent.spawned").map(strip),
+    );
+    expect(ofType(events, "agent.spawned").map((e) => e.data.spawnToolUseId)).toEqual([
+      codexCallId("call_S1"),
+      codexCallId("call_S2"),
+    ]);
+  });
+
+  test("a subagent's end carries its last reply, keyed as the rollout keys it", async () => {
+    const { events } = stream();
+    const file = await scenarioEvents("subagents");
+    const done = ofType(events, "agent.completed");
+    expect(done.map((e) => [e.key, e.data.status, e.data.summary])).toEqual(
+      ofType(file, "agent.completed").map((e) => [e.key, e.data.status, e.data.summary]),
+    );
+    expect(done[0]?.data.summary).toBe("Two route files: users and posts.");
+  });
+
+  test("a spawn whose call never shows is announced unlinked after the grace", () => {
+    const live = liveSession(root, { spawnGraceMs: 3_000 });
+    expect(live.threadStarted(lovelace, root, "explorer", "Lovelace")).toEqual([]);
+    live.advance(1_000);
+    expect(ofType(live.turnStarted(lovelace, "e1-turn"), "agent.spawned")).toEqual([]);
+    live.advance(2_500);
+    const late = ofType(live.turnStarted(root, "turn-1"), "agent.spawned");
+    expect(late.map((e) => [e.agentId, e.ts, e.data])).toEqual([
+      [
+        `codex:${lovelace}`,
+        "2026-10-12T12:00:00.000Z",
+        {
+          parentAgentId: "main",
+          agentType: "explorer",
+          description: "Lovelace",
+          depth: 1,
+          background: false,
+        },
+      ],
+    ]);
   });
 });

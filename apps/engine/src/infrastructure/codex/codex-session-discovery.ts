@@ -91,6 +91,12 @@ async function dirs(fs: CodexDiscoveryFs, path: string): Promise<string[]> {
 export class CodexSessionDiscovery {
   private readonly files = new Map<string, FileInfo>();
   private lastFullSweep = Number.NEGATIVE_INFINITY;
+  /**
+   * Threads `locate` looked for in every folder and didn't find, and when. An orphaned
+   * subagent (its root archived or deleted) would otherwise walk the whole tree each scan:
+   * a miss is looked for again no sooner than a full sweep, or when its file shows up.
+   */
+  private readonly misses = new Map<string, number>();
   private readonly fs: CodexDiscoveryFs;
   private readonly rolloutFs: RolloutFs;
 
@@ -144,7 +150,13 @@ export class CodexSessionDiscovery {
   /** The rollout of one thread, by the date its v7 id encodes (a missing root, say). */
   async locate(threadId: string): Promise<string | undefined> {
     const known = [...this.files.values()].find((f) => f.meta?.threadId === threadId);
-    if (known) return known.path;
+    if (known) {
+      this.misses.delete(threadId);
+      return known.path;
+    }
+    const now = this.o.clock.now();
+    const missed = this.misses.get(threadId);
+    if (missed !== undefined && now - missed < FULL_SWEEP_MS) return undefined;
     const created = threadCreatedMs(threadId);
     // First where its id dates it (a day either way: folders are local time), then
     // everywhere, newest first.
@@ -157,9 +169,13 @@ export class CodexSessionDiscovery {
           });
     const rest = (await this.dayFolders(undefined)).reverse().filter((d) => !likely.includes(d));
     for (const day of [...likely, ...rest]) {
-      for (const path of await this.rollouts(day))
-        if (threadIdOfFile(basename(path)) === threadId) return path;
+      for (const path of await this.rollouts(day)) {
+        if (threadIdOfFile(basename(path)) !== threadId) continue;
+        this.misses.delete(threadId);
+        return path;
+      }
     }
+    this.misses.set(threadId, now);
     return undefined;
   }
 
@@ -211,6 +227,7 @@ export class CodexSessionDiscovery {
     if (f.meta || (f.meta === null && f.headSize === st.size)) return;
     f.headSize = st.size;
     f.meta = await readRolloutHead(path, this.rolloutFs).catch(() => null);
+    if (f.meta) this.misses.delete(f.meta.threadId);
     if (f.meta === null && path.endsWith(".zst"))
       this.o.onSkip?.(path, "compressed rollout could not be read");
   }

@@ -87,6 +87,15 @@ export interface ThreadState {
    * gave one, and that id is the key Gravita already stored the message under.
    */
   pendingUser?: { ts: string; text: string; id?: string };
+  /**
+   * How many items of each kind without an id of their own the current turn has had: their
+   * keys count them, as the live stream and the rollout see the same items in the same order.
+   */
+  ordinals?: { turn: string; seen: Record<string, number> };
+  /** Turns this thread has ended: a subagent's later turns complete under keys of their own. */
+  turnsEnded?: number;
+  /** A subagent's last reply in the current turn, its summary when the turn's end has none. */
+  lastReply?: string;
 }
 
 export function newThreadState(): ThreadState {
@@ -281,10 +290,41 @@ export class RolloutNormalizer {
   private compacted(out: GravitaEvent[], r: RolloutLine, trigger: string) {
     out.push({
       ...this.base(r.timestamp),
-      key: `compact:${codexItemId(this.ctx.threadId, hash(r.timestamp ?? ""))}`,
+      key: `compact:${codexItemId(this.ctx.threadId, this.compactionId(r))}`,
       type: "compact.happened",
       data: { trigger },
     });
+  }
+
+  /**
+   * A compaction's id: its encrypted summary, which the response item carries and a
+   * `compacted` record keeps in its replacement history, or else its place in the turn.
+   */
+  private compactionId(r: RolloutLine): string {
+    const p = r.payload;
+    let summary = r.type === "response_item" ? str(p, "encrypted_content") : undefined;
+    const history = r.type === "compacted" ? p.replacement_history : undefined;
+    if (Array.isArray(history)) {
+      for (const item of history) {
+        if (isObject(item) && (item.type === "compaction" || item.type === "context_compaction"))
+          summary = str(item, "encrypted_content") ?? summary;
+      }
+    }
+    return summary ? `c${hash(summary)}` : this.ordinal("c", "");
+  }
+
+  /**
+   * The id of an item that has none of its own, the same from the rollout and from the live
+   * stream (which stamps records with its own clock): the turn, the item's place among the
+   * turn's items of its kind, and what it says. Never the record's time.
+   */
+  private ordinal(kind: string, content: string): string {
+    const s = this.state;
+    const turn = s.turnId ?? "";
+    if (s.ordinals?.turn !== turn) s.ordinals = { turn, seen: {} };
+    const n = (s.ordinals.seen[kind] ?? 0) + 1;
+    s.ordinals.seen[kind] = n;
+    return `${kind}${hash(`${turn}:${n}:${content}`)}`;
   }
 
   private event(out: GravitaEvent[], r: RolloutLine) {
@@ -295,6 +335,20 @@ export class RolloutNormalizer {
         s.openTurn = true;
         const turnId = str(p, "turn_id");
         if (turnId) s.turnId = turnId;
+        delete s.lastReply;
+        // A subagent given more work after its task ended is at work again.
+        if (!this.isMain && s.turnsEnded) {
+          out.push({
+            ...this.base(r.timestamp),
+            key: keys.agentLifecycle(
+              this.ctx.sessionId,
+              this.ctx.agentId,
+              `running:${this.turnKey(r)}`,
+            ),
+            type: "agent.lifecycle",
+            data: { status: "running", resumed: true },
+          });
+        }
         return;
       }
       case "task_complete": {
@@ -356,8 +410,20 @@ export class RolloutNormalizer {
     reason?: string,
   ) {
     const s = this.state;
+    if (outcome === "aborted") {
+      // Unanswered calls of an aborted turn will never complete: they failed.
+      for (const callId of Object.keys(s.calls)) {
+        const toolUseId = codexCallId(callId);
+        out.push({
+          ...this.base(r.timestamp),
+          key: keys.toolCompleted(toolUseId),
+          type: "tool.completed",
+          data: { toolUseId, ok: false, error: `Turn ${reason ?? "aborted"}` },
+        });
+      }
+      s.calls = {};
+    }
     if (this.isMain) {
-      // Unanswered calls of an aborted turn will never complete.
       out.push({
         ...this.base(r.timestamp),
         key: keys.turnCompleted(this.ctx.sessionId, `${this.ctx.threadId}:${this.turnKey(r)}`),
@@ -368,20 +434,24 @@ export class RolloutNormalizer {
         },
       });
     } else {
-      // A subagent's task ends with its turn; its parent hears through wait_agent.
+      // A subagent's task ends with its turn; its parent hears through wait_agent. The
+      // first turn's end keeps the key it always had; a later turn (more work sent to the
+      // subagent) ends under its own.
+      const completed = keys.agentCompleted(this.ctx.sessionId, this.ctx.agentId);
+      const text = summary ? preview(summary) : s.lastReply;
       out.push({
         ...this.base(r.timestamp),
-        key: keys.agentCompleted(this.ctx.sessionId, this.ctx.agentId),
+        key: s.turnsEnded ? `${completed}:${this.turnKey(r)}` : completed,
         type: "agent.completed",
         data: {
           status:
             outcome === "completed" ? "completed" : outcome === "failed" ? "failed" : "stopped",
-          ...(summary ? { summary: preview(summary) } : {}),
+          ...(text ? { summary: text } : {}),
           ...(durationMs !== undefined ? { durationMs } : {}),
         },
       });
     }
-    if (outcome === "aborted") s.calls = {};
+    s.turnsEnded = (s.turnsEnded ?? 0) + 1;
   }
 
   private tokens(out: GravitaEvent[], r: RolloutLine) {
@@ -446,10 +516,8 @@ export class RolloutNormalizer {
         } else if (role === "assistant") {
           const text = textParts(p.content).join("\n\n").trim();
           if (!text) return;
-          const messageId = codexItemId(
-            this.ctx.threadId,
-            str(p, "id") ?? `m${hash(`${ts}:${text}`)}`,
-          );
+          const messageId = codexItemId(this.ctx.threadId, str(p, "id") ?? this.ordinal("m", text));
+          if (!this.isMain) this.state.lastReply = preview(text);
           out.push({
             ...this.base(ts),
             key: keys.assistantBlock(messageId, "text", hash(text)),
@@ -466,7 +534,10 @@ export class RolloutNormalizer {
       }
       case "reasoning": {
         // Encrypted; only the fact that the model thought is shown.
-        const messageId = codexItemId(this.ctx.threadId, str(p, "id") ?? `r${hash(ts ?? "")}`);
+        const messageId = codexItemId(
+          this.ctx.threadId,
+          str(p, "id") ?? this.ordinal("r", str(p, "encrypted_content") ?? ""),
+        );
         out.push({
           ...this.base(ts),
           key: keys.assistantBlock(messageId, "thinking", "0"),
@@ -602,7 +673,7 @@ export class RolloutNormalizer {
       str(action, "query") ??
       (Array.isArray(queries) && typeof queries[0] === "string" ? queries[0] : undefined);
     const url = str(action, "url");
-    const id = str(p, "id") ?? `ws${hash(`${r.timestamp}:${query ?? url ?? ""}`)}`;
+    const id = str(p, "id") ?? this.ordinal("ws", query ?? url ?? "");
     const toolUseId = codexCallId(id);
     const target = { ...(query ? { query } : {}), ...(url ? { url } : {}) };
     out.push({

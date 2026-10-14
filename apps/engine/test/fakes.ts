@@ -207,6 +207,8 @@ export class FakeRuntime implements SessionRuntime {
 export class FakeChatRuntime extends FakeRuntime implements ChatRuntime {
   started = false;
   registeredAtStart = false;
+  /** Set for a runtime whose agent names the session as it opens (like Codex). */
+  open?: () => Promise<void>;
 
   constructor(
     readonly spec: ChatRuntimeSpec,
@@ -241,12 +243,16 @@ export class FakeChatFactory implements ChatRuntimeFactory {
   readonly created: FakeChatRuntime[] = [];
   /** Makes `send` of the next runtime fail (to test the rollback). */
   failSend: Error | undefined;
+  /** Runtimes created from now on open (`open()`) when this settles. */
+  opening: Promise<void> | undefined;
 
   constructor(private readonly runtimes: SessionRuntimeRegistry) {}
 
   create(spec: ChatRuntimeSpec): FakeChatRuntime {
     const r = new FakeChatRuntime(spec, this.runtimes);
     if (this.failSend) r.failWith = this.failSend;
+    const opening = this.opening;
+    if (opening) r.open = () => opening;
     this.created.push(r);
     return r;
   }

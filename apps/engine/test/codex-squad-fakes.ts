@@ -120,6 +120,8 @@ export class FakeCodex {
   authUrl = "https://auth.openai.com/oauth/authorize?client_id=codex&state=fake";
   /** The login id of the sign-in in progress. */
   loginId: string | undefined;
+  /** True: `account/login/cancel` is never answered. */
+  hangOnLoginCancel = false;
   /** What the engine answered to each approval asked, in order. */
   readonly answers: unknown[] = [];
   /** Runs when the engine interrupts the turn; by default the turn ends interrupted. */
@@ -208,8 +210,11 @@ export class FakeCodex {
     return r.decision;
   }
 
-  /** Asks to run a command: resolves with the engine's decision. */
-  async requestCommand(command: string): Promise<unknown> {
+  /**
+   * Asks to run a command (in a sandboxed session: one that wants out of the sandbox, as
+   * an escalation does), `extra` being more of the request: resolves with the decision.
+   */
+  async requestCommand(command: string, extra: Loose = {}): Promise<unknown> {
     const r = (await this.ask("item/commandExecution/requestApproval", {
       kind: "command",
       threadId: this.threadId,
@@ -219,8 +224,24 @@ export class FakeCodex {
       environmentId: null,
       command,
       cwd: this.cwd,
+      ...extra,
     })) as { decision?: unknown };
     return r.decision;
+  }
+
+  /** Asks for more permissions (network, file system): resolves with what was granted. */
+  async requestPermissions(permissions: Loose, reason: string | null = null): Promise<unknown> {
+    const r = (await this.ask("item/permissions/requestApproval", {
+      threadId: this.threadId,
+      turnId: this.activeTurn,
+      itemId: uuid(7),
+      environmentId: null,
+      startedAtMs: 0,
+      cwd: this.cwd,
+      reason,
+      permissions: { network: null, fileSystem: null, ...permissions },
+    })) as { permissions?: unknown };
+    return r.permissions;
   }
 
   /** Calls one of Gravita's role tools the way Codex does: MCP over the loopback URL. */
@@ -410,6 +431,8 @@ export class FakeCodex {
         this.loginId = uuid(6);
         return reply({ type: "chatgpt", loginId: this.loginId, authUrl: this.authUrl });
       case "account/login/cancel":
+        // A Codex that never answers it: stopping the sign-in mustn't wait on it.
+        if (this.hangOnLoginCancel) return;
         return reply({ status: "canceled" });
       case "account/logout":
         this.signedIn = false;
@@ -443,10 +466,11 @@ export function serveMcp(mcp: LoopbackMcpServer): { port: number; stop(): void }
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (req) =>
-      new URL(req.url).pathname === "/mcp"
-        ? mcp.handle(req)
-        : new Response("Not found", { status: 404 }),
+    fetch: (req, srv) => {
+      if (new URL(req.url).pathname !== "/mcp") return new Response("Not found", { status: 404 });
+      srv.timeout(req, 0);
+      return mcp.handle(req);
+    },
   });
   const port = server.port ?? 0;
   mcp.attach(port);

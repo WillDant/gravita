@@ -28,7 +28,7 @@ A role on Codex works like any other role: same worktree, same paths, same role 
 
 **Gravita's Codex profile.** Squad agents never inherit your personal setup. Codex reads all of it (config, MCP servers, hooks, plugins, login) from its home folder, so squads run Codex in a home of Gravita's own, `~/.gravita/codex-home`, never your `~/.codex`. You sign in to it **once**, from the new-squad panel ("Sign in to Codex for squads"): Gravita asks Codex to start a ChatGPT sign-in, opens the page Codex gives in your browser, and Codex takes the answer and keeps the tokens in that folder. Gravita writes only its own `config.toml` there (no MCP servers, hooks, plugins, apps or memories) and never reads the login. Sign in with the same ChatGPT account you use for Codex: plan usage is counted per account.
 
-**Budgets.** Codex reports plan usage, not dollars, so a squad with Codex roles takes a share of your plan (it can't have a dollar budget). Codex's 5-hour and weekly windows are counted like Claude Code's, from the squad's own sessions, and the squad's share is the larger of the two.
+**Budgets.** Codex reports plan usage, not dollars, so a squad with Codex roles takes a share of your plan (it can't have a dollar budget). Codex's 5-hour and weekly windows are counted like Claude Code's, and the squad's share is the larger of the two. The Codex windows a squad counts are those of the account Gravita's Codex profile is signed in to, read through the squad's own Codex sessions (or the profile itself when none runs); your own Codex's readings (Home's) never move a squad's meter, even when both are the same account.
 
 **Models.** Codex's line-up is one model at three reasoning efforts: Automatic runs everyday tasks on your account's default Codex model at medium effort, foundation, contract and large tasks (and the plan, in a Codex-only squad) at high effort, and steps a struggling task up an effort level; "Opus everywhere" and "Sonnet everywhere" mean high and medium effort on Codex. The Board's estimate prices Codex runs at what the same tokens would cost on OpenAI's API, for comparison only.
 
@@ -37,10 +37,10 @@ A role on Codex works like any other role: same worktree, same paths, same role 
 | Autonomy | Codex asks Gravita about | Sandbox |
 | --- | --- | --- |
 | Ask | every edit and every command that isn't a known read-only one | the worktree, no network |
-| Guarded | what needs more than the sandbox (the network, writing outside the worktree) | the worktree, no network |
+| Guarded | what needs more than the sandbox (a command run outside it, the network, reading or writing outside the worktree): every such request comes to you | the worktree, no network |
 | Autonomous | nothing | the worktree, with network |
 
-Whatever Codex asks about goes through the same ownership rules first (an edit of another role's folder, or git that changes the repository, is declined, and the agent is told why), then through your autonomy. Edits inside the worktree that Codex doesn't ask about are checked by the commit gate, as for Claude Code.
+Whatever Codex asks about goes through the same ownership rules first (an edit of another role's folder, or git that changes the repository, is declined, and the agent is told why), then through your autonomy: under Guarded, a request to leave the sandbox is never answered for you, even for a local command or a read, and allowing it grants everything it asked for (for that turn only). Edits inside the worktree that Codex doesn't ask about are checked by the commit gate, as for Claude Code.
 
 ## What it costs
 
@@ -67,6 +67,8 @@ Most people run Claude Code on a subscription (Pro, Max, Team) with usage limits
 - **A window that resets mid-squad.** What the squad had used is carried over, and the new window counts from 0. The share never goes down.
 - **Several providers.** Each provider's window is counted on its own, and the more consumed one is the squad's share.
 - **Warn and stop.** At 75% of the share you're warned; at 100% the running sessions are stopped within a few seconds and the squad pauses. Resume it with a bigger share to go on. Until the first reading arrives the meter says "measuring…" and nothing is paused.
+- **Restarts.** Plan usage readings aren't stored, so Gravita notes what a squad's count reached as it climbs (every point or so), when it warns or runs out, and when the squad pauses. After a restart the squad still knows what it used: a squad that used its share still needs a bigger one to resume.
+- **Readings that arrive late.** A reading counts as a new window only when it says so (a later reset time, or a clear drop after the reset time); a late reading of the window that just reset changes nothing.
 - **Where the numbers come from.** Claude Code tells Gravita when your plan's usage changes, and Gravita also reads it through a session that is already running: when the squad starts, every few minutes while it works, and when you open a chat or squad screen (at most once a minute). It never starts a session just to read usage. The reading uses an experimental part of the Agent SDK; if it stops working, Gravita relies on what Claude Code reports by itself and on the last values it knows.
 - **Safety cap.** Each session still gets a dollar cap, but only as a net for a runaway session between two readings: several times its estimate (at least $5), never your budget.
 
@@ -85,7 +87,7 @@ On a subscription, dollar amounts (the estimate, what each role spent) are what 
 ## Autonomy
 
 - **Ask:** every action other than reading goes to you.
-- **Guarded:** agents edit files and run local commands on their own; anything that reaches the network or installs packages (`curl`, `npm install`, `pnpm add`, web fetches…) asks you first.
+- **Guarded:** agents edit files and run local commands on their own; anything that reaches the network or installs packages (`curl`, `npm install`, `pnpm add`, web fetches…) asks you first, and so does anything a Codex agent wants to run outside its sandbox.
 - **Autonomous:** agents don't ask, except when they have a question for you.
 
 Whatever you choose, a role can never edit another role's folders, the shared files (lockfiles, the root `package.json`, CI config), or anything outside its own copy of the repository, and it can't commit, push, merge or switch branches: Gravita does all of that.

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { readSession } from "@gravita/adapter-claude";
 import type { GravitaEvent } from "@gravita/protocol";
 import fc from "fast-check";
-import { applyAll, emptyState, sessionCounts, toPersona } from "../src";
+import { applyAll, buildLineMap, emptyState, sessionCounts, toPersona } from "../src";
 
 const FIXTURE = join(
   import.meta.dir,
@@ -160,6 +160,46 @@ describe("projection", () => {
       waiting: 1,
       subagentsTotal: 2,
     });
+  });
+
+  test("only new work brings a finished agent back; a late running report doesn't", () => {
+    const base = {
+      source: "codex-rollout" as const,
+      provider: "codex" as const,
+      projectId: "p",
+      sessionId: "s",
+      agentId: "a1",
+      ts: "2026-10-12T10:00:00.000Z",
+    };
+    const done: GravitaEvent = {
+      ...base,
+      key: "1",
+      type: "agent.completed",
+      data: { status: "completed" },
+    };
+    const late: GravitaEvent = {
+      ...base,
+      key: "2",
+      type: "agent.lifecycle",
+      data: { status: "running" },
+    };
+    const resumed: GravitaEvent = {
+      ...base,
+      key: "3",
+      type: "agent.lifecycle",
+      data: { status: "running", resumed: true },
+    };
+    const lifecycle = (events: GravitaEvent[]) =>
+      applyAll(emptyState(), events).sessions.s!.agents.a1!.lifecycle;
+    expect(lifecycle([done, late])).toBe("done");
+    expect(lifecycle([done, resumed])).toBe("active");
+    expect(lifecycle([done, resumed, { ...done, key: "4" }])).toBe("done");
+    // The line map reopens its line until it completes again.
+    const line = (events: GravitaEvent[]) =>
+      buildLineMap(events).lines.find((l) => l.agentId === "a1");
+    expect(line([done, late])?.ended).toBe(true);
+    expect(line([done, resumed])?.ended).toBe(false);
+    expect(line([done, resumed, { ...done, key: "4" }])?.ended).toBe(true);
   });
 });
 

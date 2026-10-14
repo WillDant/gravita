@@ -106,11 +106,13 @@ export function isNetworkCommand(command: string): boolean {
  * - `auto`: everything the guard let through, except questions (always the user's);
  * - `guarded`: edits, reads and local commands; network and installs go to the user;
  * - `ask`: only reading is automatic, everything else goes to the user.
- * Gravita's own role tools are always allowed.
+ * Gravita's own role tools are always allowed. A call that asks to leave the session's
+ * sandbox (a Codex escalation, a read included) goes to the user unless autonomy is `auto`.
  */
 export function rolePermission(autonomy: SquadAutonomy, call: GuardedCall): PermissionVerdict {
   if (call.kind === "gravita") return "allow";
   if (call.kind === "ask") return "ask";
+  if (call.sandboxEscape) return autonomy === "auto" ? "allow" : "ask";
   if (call.kind === "read") return "allow";
   if (autonomy === "auto") return "allow";
   if (autonomy === "ask") return "ask";

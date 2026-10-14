@@ -197,7 +197,12 @@ export function startTransport(deps: TransportDeps, opts: TransportOptions): Run
       if (url.pathname === HttpPaths.stopAll) return stopAll(req);
       if (url.pathname === HttpPaths.hooks && deps.hooks && opts.hookToken)
         return hooks(req, deps.hooks, opts.hookToken);
-      if (url.pathname === HttpPaths.mcp && deps.mcp) return deps.mcp.handle(req);
+      if (url.pathname === HttpPaths.mcp && deps.mcp) {
+        // A role tool may run for minutes (complete_task commits and runs the checks): no
+        // idle timeout cuts its request (Bun's default is 10 s).
+        srv.timeout(req, 0);
+        return deps.mcp.handle(req);
+      }
       if (url.pathname === WS_PATH) {
         const origin = req.headers.get("origin");
         if (!origin || !origins.has(origin)) return new Response("Forbidden", { status: 403 });

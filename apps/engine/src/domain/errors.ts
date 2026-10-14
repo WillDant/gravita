@@ -8,6 +8,15 @@ export class NotControllableError extends Error {
   }
 }
 
+/** The kill switch stopped a session while it was still opening: it never started. */
+export class SessionStoppedError extends NotControllableError {
+  constructor(sessionId: string) {
+    super(sessionId);
+    this.message = "The session was stopped before it started";
+    this.name = "SessionStoppedError";
+  }
+}
+
 /** A provider's CLI isn't installed, wasn't found, or is older than Gravita supports. */
 export class ProviderUnavailableError extends Error {
   constructor(

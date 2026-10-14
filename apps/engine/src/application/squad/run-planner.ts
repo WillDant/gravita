@@ -1,5 +1,6 @@
 import { pickModel, plannerProviderOf, type SquadState, validatePlan } from "@gravita/core";
 import { SquadPlan, squadPlanJsonSchema } from "@gravita/protocol";
+import { SessionStoppedError } from "../../domain/errors";
 import {
   MAX_PLAN_ATTEMPTS,
   PLANNER_MAX_TURNS,
@@ -92,27 +93,34 @@ export class RunPlanner {
     run.plannerStopRequested = false;
     if (q.phase !== "planning") this.d.emitter.phase(ref, "planning");
     const provider = plannerProviderOf(q.providers);
-    const session = await this.d.sessions.start({
-      squadId: run.squadId,
-      projectId: run.projectId,
-      roleId: PLANNER_ROLE_ID,
-      cwd,
-      // Resuming the briefing may switch models (Sonnet talked, Opus plans): the model is
-      // passed on resume too, and the agent continues the conversation on it.
-      provider,
-      model: pickModel({ models: q.models, phase: "planning", provider }),
-      subagents: squadSubagents(q.models, { provider }),
-      permissionMode: "dontAsk",
-      access: "read-only",
-      prompt: resume
-        ? resumedPlannerPrompt(q, p.feedback)
-        : plannerPrompt(q, p.feedback, p.briefing),
-      ...(resume ? { resumeSessionId: resume } : {}),
-      systemPromptAppend: plannerCharter(provider),
-      outputSchema: squadPlanJsonSchema(),
-      maxTurns: PLANNER_MAX_TURNS,
-      maxBudgetUsd: this.d.budget.forPlanner(q, resume),
-    });
+    const session = await this.d.sessions
+      .start({
+        squadId: run.squadId,
+        projectId: run.projectId,
+        roleId: PLANNER_ROLE_ID,
+        cwd,
+        // Resuming the briefing may switch models (Sonnet talked, Opus plans): the model is
+        // passed on resume too, and the agent continues the conversation on it.
+        provider,
+        model: pickModel({ models: q.models, phase: "planning", provider }),
+        subagents: squadSubagents(q.models, { provider }),
+        permissionMode: "dontAsk",
+        access: "read-only",
+        prompt: resume
+          ? resumedPlannerPrompt(q, p.feedback)
+          : plannerPrompt(q, p.feedback, p.briefing),
+        ...(resume ? { resumeSessionId: resume } : {}),
+        systemPromptAppend: plannerCharter(provider),
+        outputSchema: squadPlanJsonSchema(),
+        maxTurns: PLANNER_MAX_TURNS,
+        maxBudgetUsd: this.d.budget.forPlanner(q, resume),
+      })
+      .catch((err: unknown) => {
+        // The kill switch stopped it while it opened: as if it had disposed the session.
+        if (err instanceof SessionStoppedError) return undefined;
+        throw err;
+      });
+    if (!session) return { kind: "killed" };
     run.planner = session;
     run.plannerSessionId = session.sessionId;
     if (run.plannerStopRequested) session.stop(STOP_GRACE_MS);
