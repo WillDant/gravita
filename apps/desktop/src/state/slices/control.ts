@@ -1,4 +1,4 @@
-import type { PermissionMode, RpcParams, RpcResult } from "@gravita/protocol";
+import type { RpcParams, RpcResult, SessionMode } from "@gravita/protocol";
 import type { AgentProvider } from "@gravita/protocol/constants";
 import { type GatewayError, toGatewayError } from "@/infrastructure/engine/GatewayError";
 import type { Slice } from "../store";
@@ -33,7 +33,8 @@ export interface ControlSlice {
   interrupt: (sessionId: string) => Promise<CommandResult>;
   stopAgent: (sessionId: string, agentId: string) => Promise<CommandResult>;
   setModel: (sessionId: string, model: string) => Promise<CommandResult>;
-  setPermissionMode: (sessionId: string, mode: PermissionMode) => Promise<CommandResult>;
+  /** `mode` in the session's provider's terms: the engine refuses another provider's mode. */
+  setPermissionMode: (sessionId: string, mode: SessionMode) => Promise<CommandResult>;
   answerQuestion: (params: RpcParams<"question.answer">) => Promise<CommandResult>;
 }
 

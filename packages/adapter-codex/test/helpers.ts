@@ -20,6 +20,7 @@ export const SCENARIOS = [
   "aborted-turn",
   "rate-limits",
   "nested-background",
+  "app-server-chat",
 ] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 

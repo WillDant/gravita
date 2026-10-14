@@ -43,6 +43,11 @@ export interface ThreadContext {
   threadId: string;
   /** Absolute path of the rollout, for outputRef pointers. */
   filePath: string;
+  /**
+   * Where the records come from: the rollout on disk, or the app-server's live stream
+   * (`CodexRpcMapper` replays its raw response items through this same mapping).
+   */
+  source?: "codex-rollout" | "codex-rpc";
 }
 
 interface PendingCall {
@@ -74,6 +79,12 @@ export interface ThreadState {
   calls: Record<string, PendingCall>;
   /** Child thread id → the spawn_agent call (toolUseId) that started it. */
   spawned: Record<string, string>;
+  /**
+   * A typed user message whose key waits for the next record: Codex follows it with an
+   * `item_completed` that carries the client's own message id when a client (Gravita)
+   * gave one, and that id is the key Gravita already stored the message under.
+   */
+  pendingUser?: { ts: string; text: string; id?: string };
 }
 
 export function newThreadState(): ThreadState {
@@ -157,6 +168,7 @@ export class RolloutNormalizer {
   push(lines: readonly RolloutLine[]): GravitaEvent[] {
     const out: GravitaEvent[] = [];
     for (const line of lines) {
+      if (this.state.pendingUser) this.flushUser(out, line);
       // The session starts at its first turn context (which names the model) or at the
       // first record that means something, whichever comes first.
       if (line.type === "turn_context") this.flushStart(out, line);
@@ -171,7 +183,7 @@ export class RolloutNormalizer {
   private base(ts: string | undefined) {
     return {
       ts: ts ?? "",
-      source: "codex-rollout" as const,
+      source: this.ctx.source ?? "codex-rollout",
       provider: "codex" as const,
       projectId: this.ctx.projectId,
       sessionId: this.ctx.sessionId,
@@ -235,6 +247,32 @@ export class RolloutNormalizer {
         return;
       // world_state, token_usage_record, retained_context and anything newer: ignored.
     }
+  }
+
+  /**
+   * Emits the user message held back for one record. When `next` is its `item_completed`
+   * with a client message id, that id is the message's uuid (a message Gravita sent keeps
+   * the key it was stored under); otherwise it is keyed by its own id, as always.
+   */
+  private flushUser(out: GravitaEvent[], next: RolloutLine) {
+    const u = this.state.pendingUser!;
+    delete this.state.pendingUser;
+    const item = next.type === "event_msg" ? obj(next.payload, "item") : undefined;
+    const clientId =
+      next.payload.type === "item_completed" && str(item, "type") === "UserMessage"
+        ? str(item, "client_id")
+        : undefined;
+    const uuid =
+      clientId ?? codexItemId(this.ctx.threadId, u.id ?? `u${hash(`${u.ts}:${u.text}`)}`);
+    // The session may start at this message (its first meaningful record).
+    this.flushStart(out, next);
+    out.push({
+      ...this.base(u.ts),
+      key: keys.userMessage(uuid),
+      type: "message.user",
+      // Another client's id says nothing of who typed it: Gravita's own copy came first.
+      data: { uuid, textPreview: preview(u.text), origin: "human" },
+    });
   }
 
   private compacted(out: GravitaEvent[], r: RolloutLine, trigger: string) {
@@ -381,7 +419,7 @@ export class RolloutNormalizer {
       out.push({
         key: keys.usageLimits("codex", w.window, w.model, `${this.ctx.threadId}:${r.timestamp}`),
         ts: r.timestamp ?? "",
-        source: "codex-rollout",
+        source: this.ctx.source ?? "codex-rollout",
         provider: "codex",
         projectId: this.ctx.projectId,
         type: "usage.limits",
@@ -399,13 +437,9 @@ export class RolloutNormalizer {
         if (role === "user") {
           const text = typedText(p.content);
           if (!text) return;
-          const uuid = codexItemId(this.ctx.threadId, str(p, "id") ?? `u${hash(`${ts}:${text}`)}`);
-          out.push({
-            ...this.base(ts),
-            key: keys.userMessage(uuid),
-            type: "message.user",
-            data: { uuid, textPreview: preview(text), origin: "human" },
-          });
+          // Keyed once the next record tells whether a client named it (flushUser).
+          const id = str(p, "id");
+          this.state.pendingUser = { ts: ts ?? "", text, ...(id ? { id } : {}) };
         } else if (role === "assistant") {
           const text = textParts(p.content).join("\n\n").trim();
           if (!text) return;

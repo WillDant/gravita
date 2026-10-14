@@ -129,8 +129,9 @@ describe("environment allowlist", () => {
     expect(ran[0]?.slice(0, 2)).toEqual(["/bin/zsh", "-lic"]);
     expect(ran[0]?.[2]).toContain("env -0");
 
+    // The capture keeps what any provider may get; each provider filters its own (below).
     const failing = new LoginShellEnv({ run: async () => null, fallback: POLLUTED });
-    expect(Object.keys(await failing.load()).sort()).toEqual(ALLOWED);
+    expect(Object.keys(await failing.load()).sort()).toEqual([...ALLOWED, "OPENAI_API_KEY"].sort());
   });
 
   test("the CLI must be found and current", async () => {

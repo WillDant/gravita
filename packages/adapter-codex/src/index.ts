@@ -1,4 +1,38 @@
 export {
+  CodexAppServerClient,
+  type CodexAppServerClientOptions,
+  type CodexClientInfo,
+  HANDSHAKE_TIMEOUT_MS,
+} from "./app-server/client";
+export {
+  JsonRpcClosedError,
+  JsonRpcConnection,
+  type JsonRpcConnectionOptions,
+  JsonRpcError,
+  type JsonRpcId,
+  JsonRpcTimeoutError,
+  MAX_LINE_CHARS,
+  RpcCodes,
+  type RpcTransport,
+} from "./app-server/json-rpc";
+export type {
+  ClientMethod,
+  ClientRequests,
+  ServerNotification,
+  ServerNotificationMethod,
+  ServerNotifications,
+  ServerRequest,
+  ServerRequestMethod,
+  ServerRequests,
+} from "./app-server/methods";
+export type * as CodexProtocol from "./app-server/protocol";
+export { CodexRpcMapper, type CodexRpcMapperOptions } from "./app-server/rpc-mapper";
+export {
+  type CodexSessionMode,
+  type CodexSessionPolicy,
+  codexSessionPolicy,
+} from "./app-server/session-policy";
+export {
   CODEX_PREFIX,
   codexAgentId,
   codexCallId,

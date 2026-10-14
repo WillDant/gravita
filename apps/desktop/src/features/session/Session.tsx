@@ -3,7 +3,7 @@ import { ChevronRight, Terminal } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { t, useLocale } from "@/shared/i18n/i18n";
-import { sessionTitle } from "@/shared/presenters/selectors";
+import { sessionProvider, sessionTitle } from "@/shared/presenters/selectors";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { CountChips } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
@@ -43,7 +43,7 @@ export function Session({
   const events = useSessionEvents(sessionId);
   const now = useNow();
   // An open chat or squad keeps plan usage fresh (cheap: read through its running session).
-  useUsageRefresh();
+  useUsageRefresh(session ? sessionProvider(session) : "claude");
   const navigate = useNavigate();
   const [lens, setLens] = useState<Lens>("lines");
   const starting = useStartingSessionId();

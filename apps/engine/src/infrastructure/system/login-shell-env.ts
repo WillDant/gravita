@@ -1,6 +1,6 @@
-// The environment Claude Code runs with: the user's login shell environment (a desktop app
-// launched from the Dock doesn't inherit what their shell profile exports), reduced to an
-// allowlist. Values are never logged.
+// The environment the user's coding agents run with: their login shell environment (a
+// desktop app launched from the Dock doesn't inherit what their shell profile exports),
+// reduced to an allowlist per provider. Values are never logged.
 
 /** Variables passed through by exact name. */
 const EXACT = new Set([
@@ -21,8 +21,18 @@ const EXACT = new Set([
   "all_proxy",
 ]);
 
-/** Variables passed through by prefix (locale, Anthropic/Claude Code, Bedrock, Vertex). */
+/** Variables passed through to Claude Code by prefix (locale, Anthropic, Bedrock, Vertex). */
 const PREFIXES = ["LC_", "ANTHROPIC_", "CLAUDE_CODE_", "AWS_", "GOOGLE_", "CLOUD_ML_", "VERTEX"];
+
+/** Variables passed through to Codex by prefix (locale, OpenAI, Codex's own, Bedrock). */
+const CODEX_PREFIXES = ["LC_", "OPENAI_", "CODEX_", "AWS_"];
+
+/**
+ * What a parent Codex process sets for the commands it runs (its sandbox, its thread). Present
+ * only when the engine itself was started from inside Codex; passing them on would make a new
+ * session believe it is sandboxed, or part of someone else's thread.
+ */
+const CODEX_HOST_SCOPED = /^CODEX_(SANDBOX\w*|THREAD_ID|SESSION_ID|TURN_ID|CI|INTERNAL_\w+)$/;
 
 /**
  * Within the allowed prefixes: what a parent Claude Code process injects into its children
@@ -38,13 +48,35 @@ export function isAllowedEnvKey(key: string): boolean {
   return EXACT.has(key) || PREFIXES.some((p) => key.startsWith(p));
 }
 
-/** Keeps only allowlisted, non-empty variables. */
-export function filterClaudeEnv(env: Record<string, string | undefined>): Record<string, string> {
+export function isCodexEnvKey(key: string): boolean {
+  if (CODEX_HOST_SCOPED.test(key)) return false;
+  return EXACT.has(key) || CODEX_PREFIXES.some((p) => key.startsWith(p));
+}
+
+function filterEnv(
+  env: Record<string, string | undefined>,
+  allowed: (key: string) => boolean,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(env)) {
-    if (typeof v === "string" && v !== "" && isAllowedEnvKey(k)) out[k] = v;
+    if (typeof v === "string" && v !== "" && allowed(k)) out[k] = v;
   }
   return out;
+}
+
+/** Keeps only the non-empty variables Claude Code may get. */
+export function filterClaudeEnv(env: Record<string, string | undefined>): Record<string, string> {
+  return filterEnv(env, isAllowedEnvKey);
+}
+
+/** Keeps only the non-empty variables Codex may get. */
+export function filterCodexEnv(env: Record<string, string | undefined>): Record<string, string> {
+  return filterEnv(env, isCodexEnvKey);
+}
+
+/** What the login shell's capture keeps: anything one of the providers may get. */
+export function filterShellEnv(env: Record<string, string | undefined>): Record<string, string> {
+  return filterEnv(env, (k) => isAllowedEnvKey(k) || isCodexEnvKey(k));
 }
 
 /** Marks where `env -0` output starts, after whatever the shell profile printed. */
@@ -108,7 +140,7 @@ export class LoginShellEnv {
       this.o.timeoutMs ?? 5_000,
     );
     const env = out ? parseEnv0(out) : {};
-    if (env.PATH) return filterClaudeEnv(env);
-    return filterClaudeEnv(this.o.fallback ?? process.env);
+    if (env.PATH) return filterShellEnv(env);
+    return filterShellEnv(this.o.fallback ?? process.env);
   }
 }

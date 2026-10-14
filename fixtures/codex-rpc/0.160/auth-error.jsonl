@@ -1,0 +1,3 @@
+{"expect":{"method":"initialize"},"result":{"userAgent":"gravita/0.160.0 (synthetic)","codexHome":"/home/user/.codex","platformFamily":"unix","platformOs":"macos"}}
+{"expect":{"method":"initialized"}}
+{"expect":{"method":"account/read"},"result":{"account":null,"requiresOpenaiAuth":true}}

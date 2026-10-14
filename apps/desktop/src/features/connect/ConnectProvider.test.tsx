@@ -37,6 +37,12 @@ describe("connect guidance per provider", () => {
     expect(screen.getByRole("button", { name: "Copy codex" })).toBeTruthy();
   });
 
+  it("sends a logged-out Codex user to sign in from the Terminal", () => {
+    render(<ConnectProvider provider="codex" problem="loggedOut" />);
+    expect(screen.getByRole("heading", { name: "Sign in to Codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy codex login" })).toBeTruthy();
+  });
+
   it("tells how to update an outdated Codex", () => {
     render(<ConnectProvider provider="codex" problem="outdated" />);
     expect(screen.getByRole("heading", { name: "Update Codex" })).toBeTruthy();

@@ -168,6 +168,10 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "newSession.messagePlaceholder": "No que o agente deve trabalhar?",
   "newSession.model": "Modelo",
   "newSession.modelDefault": "Padrão do Claude Code",
+  "newSession.modelDefaultCodex": "Padrão do Codex",
+  "newSession.provider": "Agente",
+  "newSession.provider.claude": "Claude Code",
+  "newSession.provider.codex": "Codex",
   "newSession.mode": "Permissões",
   "newSession.start": "Iniciar sessão",
   "newSession.starting": "Iniciando…",
@@ -181,6 +185,11 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "mode.plan": "Planejar antes",
   "mode.bypassPermissions": "Não perguntar",
   "mode.bypassWarning": "O agente vai rodar comandos e mudar arquivos sem perguntar antes.",
+  "mode.codex.ask": "Perguntar antes",
+  "mode.codex.workspace": "Editar nesta pasta",
+  "mode.codex.fullAccess": "Acesso total",
+  "mode.codex.fullAccessWarning":
+    "O Codex vai rodar comandos e mudar arquivos em qualquer lugar deste Mac sem perguntar antes, sem sandbox.",
 
   "composer.label": "Mensagem para o agente principal",
   "composer.placeholder": "Responda ao agente principal…",

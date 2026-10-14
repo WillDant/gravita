@@ -51,6 +51,7 @@ export type PermissionVerdict = "allow" | "ask" | "deny";
 export type PermissionPolicy = (call: GuardedCall) => PermissionVerdict;
 
 export interface ChatRuntimeSpec {
+  /** The session's id; a runtime with `open` may replace it with the agent's own. */
   sessionId: string;
   projectId: string;
   /** Which agent runs the session; the factory and the environment are that provider's. */
@@ -108,6 +109,13 @@ export type TurnOutcome =
 
 /** A session's runtime. `start` begins consuming the agent's stream. */
 export interface ChatRuntime extends SessionRuntime {
+  /**
+   * Prepares the session before it is registered, for agents that name their sessions
+   * themselves (Codex: its thread id): `sessionId` is final only once this resolved. A
+   * runtime without it knows its id from the spec. Rejects when the agent can't start one
+   * (`NotLoggedInError`, a crashed CLI); the caller then disposes it.
+   */
+  open?(): Promise<void>;
   start(): void;
   /**
    * The outcome of the next turn not yet handed out. Once the session is over it resolves

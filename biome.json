@@ -13,7 +13,8 @@
       "!**/.impeccable",
       "!.agents",
       "!.claude",
-      "!**/.vitest"
+      "!**/.vitest",
+      "!packages/adapter-codex/src/app-server/protocol"
     ]
   },
   "formatter": {

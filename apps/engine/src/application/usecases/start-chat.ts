@@ -70,11 +70,11 @@ export class StartChat {
     if (!canStartChat(countChats(this.d.runtimes.all()), limit))
       throw new TooManySessionsError(limit);
 
-    const sessionId = this.d.ids.uuid();
+    const provisionalId = this.d.ids.uuid();
     const uuid = this.d.ids.uuid();
     const permissionMode = p.permissionMode ?? DEFAULT_MODE[provider];
     const runtime = factory.create({
-      sessionId,
+      sessionId: provisionalId,
       projectId: project.id,
       provider,
       cwd: p.cwd,
@@ -82,6 +82,20 @@ export class StartChat {
       permissionMode,
       environment,
     });
+    if (runtime.open) {
+      // Its agent names the session (Codex: a thread), so its id is known only now.
+      try {
+        await runtime.open();
+      } catch (err) {
+        await runtime.dispose();
+        throw err;
+      }
+      if (!canStartChat(countChats(this.d.runtimes.all()), limit)) {
+        await runtime.dispose();
+        throw new TooManySessionsError(limit);
+      }
+    }
+    const { sessionId } = runtime;
     this.d.runtimes.register(runtime);
     try {
       const base = {
