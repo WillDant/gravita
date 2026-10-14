@@ -1,6 +1,7 @@
 import { type SquadState, squadPlan } from "@gravita/core";
 import type { PlanTask } from "@gravita/protocol";
 import { rolePermission, rolePermissionMode } from "../../domain/autonomy-policy";
+import { SessionStoppedError } from "../../domain/errors";
 import { guardToolCall } from "../../domain/ownership-guard";
 import {
   ROLE_MAX_TURNS,
@@ -36,8 +37,8 @@ export type AttemptEnd =
   | { kind: "max-turns" }
   /** Gravita stopped it (pause, stop, budget): continue it later in the same session. */
   | { kind: "interrupted"; sessionId?: string }
-  /** Someone else disposed the session: the kill switch. */
-  | { kind: "killed"; sessionId: string }
+  /** Someone else disposed the session (the kill switch); none if it was still opening. */
+  | { kind: "killed"; sessionId?: string }
   | { kind: "error"; message: string };
 
 export interface TaskRunnerDeps {
@@ -77,34 +78,41 @@ export class TaskRunner {
       await this.d.git.topLevel(live.worktree).catch(() => live.worktree),
     ];
     const provider = roleProvider(role, q.providers);
-    const session = await this.d.sessions.start({
-      squadId: run.squadId,
-      projectId: run.projectId,
-      provider,
-      roleId: live.roleId,
-      taskId: live.taskId,
-      cwd: live.worktree,
-      model: live.model,
-      permissionMode: rolePermissionMode(q.autonomy),
-      autonomy: q.autonomy,
-      prompt: taskPrompt({
-        plan,
-        task,
-        brief: q.brief,
-        ...(q.answers ? { answers: q.answers } : {}),
-        notes: notesFor(q, live.roleId, task),
-        ...(feedback ? { feedback } : {}),
-        ...(resumeFrom ? { resumed: true } : {}),
-      }),
-      ...(resumeFrom ? { resumeSessionId: resumeFrom } : {}),
-      systemPromptAppend: roleCharter(plan, role, live.worktree),
-      maxBudgetUsd: live.maxBudgetUsd,
-      maxTurns: ROLE_MAX_TURNS,
-      subagents: squadSubagents(q.models, { role: true, provider }),
-      roleTools: roleTools(this.d.host, live),
-      toolGuard: (call) => guardToolCall({ plan, roleId: live.roleId, roots }, call),
-      permissionPolicy: (call) => rolePermission(q.autonomy, call),
-    });
+    const session = await this.d.sessions
+      .start({
+        squadId: run.squadId,
+        projectId: run.projectId,
+        provider,
+        roleId: live.roleId,
+        taskId: live.taskId,
+        cwd: live.worktree,
+        model: live.model,
+        permissionMode: rolePermissionMode(q.autonomy),
+        autonomy: q.autonomy,
+        prompt: taskPrompt({
+          plan,
+          task,
+          brief: q.brief,
+          ...(q.answers ? { answers: q.answers } : {}),
+          notes: notesFor(q, live.roleId, task),
+          ...(feedback ? { feedback } : {}),
+          ...(resumeFrom ? { resumed: true } : {}),
+        }),
+        ...(resumeFrom ? { resumeSessionId: resumeFrom } : {}),
+        systemPromptAppend: roleCharter(plan, role, live.worktree),
+        maxBudgetUsd: live.maxBudgetUsd,
+        maxTurns: ROLE_MAX_TURNS,
+        subagents: squadSubagents(q.models, { role: true, provider }),
+        roleTools: roleTools(this.d.host, live),
+        toolGuard: (call) => guardToolCall({ plan, roleId: live.roleId, roots }, call),
+        permissionPolicy: (call) => rolePermission(q.autonomy, call),
+      })
+      .catch((err: unknown) => {
+        // The kill switch stopped it while it opened: as if it had disposed the session.
+        if (err instanceof SessionStoppedError) return undefined;
+        throw err;
+      });
+    if (!session) return { kind: "killed", ...(resumeFrom ? { sessionId: resumeFrom } : {}) };
     live.session = session;
     if (live.stopRequested) session.stop(STOP_GRACE_MS);
     this.d.emitter.taskStatus(run, {

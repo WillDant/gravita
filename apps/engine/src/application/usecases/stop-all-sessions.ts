@@ -6,7 +6,8 @@ import type { SessionRuntimeRegistry } from "../ports/session-runtime";
 /**
  * The kill switch, and shutdown: disposes every runtime Gravita runs (their Claude Code
  * processes end; pending prompts are answered as the runtime closes), waiting at most
- * `capMs`. Sessions running in a terminal have no runtime and are never touched.
+ * `capMs`. A runtime still opening is stopped too, and never registers. Sessions running
+ * in a terminal have no runtime and are never touched.
  */
 export class StopAllSessions {
   constructor(
@@ -17,7 +18,7 @@ export class StopAllSessions {
   ) {}
 
   async execute(capMs = this.capMs): Promise<RpcResult<"engine.stopAll">> {
-    const all = this.runtimes.all();
+    const all = [...this.runtimes.all(), ...this.runtimes.cancelOpening()];
     if (!all.length) return { stopped: 0 };
     const disposing = all.map((r) =>
       r.dispose().catch((err) => this.logger.log("runtime dispose failed", err)),

@@ -228,7 +228,7 @@ export class SquadScheduler {
         if (end.sessionId) run.resumeFrom.set(live.taskId, end.sessionId);
         return again("Interrupted; the next run continues where it left off.");
       case "killed":
-        run.resumeFrom.set(live.taskId, end.sessionId);
+        if (end.sessionId) run.resumeFrom.set(live.taskId, end.sessionId);
         again("Stopped with the kill switch; the next run continues where it left off.");
         return this.pause(run, PAUSE_REASONS.killSwitch);
       case "error":

@@ -56,11 +56,26 @@ export interface SessionOwnership {
   isOwned(sessionId: string): boolean;
 }
 
+/** A runtime still opening (its agent hasn't named the session yet), held by the registry. */
+export interface OpeningRuntime {
+  /** The kill switch stopped it while it opened: it must not register nor send anything. */
+  readonly cancelled: boolean;
+  /** It opened (or failed to): the registry lets go of it. */
+  done(): void;
+}
+
 /**
  * Runtimes by session. Registering and unregistering announce the change to clients
  * (`session.control`), so the UI knows which sessions it may control.
  */
 export interface SessionRuntimeRegistry extends SessionOwnership {
+  /**
+   * Holds a runtime from its `open()` until it registers, so the kill switch stops it too
+   * (opening Codex takes seconds). Nothing is announced: it has no session id yet.
+   */
+  opening(runtime: SessionRuntime): OpeningRuntime;
+  /** The runtimes still opening, each marked cancelled (the kill switch disposes them). */
+  cancelOpening(): SessionRuntime[];
   register(runtime: SessionRuntime): void;
   /**
    * Forgets the session's runtime. With `runtime`, only if it is still that one: a session

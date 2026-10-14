@@ -6,6 +6,7 @@ import { ProjectionService } from "../../src/application/services/projection-ser
 import { RuntimeFactoryRegistry } from "../../src/application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../../src/application/services/session-settings";
+import { SquadSessions } from "../../src/application/squad/squad-sessions";
 import { AnnounceProject } from "../../src/application/usecases/announce-project";
 import { IngestEvents } from "../../src/application/usecases/ingest-events";
 import { FALLBACK_MODELS, ListModels } from "../../src/application/usecases/list-models";
@@ -13,12 +14,14 @@ import { SendMessage } from "../../src/application/usecases/send-message";
 import { SetModel } from "../../src/application/usecases/set-model";
 import { SetPermissionMode } from "../../src/application/usecases/set-permission-mode";
 import { StartChat } from "../../src/application/usecases/start-chat";
+import { StopAllSessions } from "../../src/application/usecases/stop-all-sessions";
 import { MAX_CHAT_SESSIONS } from "../../src/domain/chat-policy";
 import {
   InvalidAnswerError,
   InvalidCwdError,
   NotControllableError,
   ProviderUnavailableError,
+  SessionStoppedError,
   TooManySessionsError,
 } from "../../src/domain/errors";
 import {
@@ -213,6 +216,90 @@ describe("StartChat", () => {
     expect(factory.created[0]!.disposed).toBe(true);
     expect(runtimes.all()).toEqual([]);
     expect(projection.session("id-1")?.controllable).toBe(false);
+  });
+});
+
+describe("the kill switch and sessions still opening", () => {
+  /** Runtimes that open (like Codex, which takes seconds) when `open` is called. */
+  function slowOpening(factory: FakeChatFactory) {
+    let open!: () => void;
+    factory.opening = new Promise<void>((r) => {
+      open = r;
+    });
+    return () => open();
+  }
+
+  const created = async (factory: FakeChatFactory) => {
+    for (let i = 0; i < 100 && !factory.created.length; i++) await Bun.sleep(1);
+    return factory.created[0]!;
+  };
+
+  test("a chat still opening is stopped: it never registers nor gets its first message", async () => {
+    const s = setup();
+    const open = slowOpening(s.factory);
+    const starting = s
+      .startChat()
+      .execute({ cwd: "/work/demo", prompt: "hi" })
+      .catch((e: unknown) => e);
+    const runtime = await created(s.factory);
+    const stopAll = new StopAllSessions(s.runtimes, s.clock, new SilentLogger(), 1_000);
+    expect(await stopAll.execute()).toEqual({ stopped: 1 });
+    expect(runtime.disposed).toBe(true);
+    open();
+    expect(await starting).toBeInstanceOf(SessionStoppedError);
+    expect(runtime.started).toBe(false);
+    expect(runtime.sent).toEqual([]);
+    expect(s.runtimes.all()).toEqual([]);
+    expect(s.store.rows.map((e) => e.type)).toEqual(["project.discovered"]);
+    // Once it is done opening, the registry no longer holds it.
+    expect(await stopAll.execute()).toEqual({ stopped: 0 });
+  });
+
+  test("a squad session still opening is stopped the same way", async () => {
+    const s = setup();
+    const open = slowOpening(s.factory);
+    const sessions = new SquadSessions({
+      providers: new RuntimeFactoryRegistry({
+        claude: { factory: s.factory, environment: s.environment },
+      }),
+      runtimes: s.runtimes,
+      ingest: s.ingest,
+      ids: s.ids,
+      clock: s.clock,
+      logger: new SilentLogger(),
+      settings: s.settings,
+    });
+    const starting = sessions
+      .start({
+        squadId: "q1",
+        projectId: "p1",
+        roleId: "backend",
+        taskId: "t1",
+        cwd: "/work/demo",
+        model: "sonnet",
+        permissionMode: "acceptEdits",
+        prompt: "Your task",
+      })
+      .catch((e: unknown) => e);
+    const runtime = await created(s.factory);
+    await new StopAllSessions(s.runtimes, s.clock, new SilentLogger(), 1_000).execute();
+    open();
+    expect(await starting).toBeInstanceOf(SessionStoppedError);
+    expect(runtime.disposed).toBe(true);
+    expect(runtime.sent).toEqual([]);
+    expect(s.runtimes.all()).toEqual([]);
+    expect(s.store.rows).toEqual([]);
+  });
+
+  test("a runtime that opens normally registers and lets go of the opening hold", async () => {
+    const s = setup();
+    const open = slowOpening(s.factory);
+    const starting = s.startChat().execute({ cwd: "/work/demo", prompt: "hi" });
+    const runtime = await created(s.factory);
+    open();
+    expect(await starting).toEqual({ sessionId: "id-1", projectId: "p1" });
+    expect(runtime.sent).toHaveLength(1);
+    expect(s.runtimes.cancelOpening()).toEqual([]);
   });
 });
 
