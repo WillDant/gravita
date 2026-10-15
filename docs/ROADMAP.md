@@ -22,10 +22,13 @@ Run Claude Code, Codex or your shell in a terminal inside Gravita, with the map 
 ### Cursor — [v0.5.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.5.0-beta)
 Cursor as a third agent: start and steer Cursor chats through the `cursor-agent` you installed (ACP), with approvals, Agent/Plan/Ask modes and your account's models, or run it in Gravita's terminal with its chats on the map; a Cursor API key you paste into Gravita and keep in your macOS Keychain. Later: observing Cursor sessions you run elsewhere, and the conversation of a Cursor chat after it ends. See [cursor.md](cursor.md).
 
+### Release notice — [v0.6.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.6.0-beta)
+Gravita tells you in the app when a newer release is out (one anonymous look at GitHub's public releases list, a notice with a link; nothing is installed by itself), and Settings gets theme, language and notification preferences.
+
 ## Next
 
 ### Polish and public launch
-Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater, the landing page, docs, an in-app tour and an accessibility audit.
+Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater that installs by itself, the landing page, docs, an in-app tour and an accessibility audit.
 
 ## Earlier milestone codes
 
