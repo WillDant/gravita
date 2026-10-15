@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers";
 import { GatewayError, LocalErrors } from "@/infrastructure/engine/GatewayError";
+import type { AppUpdater } from "@/infrastructure/platform/tauri";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import { setLocale } from "@/shared/i18n/i18n";
@@ -33,7 +34,10 @@ const status = (extra: Partial<EngineStatus> = {}): EngineStatus => ({
   ...extra,
 });
 
-function renderSection(openRelease: (url: string) => Promise<void> = async () => {}) {
+function renderSection(
+  openRelease: (url: string) => Promise<void> = async () => {},
+  appUpdater?: AppUpdater,
+) {
   const gateway = new FakeGateway();
   const store = createAppStore(gateway, { now: NOW });
   const storage = memoryStorage();
@@ -45,6 +49,7 @@ function renderSection(openRelease: (url: string) => Promise<void> = async () =>
         navigate: () => {},
         toggleTheme: () => {},
         openRelease,
+        ...(appUpdater ? { appUpdater } : {}),
         notificationPrefs: createNotificationPrefs(() => storage),
         projectAppearance: createProjectAppearance(() => storage),
       }}
@@ -115,5 +120,38 @@ describe("UpdateSettings", () => {
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
     await click("Open the release page");
     expect(openRelease).toHaveBeenCalledWith(PAGE);
+  });
+
+  it("updates in place when the app can, showing the progress, without the installer", async () => {
+    let report: ((share: number | undefined) => void) | undefined;
+    let finish: () => void = () => {};
+    const appUpdater: AppUpdater = {
+      install: (onProgress) => {
+        report = onProgress;
+        return new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      },
+    };
+    const { store, gateway } = renderSection(undefined, appUpdater);
+    act(() => store.getState().setEngineStatus(status({ update: UPDATE })));
+    expect(screen.getByText(/running agents stop/)).toBeTruthy();
+    await click("Install");
+    act(() => report?.(0.42));
+    expect(screen.getByRole("button", { name: "Downloading 42%…" })).toBeTruthy();
+    await act(async () => {
+      finish();
+      await flush();
+    });
+    expect(gateway.callsOf("installUpdate")).toEqual([]);
+  });
+
+  it("falls back to the installer download when the in-place update can't run", async () => {
+    const appUpdater: AppUpdater = { install: () => Promise.reject(new Error("no package")) };
+    const { store, gateway } = renderSection(undefined, appUpdater);
+    act(() => store.getState().setEngineStatus(status({ update: UPDATE })));
+    await click("Install");
+    expect(gateway.callsOf("installUpdate")).toEqual([{}]);
+    expect(screen.getByText(/Drag Gravita to Applications/)).toBeTruthy();
   });
 });

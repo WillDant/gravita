@@ -50,9 +50,22 @@ fn cursor_key_present(key: tauri::State<'_, CursorKey>) -> Result<bool, String> 
     key.present()
 }
 
+/// Quits and opens Gravita again, after the updater has put the new version in place. The
+/// engine (and the agents it runs) is stopped first, as on any quit.
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle, engine: tauri::State<'_, Engine>) {
+    engine.shutdown();
+    app.restart();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // In-app updates: the webview may only check and install (capability: updater:default),
+    // and every package is verified against the public key in tauri.conf.json.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let app = builder
         // Only the folder picker of the new-session panel (capability: dialog:allow-open).
         .plugin(tauri_plugin_dialog::init())
         // OS notifications (capability: notify + permission checks only).
@@ -79,6 +92,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             engine_info,
+            restart_app,
             tray::tray_update,
             // Codex's sign-in page for squads, and nothing else (see sign_in.rs).
             sign_in::open_sign_in_url,

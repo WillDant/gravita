@@ -25,9 +25,16 @@
       "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhFNjdBNjM5M0M4OThEMEQKUldRTmpZazhPYVpuamd5ZzVERzVsalNFTDdLUW43VFRpRjdkb0NJZzhuUkVOM0owdnRWUzh1bDUK",
+      "endpoints": ["https://github.com/WillDant/gravita/releases/download/updater/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "externalBin": ["binaries/gravita-engine"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "macOS": {
