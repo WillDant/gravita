@@ -37,6 +37,9 @@ The menu's footer keeps only Settings and Notifications; theme and language live
 ### Self-updating — [v0.8.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta)
 "Install" in Settings downloads the new version, checks its signature, replaces Gravita and opens it again.
 
+### Form icons — [v0.8.2-beta](https://github.com/WillDant/gravita/releases/tag/v0.8.2-beta)
+Icons on the New squad and New session forms and on the titles of Home and Settings.
+
 ## Next
 
 ### Polish and public launch

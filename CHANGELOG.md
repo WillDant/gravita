@@ -4,6 +4,17 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.8.2-beta] - 2026-10-15
+
+Icons in the forms, so the options are easier to tell apart at a glance.
+
+### Interface
+- **New squad and New session:** icons on the field captions and on the title, and on each option card of Autonomy, Models and Who builds it (Claude Code and Codex use their own marks).
+- **Home and Settings:** icons on the section titles.
+
+### Updating
+- This is the first release you can install from the app: with 0.8.0-beta, Settings → Updates → "Check for updates" → "Install" downloads it, replaces Gravita and opens it again.
+
 ## [0.8.0-beta] - 2026-10-15
 
 Gravita can now update itself: one click in Settings, and it downloads the new version, swaps itself and opens again.
@@ -194,6 +205,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.8.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.2-beta
 [0.8.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta
 [0.7.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta
 [0.7.1-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.1-beta

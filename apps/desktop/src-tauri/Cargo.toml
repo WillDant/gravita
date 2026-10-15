@@ -1,6 +1,6 @@
 [package]
 name = "gravita"
-version = "0.8.0-beta"
+version = "0.8.2-beta"
 description = "See and steer every AI coding agent and subagent"
 license = "Apache-2.0"
 edition = "2021"
