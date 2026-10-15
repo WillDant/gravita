@@ -4,7 +4,7 @@
 
 When Claude Code or Codex fans out into subagents, it gets hard to tell who is doing what, how many are running, and which one is waiting for you. Gravita draws your sessions as a live transit map: each agent is a coloured line, every tool call is a station, and a subagent is a branch line that leaves its parent and merges back when it's done. The agent itself rides at the head of its line as a small orb with eyes that react to what it's doing.
 
-> Status: **v0.8.2-beta**, a preview for macOS. Works with Claude Code, Codex and Cursor, in Gravita's own terminal or chat, and squads can mix Claude Code and Codex. Open source under Apache-2.0.
+> Status: **v0.9.0-beta**, a preview for macOS. Works with Claude Code, Codex and Cursor, in Gravita's own terminal or chat, and squads can mix Claude Code and Codex. Open source under Apache-2.0.
 
 ## What it does
 

@@ -4,6 +4,20 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.9.0-beta] - 2026-10-15
+
+Terminals get their own screen: open as many as you like, split them, and see each one in the menu.
+
+### Interface
+- **New terminal:** a button right under Home opens a shell in your home folder. Opening a terminal from a project still starts it in the project's folder.
+- **Terminais screen:** split any terminal to the right or below, drag the lines between them (or use the arrow keys on one) to resize, and the layout is remembered. A shell that starts an agent stays where it is.
+- **Terminais in the menu:** every terminal is listed, with the terminal icon for a plain shell and the agent's own icon and name (Claude Code, Codex, Cursor Agent) while one runs in it; it goes back to Shell when the agent exits.
+- **New project:** a `+` appears beside Projetos (and beside Terminais) when you hover the heading; the one for projects opens Home with the new session form ready.
+
+### Known limits
+- Gravita opens at most eight terminals at a time.
+- The agent in a shell is noticed within a couple of seconds of starting it.
+
 ## [0.8.2-beta] - 2026-10-15
 
 Icons in the forms, so the options are easier to tell apart at a glance.
@@ -205,6 +219,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.9.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.9.0-beta
 [0.8.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.2-beta
 [0.8.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta
 [0.7.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta
