@@ -77,3 +77,33 @@ export function createSignInOpener(): OpenSignIn {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 }
+
+/** Opens a release page of Gravita's repository in the user's browser. */
+export type OpenRelease = (url: string) => Promise<void>;
+
+const RELEASES = "https://github.com/WillDant/gravita/releases";
+
+/** Only the repository's own release pages are opened (the link comes through the engine). */
+export function isReleaseUrl(url: string): boolean {
+  // No whitespace or control characters, whatever the link starts with.
+  if ([...url].some((c) => c <= " " || c === "\u007f") || !url.startsWith(RELEASES)) return false;
+  const rest = url.slice(RELEASES.length);
+  return rest === "" || "/?#".includes(rest[0] as string);
+}
+
+/**
+ * The browser for a release link. Inside Tauri the shell's own `open_release_url` command
+ * opens it (it checks the link again; the webview gets no general opener); in a plain
+ * browser, a new tab without a way back to Gravita's page.
+ */
+export function createReleaseOpener(): OpenRelease {
+  return async (url) => {
+    if (!isReleaseUrl(url)) throw new Error("Not a Gravita release link");
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_release_url", { url });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+}

@@ -2,7 +2,6 @@ import type { MessageKey } from "./en";
 
 export const ptBR: Partial<Record<MessageKey, string>> = {
   "nav.home": "Início",
-  "nav.needsYou": "Precisa de você",
   "nav.settings": "Configurações",
   "nav.projects": "Projetos",
   "nav.noProjects": "Nenhum projeto ainda",
@@ -364,7 +363,25 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
     "O Cursor recusou a chave no Gravita. Substitua-a em Configurações.",
   "connect.cursor.openSettings": "Abrir configurações",
 
+  "update.title": "Há uma nova versão",
+  "update.body": "O Gravita {version} está disponível para baixar.",
+  "update.download": "Baixar",
+  "update.later": "Depois",
+  "update.failed": "Não deu para abrir o navegador. Procure em Releases no GitHub.",
   "settings.title": "Configurações",
+  "settings.prefs": "Preferências",
+  "settings.prefs.body":
+    "Como o Gravita aparece e quando ele avisa você. Os mesmos controles estão no rodapé do menu.",
+  "settings.theme": "Tema",
+  "settings.theme.body": "Claro ou escuro.",
+  "settings.theme.light": "Claro",
+  "settings.theme.dark": "Escuro",
+  "settings.language": "Idioma",
+  "settings.language.body": "O idioma do app.",
+  "settings.language.en": "English",
+  "settings.language.pt": "Português",
+  "settings.notifications": "Notificações",
+  "settings.notifications.body": "Com o Gravita em segundo plano, me avise quando:",
   "settings.providers": "Providers",
   "settings.providers.body":
     "Credenciais e detalhes de conexão dos agentes que o Gravita pode rodar.",

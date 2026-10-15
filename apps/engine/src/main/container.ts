@@ -12,6 +12,7 @@ import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { ProviderDetector } from "../application/ports/provider-detector";
+import type { ReleaseSource } from "../application/ports/release-source";
 import type { ModelOption } from "../application/ports/session-runtime";
 import type { TerminalHost } from "../application/ports/terminal-host";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
@@ -22,6 +23,7 @@ import { HookIngest } from "../application/services/hook-ingest";
 import { MergeQueue } from "../application/services/merge-queue";
 import { PlanUsageMonitor } from "../application/services/plan-usage-monitor";
 import { ProjectionService } from "../application/services/projection-service";
+import { ReleaseChecker } from "../application/services/release-checker";
 import {
   type ProviderRuntimes,
   RuntimeFactoryRegistry,
@@ -651,6 +653,8 @@ export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHom
   cursorLaunch?: AppServerLauncher;
   /** Tests replace it, so no real `cursor-agent models` runs. */
   cursorValidator?: CursorKeyValidator;
+  /** Where releases are listed; without one the engine never looks for a newer release. */
+  releaseSource?: ReleaseSource;
 }
 
 export interface RunningEngine {
@@ -893,6 +897,17 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     codexPresence.start();
     cursorPresence.start();
     tails.start();
+    if (opts.releaseSource) {
+      const releases = new ReleaseChecker({
+        source: opts.releaseSource,
+        status: broadcaster,
+        clock,
+        logger,
+        current: ENGINE_VERSION,
+      });
+      releases.start();
+      stops.push(() => releases.stop());
+    }
     const spool = new DrainHookSpool(
       new FsHookSpool(join(opts.dataDir, "spool")),
       core.hooks,
