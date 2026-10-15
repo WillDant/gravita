@@ -1,9 +1,10 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { House, Settings, UsersRound } from "lucide-react";
+import { House, Plus, Settings, SquareTerminal, UsersRound } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useProjectAppearances } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
+import { useOpenTerminal } from "@/features/terminal/useOpenTerminal";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
@@ -14,10 +15,12 @@ import {
   squadDecisions,
   squadTitle,
 } from "@/shared/presenters/squad";
+import { terminalProvider, terminalTitle } from "@/shared/presenters/terminal";
 import { ProjectTile } from "@/shared/ui/ProjectTile";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
-import { cn } from "@/shared/utils";
-import { useNow, useProjection, useRoute } from "@/state/hooks";
+import { TerminalIcon } from "@/shared/ui/TerminalIcon";
+import { basename, cn } from "@/shared/utils";
+import { useAppStore, useNow, useProjection, useRoute, useTerminalSupported } from "@/state/hooks";
 
 export function Sidebar() {
   useLocale();
@@ -27,6 +30,18 @@ export function Sidebar() {
   const navigate = useNavigate();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const appearances = useProjectAppearances();
+  const terminalsSupported = useTerminalSupported();
+  const terminals = useAppStore((s) => s.terminals);
+  const focusedTerminal = useAppStore((s) => s.focusedTerminal);
+  const placeTerminal = useAppStore((s) => s.placeTerminal);
+  const newTerminal = useOpenTerminal((terminal) => {
+    placeTerminal(terminal.terminalId);
+    navigate({ level: "terminals", terminalId: terminal.terminalId });
+  });
+  const terminalRows = useMemo(
+    () => Object.values(terminals).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    [terminals],
+  );
   const currentProject =
     route.level === "project" || route.level === "session" || route.level === "squad"
       ? route.projectId
@@ -57,10 +72,77 @@ export function Sidebar() {
         >
           {t("nav.home")}
         </NavItem>
+        {terminalsSupported && (
+          <NavItem
+            active={false}
+            busy={newTerminal.busy}
+            onClick={() => void newTerminal.open()}
+            icon={<SquareTerminal size={16} />}
+            label={t("nav.newTerminal")}
+          >
+            {t("nav.newTerminal")}
+          </NavItem>
+        )}
+        {newTerminal.error && (
+          <p role="alert" className="px-2 text-xs text-error-ink max-[1100px]:sr-only">
+            {newTerminal.error}
+          </p>
+        )}
       </div>
 
-      <div className="mt-4 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
-        {t("nav.projects")}
+      {terminalsSupported && terminalRows.length > 0 && (
+        <>
+          <div className="mt-4 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
+            {t("terminal.list")}
+          </div>
+          <ul className="flex max-h-40 flex-none flex-col gap-0.5 overflow-y-auto px-2">
+            {terminalRows.map((terminal) => {
+              const provider = terminalProvider(terminal, state.sessions);
+              const title = terminalTitle(provider);
+              const active = route.level === "terminals" && focusedTerminal === terminal.terminalId;
+              return (
+                <li key={terminal.terminalId}>
+                  <NavItem
+                    active={active}
+                    onClick={() => {
+                      placeTerminal(terminal.terminalId);
+                      navigate({ level: "terminals", terminalId: terminal.terminalId });
+                    }}
+                    icon={<TerminalIcon provider={provider} size={16} />}
+                    label={`${title} · ${basename(terminal.cwd)}`}
+                  >
+                    <span className={cn("truncate", !terminal.running && "text-ink-3")}>
+                      {title}
+                    </span>
+                    <span className="min-w-0 truncate text-xs font-normal text-ink-3">
+                      {basename(terminal.cwd)}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "ml-auto size-2 flex-none rounded-full",
+                        terminal.running ? "bg-ok" : "border border-ink-3",
+                      )}
+                    />
+                  </NavItem>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      <div className="group/projects mt-4 flex items-center justify-between pr-2 pb-1.5 pl-4 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
+        <span>{t("nav.projects")}</span>
+        <button
+          type="button"
+          onClick={() => navigate({ level: "home", newSession: true })}
+          aria-label={t("nav.newProject")}
+          title={t("nav.newProject")}
+          className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/projects:opacity-100 max-[1100px]:hidden"
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {summaries.length === 0 && (
@@ -235,6 +317,7 @@ function NavItem({
   icon,
   label,
   badge,
+  busy,
   children,
   onClick,
 }: {
@@ -246,6 +329,7 @@ function NavItem({
   label: string;
   /** Shown on the icon only in the collapsed rail, where the row's own count is hidden. */
   badge?: { count: number; waiting: boolean };
+  busy?: boolean;
   children: React.ReactNode;
   onClick: () => void;
 }) {
@@ -255,6 +339,7 @@ function NavItem({
       title={label}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      {...(busy ? { "aria-busy": true } : {})}
       className={cn(
         "relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink",
         prominent && "h-10 text-base font-semibold text-ink",

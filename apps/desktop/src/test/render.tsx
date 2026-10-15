@@ -35,10 +35,10 @@ export function renderWithApp(
     toggleTheme?: () => void;
   } = {},
 ): AppRender {
-  const store = createAppStore(gateway, { now: NOW });
+  const storage = memoryStorage();
+  const store = createAppStore(gateway, { now: NOW, layoutStorage: () => storage });
   if (state) store.getState().loadSnapshot({ seq: state.seq, state });
   const navigate = vi.fn<(route: Route) => void>();
-  const storage = memoryStorage();
   const view = render(
     <AppProviders
       services={{

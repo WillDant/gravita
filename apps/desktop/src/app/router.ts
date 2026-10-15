@@ -13,6 +13,10 @@ export function parseHash(hash: string): Route {
       ? { level: "gallery", squad: parts[2] || "run" }
       : { level: "gallery" };
   if (parts[0] === "settings") return { level: "settings" };
+  if (parts[0] === "terminals") {
+    return parts[1] ? { level: "terminals", terminalId: parts[1] } : { level: "terminals" };
+  }
+  if (parts[0] === "new") return { level: "home", newSession: true };
   if (parts[0] === "p" && parts[1]) {
     if (parts[2] === "s" && parts[3]) {
       return {
@@ -41,9 +45,13 @@ export function parseHash(hash: string): Route {
 export function hashOf(route: Route): string {
   switch (route.level) {
     case "home":
-      return "#/";
+      return route.newSession ? "#/new" : "#/";
     case "settings":
       return "#/settings";
+    case "terminals":
+      return route.terminalId
+        ? `#/terminals/${encodeURIComponent(route.terminalId)}`
+        : "#/terminals";
     case "gallery":
       return route.squad ? `#/gallery/squad/${encodeURIComponent(route.squad)}` : "#/gallery";
     case "project":

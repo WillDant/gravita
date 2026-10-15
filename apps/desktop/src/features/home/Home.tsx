@@ -2,7 +2,7 @@ import { toPersona } from "@gravita/core";
 import { agentColor } from "@gravita/orbs";
 import { AGENT_PROVIDERS } from "@gravita/protocol/constants";
 import { Activity, FolderKanban, Hand } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useProjectAppearances } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
@@ -28,6 +28,7 @@ import {
   useNow,
   useProjection,
   useProviderProblem,
+  useRoute,
 } from "@/state/hooks";
 
 export function Home() {
@@ -41,7 +42,16 @@ export function Home() {
   const codexNote = useCodexNote();
   const cursorNote = useCursorNote();
   const empty = summaries.length === 0;
-  const [creating, setCreating] = useState<"session" | "squad">();
+  const route = useRoute();
+  const asksNewSession = route.level === "home" && route.newSession === true;
+  const [creating, setCreating] = useState<"session" | "squad" | undefined>(
+    asksNewSession ? "session" : undefined,
+  );
+  // The sidebar's "+" lands here with the panel open, even when Home is already showing.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new route object is the signal.
+  useEffect(() => {
+    if (asksNewSession) setCreating("session");
+  }, [route, asksNewSession]);
   const toggle = (kind: "session" | "squad") => setCreating((v) => (v === kind ? undefined : kind));
   const recent = useMemo(
     () =>

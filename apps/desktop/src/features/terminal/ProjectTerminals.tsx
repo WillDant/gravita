@@ -1,33 +1,24 @@
 import type { TerminalInfo } from "@gravita/protocol";
 import { SquareTerminal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "@/app/providers";
 import { t } from "@/shared/i18n/i18n";
-import { describeError } from "@/shared/presenters/errors";
 import { Button } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
-import { useAppStore, useTerminalControl, useTerminalSupported } from "@/state/hooks";
-import { START_SIZE } from "./TerminalView";
+import { useAppStore, useTerminalSupported } from "@/state/hooks";
+import { useOpenTerminal } from "./useOpenTerminal";
 
 /** Opens the user's shell in the project's folder, on a screen of its own. */
 export function OpenTerminalButton({ projectId, cwd }: { projectId: string; cwd: string }) {
   const supported = useTerminalSupported();
-  const { spawn } = useTerminalControl();
   const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const { open, busy, error } = useOpenTerminal((terminal) =>
+    navigate({ level: "terminal", projectId, terminalId: terminal.terminalId }),
+  );
   if (!supported) return null;
-  const open = async () => {
-    setBusy(true);
-    setError(undefined);
-    const r = await spawn({ cwd, command: "shell", ...START_SIZE });
-    setBusy(false);
-    if (r.ok) navigate({ level: "terminal", projectId, terminalId: r.value.terminalId });
-    else setError(t("terminal.failed", { reason: describeError(r.error).text }));
-  };
   return (
     <>
-      <Button aria-busy={busy} onClick={() => void open()}>
+      <Button aria-busy={busy} onClick={() => void open(cwd)}>
         <SquareTerminal size={15} aria-hidden="true" />
         {t("terminal.open")}
       </Button>

@@ -573,6 +573,7 @@ export function createCore(o: CoreOptions): EngineCore {
         projects,
         shellEnv: o.terminal.shellEnv,
         defaultShell: o.terminal.defaultShell,
+        homeDir: homedir,
         ...(providers ? { providers } : {}),
         ...(o.chat?.credentials ? { credentials: o.chat.credentials } : {}),
         cursorEnv: cursorTerminalEnv,

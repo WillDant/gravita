@@ -50,6 +50,13 @@ describe("Home: needs you", () => {
     });
   });
 
+  it("opens the new-session panel at once when the sidebar's + asked for it", () => {
+    const { store } = renderWithApp(<Home />, { state });
+    expect(screen.queryByRole("region", { name: "New session" })).toBeNull();
+    act(() => store.getState().setRoute({ level: "home", newSession: true }));
+    expect(screen.getByRole("region", { name: "New session" })).toBeTruthy();
+  });
+
   it("opens the new-session panel inline under the header", () => {
     renderWithApp(<Home />, { state });
     const toggle = screen.getByRole("button", { name: "New session" });

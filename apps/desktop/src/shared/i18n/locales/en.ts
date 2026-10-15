@@ -6,6 +6,7 @@ export const en = {
   "nav.settings": "Settings",
   "nav.projects": "Projects",
   "nav.noProjects": "No projects yet",
+  "nav.newProject": "New project",
 
   "count.running.one": "{count} running",
   "count.running.other": "{count} running",
@@ -273,6 +274,13 @@ export const en = {
   "terminal.waiting":
     "Run claude, codex or cursor-agent here: its agents show up on the map as soon as it starts.",
   "terminal.list": "Terminals",
+  "nav.newTerminal": "New terminal",
+  "terminals.title": "Terminals",
+  "terminals.empty":
+    "Nothing open here yet. Open a terminal to start; split it to run several side by side.",
+  "terminals.splitRight": "Split right",
+  "terminals.splitDown": "Split down",
+  "terminals.resize": "Resize terminals",
   "terminal.ended": "ended",
   "session.talk": "Talk",
   "session.talk.terminal": "Terminal",

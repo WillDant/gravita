@@ -296,7 +296,8 @@ export const TerminalInfo = z.object({
 export type TerminalInfo = z.infer<typeof TerminalInfo>;
 
 export const TerminalSpawnParams = z.object({
-  cwd: z.string().min(1),
+  /** The folder to open in; the engine's home folder when absent. */
+  cwd: z.string().min(1).optional(),
   command: z.enum(TERMINAL_COMMANDS),
   cols: Cols,
   rows: Rows,

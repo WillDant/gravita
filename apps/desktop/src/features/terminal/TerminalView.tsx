@@ -1,11 +1,13 @@
 import type { TerminalInfo } from "@gravita/protocol";
-import { RotateCcw, SquareTerminal, X } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { RotateCcw, X } from "lucide-react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { describeError } from "@/shared/presenters/errors";
+import { terminalTitle } from "@/shared/presenters/terminal";
+import { TerminalIcon } from "@/shared/ui/TerminalIcon";
 import { Button } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
-import { useTerminalControl } from "@/state/hooks";
+import { useTerminalControl, useTerminalProvider } from "@/state/hooks";
 
 // xterm and its stylesheet load with the first terminal, off the initial bundle.
 const TerminalPane = lazy(() => import("./TerminalPane"));
@@ -23,13 +25,20 @@ export function TerminalView({
   terminal,
   onReplaced,
   onClosed,
+  actions,
+  autoFocus,
 }: {
   terminal: TerminalInfo;
   /** A new terminal took this one's place (restart or resume). */
   onReplaced?: (next: TerminalInfo) => void;
   onClosed?: () => void;
+  /** Extra buttons in the title bar, before close. */
+  actions?: ReactNode;
+  /** Whether the terminal takes the keyboard as it opens (it does unless said otherwise). */
+  autoFocus?: boolean;
 }) {
   const { spawn, kill } = useTerminalControl();
+  const provider = useTerminalProvider(terminal);
   const [error, setError] = useState<string>();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -71,13 +80,14 @@ export function TerminalView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-none items-center gap-2 border-b border-hairline px-4 py-1.5 text-xs">
-        <SquareTerminal size={14} aria-hidden="true" className="flex-none text-ink-3" />
+        <TerminalIcon provider={provider} size={14} className="flex-none text-ink-3" />
         <span className="flex-none font-semibold whitespace-nowrap text-ink">
-          {t(`terminal.title.${terminal.command}`)}
+          {terminalTitle(provider)}
         </span>
         <span className="min-w-0 truncate font-mono text-ink-3" title={terminal.cwd}>
           {tildify(terminal.cwd)}
         </span>
+        <span className="ml-auto flex flex-none items-center gap-0.5">{actions}</span>
         <button
           type="button"
           onClick={() => void close()}
@@ -85,8 +95,8 @@ export function TerminalView({
           title={t("terminal.close")}
           className={
             confirming
-              ? "ml-auto inline-flex h-6 flex-none items-center gap-1 rounded-md bg-error-bg px-2 font-medium text-error-ink"
-              : "ml-auto inline-flex size-6 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-panel hover:text-ink"
+              ? "inline-flex h-6 flex-none items-center gap-1 rounded-md bg-error-bg px-2 font-medium text-error-ink"
+              : "inline-flex size-6 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-panel hover:text-ink"
           }
         >
           <X size={14} aria-hidden="true" />
@@ -95,7 +105,10 @@ export function TerminalView({
       </div>
       <div className="relative min-h-0 flex-1">
         <Suspense fallback={<div className="h-full bg-[#0f1115]" />}>
-          <TerminalPane terminalId={terminal.terminalId} />
+          <TerminalPane
+            terminalId={terminal.terminalId}
+            {...(autoFocus === undefined ? {} : { autoFocus })}
+          />
         </Suspense>
       </div>
       {!terminal.running && (

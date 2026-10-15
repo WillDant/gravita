@@ -7,12 +7,15 @@ afterEach(() => window.history.replaceState(null, "", "#/"));
 describe("hash routes", () => {
   const routes: Route[] = [
     { level: "home" },
+    { level: "home", newSession: true },
     { level: "project", projectId: "/work/my app" },
     { level: "session", projectId: "p", sessionId: "s/1" },
     { level: "session", projectId: "p", sessionId: "s", agentId: "a" },
     { level: "squad", projectId: "p", squadId: "sq-1" },
     { level: "squad", projectId: "p", squadId: "sq/1", taskId: "api-routes" },
     { level: "settings" },
+    { level: "terminals" },
+    { level: "terminals", terminalId: "t/1" },
   ];
 
   it("round-trip through the hash", () => {

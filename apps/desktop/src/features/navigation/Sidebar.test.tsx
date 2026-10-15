@@ -1,8 +1,9 @@
+import type { EngineStatus, TerminalInfo } from "@gravita/protocol";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/shared/i18n/i18n";
 import { started, stateOf } from "@/test/events";
-import { flush } from "@/test/FakeGateway";
+import { FakeGateway, flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
 import { Sidebar } from "./Sidebar";
 
@@ -25,6 +26,13 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("button", { name: "Needs you" })).toBeNull();
   });
 
+  it("opens the new-session screen from the + next to Projects", async () => {
+    const { navigate } = renderWithApp(<Sidebar />, { state });
+    await act(flush);
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(navigate).toHaveBeenCalledWith({ level: "home", newSession: true });
+  });
+
   it("keeps only Settings and Notifications in the footer, and opens Settings", async () => {
     const { navigate } = renderWithApp(<Sidebar />, { state });
     await act(flush);
@@ -39,5 +47,90 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("button", { name: /^(EN|PT)$/ })).toBeNull();
     fireEvent.click(settings);
     expect(navigate).toHaveBeenCalledWith({ level: "settings" });
+  });
+});
+
+const engine: EngineStatus = {
+  providers: { claude: { found: true } },
+  claude: { found: true },
+  indexing: { done: 0, total: 0 },
+  demo: false,
+  terminal: true,
+};
+
+const term = (over: Partial<TerminalInfo> = {}): TerminalInfo => ({
+  terminalId: "t1",
+  command: "shell",
+  cwd: "/Users/me",
+  projectId: "home",
+  startedAt: "2026-10-12T12:00:00.000Z",
+  running: true,
+  ...over,
+});
+
+describe("Sidebar: terminals", () => {
+  it("offers New terminal right under Home, and opens a shell in the home folder", async () => {
+    const gateway = new FakeGateway();
+    const { store, navigate } = renderWithApp(<Sidebar />, { state, gateway });
+    act(() => store.getState().setEngineStatus(engine));
+    const home = screen.getByRole("button", { name: "Home" });
+    const open = screen.getByRole("button", { name: "New terminal" });
+    expect(home.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(open.compareDocumentPosition(screen.getByText("Projects"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    fireEvent.click(open);
+    await act(flush);
+    const [call] = gateway.callsOf("spawnTerminal");
+    expect(call).toMatchObject({ command: "shell" });
+    expect(call).not.toHaveProperty("cwd");
+    expect(navigate).toHaveBeenCalledWith({ level: "terminals", terminalId: "t1" });
+    expect(store.getState().focusedTerminal).toBe("t1");
+  });
+
+  it("hides New terminal when the engine can't open terminals", async () => {
+    const { store } = renderWithApp(<Sidebar />, { state });
+    act(() => store.getState().setEngineStatus({ ...engine, terminal: false }));
+    expect(screen.queryByRole("button", { name: "New terminal" })).toBeNull();
+  });
+
+  it("lists each terminal under Terminals, with the agent's icon when one runs", async () => {
+    const codex = started("s9", 2, "p1").map((e) => ({ ...e, provider: "codex" as const }));
+    const { store, navigate } = renderWithApp(<Sidebar />, { state: stateOf(codex) });
+    act(() => {
+      store.getState().setEngineStatus(engine);
+      store.getState().applyTerminalUpdate({ terminal: term() });
+      store.getState().applyTerminalUpdate({
+        terminal: term({
+          terminalId: "t2",
+          sessionId: "s9",
+          startedAt: "2026-10-12T12:05:00.000Z",
+        }),
+      });
+      store.getState().applyTerminalUpdate({
+        terminal: term({
+          terminalId: "t3",
+          command: "cursor",
+          startedAt: "2026-10-12T12:10:00.000Z",
+        }),
+      });
+    });
+    expect(screen.getByText("Terminals")).toBeTruthy();
+    const rows = screen.getAllByTitle(/· me$/);
+    expect(rows.map((r) => r.getAttribute("title"))).toEqual([
+      "Shell · me",
+      "Codex · me",
+      "Cursor · me",
+    ]);
+    // A plain shell wears the terminal icon; a shell running Codex and a Cursor terminal wear the agent's.
+    const icons = rows.map((r) => r.querySelector("svg")?.getAttribute("class") ?? "");
+    expect(icons[0]).toContain("lucide-square-terminal");
+    expect(icons[1]).not.toContain("lucide");
+    expect(icons[2]).not.toContain("lucide");
+
+    fireEvent.click(rows[1] as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith({ level: "terminals", terminalId: "t2" });
+    expect(store.getState().focusedTerminal).toBe("t2");
   });
 });

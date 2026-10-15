@@ -19,8 +19,10 @@ export const createTerminalsSlice: Slice<TerminalsSlice> = (gateway) => (set, ge
     terminals: {},
     loadTerminals: () => {
       gateway.listTerminals().then(
-        ({ terminals }) =>
-          set({ terminals: Object.fromEntries(terminals.map((t) => [t.terminalId, t])) }),
+        ({ terminals }) => {
+          set({ terminals: Object.fromEntries(terminals.map((t) => [t.terminalId, t])) });
+          get().pruneTerminalLayout(terminals.map((t) => t.terminalId));
+        },
         () => {},
       );
     },
@@ -31,6 +33,7 @@ export const createTerminalsSlice: Slice<TerminalsSlice> = (gateway) => (set, ge
       }
       const { [update.closed]: _gone, ...rest } = get().terminals;
       set({ terminals: rest });
+      get().removeFromTerminalLayout(update.closed);
     },
     spawnTerminal: async (params) => {
       const r = await attempt(() => gateway.spawnTerminal(params));

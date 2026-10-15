@@ -5,6 +5,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "nav.settings": "Configurações",
   "nav.projects": "Projetos",
   "nav.noProjects": "Nenhum projeto ainda",
+  "nav.newProject": "Novo projeto",
 
   "count.running.one": "{count} rodando",
   "count.running.other": "{count} rodando",
@@ -273,6 +274,13 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "terminal.waiting":
     "Rode claude, codex ou cursor-agent aqui: os agentes aparecem no mapa assim que começar.",
   "terminal.list": "Terminais",
+  "nav.newTerminal": "Novo terminal",
+  "terminals.title": "Terminais",
+  "terminals.empty":
+    "Nada aberto aqui ainda. Abra um terminal para começar; divida-o para rodar vários lado a lado.",
+  "terminals.splitRight": "Dividir à direita",
+  "terminals.splitDown": "Dividir abaixo",
+  "terminals.resize": "Redimensionar terminais",
   "terminal.ended": "encerrado",
   "session.talk": "Conversa",
   "session.talk.terminal": "Terminal",
