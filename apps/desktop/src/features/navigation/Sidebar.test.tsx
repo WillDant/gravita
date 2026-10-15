@@ -89,6 +89,17 @@ describe("Sidebar: terminals", () => {
     expect(store.getState().focusedTerminal).toBe("t1");
   });
 
+  it("adds a terminal from the + beside Terminals, even before there is one", async () => {
+    const gateway = new FakeGateway();
+    const { store, navigate } = renderWithApp(<Sidebar />, { state, gateway });
+    act(() => store.getState().setEngineStatus(engine));
+    expect(screen.getByText("Terminals")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add terminal" }));
+    await act(flush);
+    expect(gateway.callsOf("spawnTerminal")).toHaveLength(1);
+    expect(navigate).toHaveBeenCalledWith({ level: "terminals", terminalId: "t1" });
+  });
+
   it("hides New terminal when the engine can't open terminals", async () => {
     const { store } = renderWithApp(<Sidebar />, { state });
     act(() => store.getState().setEngineStatus({ ...engine, terminal: false }));

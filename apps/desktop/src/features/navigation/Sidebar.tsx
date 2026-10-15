@@ -90,11 +90,13 @@ export function Sidebar() {
         )}
       </div>
 
-      {terminalsSupported && terminalRows.length > 0 && (
+      {terminalsSupported && (
         <>
-          <div className="mt-4 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
-            {t("terminal.list")}
-          </div>
+          <SectionHeading
+            label={t("terminal.list")}
+            actionLabel={t("terminals.add")}
+            onAction={() => void newTerminal.open()}
+          />
           <ul className="flex max-h-40 flex-none flex-col gap-0.5 overflow-y-auto px-2">
             {terminalRows.map((terminal) => {
               const provider = terminalProvider(terminal, state.sessions);
@@ -132,18 +134,11 @@ export function Sidebar() {
         </>
       )}
 
-      <div className="group/projects mt-4 flex items-center justify-between pr-2 pb-1.5 pl-4 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
-        <span>{t("nav.projects")}</span>
-        <button
-          type="button"
-          onClick={() => navigate({ level: "home", newSession: true })}
-          aria-label={t("nav.newProject")}
-          title={t("nav.newProject")}
-          className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/projects:opacity-100 max-[1100px]:hidden"
-        >
-          <Plus size={14} aria-hidden="true" />
-        </button>
-      </div>
+      <SectionHeading
+        label={t("nav.projects")}
+        actionLabel={t("nav.newProject")}
+        onAction={() => navigate({ level: "home", newSession: true })}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {summaries.length === 0 && (
           <p className="px-2 text-sm text-ink-3 max-[1100px]:sr-only">{t("nav.noProjects")}</p>
@@ -223,6 +218,32 @@ export function Sidebar() {
         <NotificationSettings />
       </div>
     </nav>
+  );
+}
+
+/** A group's title in the menu, with a "+" that shows on hover (or focus) to add to the group. */
+function SectionHeading({
+  label,
+  actionLabel,
+  onAction,
+}: {
+  label: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="group/heading mt-4 flex items-center justify-between pr-2 pb-1.5 pl-4 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
+      <span>{label}</span>
+      <button
+        type="button"
+        onClick={onAction}
+        aria-label={actionLabel}
+        title={actionLabel}
+        className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/heading:opacity-100 max-[1100px]:hidden"
+      >
+        <Plus size={14} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 

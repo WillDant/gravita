@@ -275,6 +275,7 @@ export const en = {
     "Run claude, codex or cursor-agent here: its agents show up on the map as soon as it starts.",
   "terminal.list": "Terminals",
   "nav.newTerminal": "New terminal",
+  "terminals.add": "Add terminal",
   "terminals.title": "Terminals",
   "terminals.empty":
     "Nothing open here yet. Open a terminal to start; split it to run several side by side.",

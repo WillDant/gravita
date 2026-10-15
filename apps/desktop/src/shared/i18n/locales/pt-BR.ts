@@ -275,6 +275,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
     "Rode claude, codex ou cursor-agent aqui: os agentes aparecem no mapa assim que começar.",
   "terminal.list": "Terminais",
   "nav.newTerminal": "Novo terminal",
+  "terminals.add": "Adicionar terminal",
   "terminals.title": "Terminais",
   "terminals.empty":
     "Nada aberto aqui ainda. Abra um terminal para começar; divida-o para rodar vários lado a lado.",
