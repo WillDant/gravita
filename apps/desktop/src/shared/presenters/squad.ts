@@ -231,7 +231,7 @@ export function projectItems(state: GravitaState, project: ProjectState): Projec
   const squads = new Map<string, SessionState[]>();
   for (const id of project.sessionIds) {
     const s = state.sessions[id];
-    if (!s) continue;
+    if (!s || s.removed) continue;
     if (s.squadId && state.squads?.[s.squadId]?.created) {
       const list = squads.get(s.squadId) ?? [];
       list.push(s);

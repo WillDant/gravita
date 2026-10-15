@@ -28,3 +28,27 @@ export {
   cursorToolName,
   cursorToolTarget,
 } from "./tools";
+export {
+  type FileState,
+  MAIN_AGENT,
+  type NormalizeContext,
+  newFileState,
+  normalizeRecord,
+  type StartedTask,
+} from "./transcript/normalize";
+export {
+  normalizedPrompt,
+  parseTranscriptLine,
+  type TranscriptBlock,
+  type TranscriptRecord,
+  userQueryOf,
+  visibleText,
+} from "./transcript/records";
+export {
+  type CursorChildFile,
+  CursorSessionTail,
+  type CursorSessionTailOptions,
+  type CursorTailCheckpoint,
+} from "./transcript/tail";
+export { type TaskCall, todoItems, type TranscriptTool, transcriptTool } from "./transcript/tools";
+export { type TranscriptDigest, updateDigest } from "./transcript/read";

@@ -107,9 +107,15 @@ describe("Cursor compliance", () => {
       expect(c, path).not.toMatch(/["']authenticate["']/);
       // `cursor-agent login|logout|status` would touch the user's own login.
       expect(c, path).not.toMatch(/["'](login|logout)["']\s*[\],]/);
-      // ~/.cursor (auth.json, cli-config.json) is never read.
-      expect(c, path).not.toMatch(/["'`][^"'`]*\.cursor\/(auth|cli-config)/);
-      expect(c, path).not.toMatch(/join\([^)]*["']\.cursor["']/);
+      // ~/.cursor holds the user's own login: only transcripts and chat metadata are read
+      // (the discovery test audits the paths), never these.
+      expect(c, path).not.toMatch(/["'`][^"'`]*\.cursor\/(auth|cli-config|mcp-auth)/);
+      expect(c, path).not.toMatch(/["'`](auth|cli-config|mcp-auth)\.json["'`]/);
+      expect(c, path).not.toMatch(/acp-sessions|store\.db/);
+      // The Cursor home is named in one place: the engine's start-up options.
+      if (!path.endsWith("src/main/container.ts")) {
+        expect(c, path).not.toMatch(/join\([^)]*["']\.cursor["']/);
+      }
       // The engine never touches the Keychain: the desktop shell owns the key's storage.
       expect(c, path).not.toMatch(/find-generic-password|add-generic-password|security-framework/);
     }

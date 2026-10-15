@@ -80,6 +80,11 @@ export const en = {
   "map.hold": "waiting for you",
   "session.watching": "Watching a session started in your terminal",
   "session.untitled": "Untitled session",
+  "session.remove": "Remove session",
+  "session.removeConfirm":
+    "Remove this session from Gravita? If it is still running, it will stop.",
+  "session.removeYes": "Remove",
+  "session.removeCancel": "Cancel",
   "session.open": "Open",
 
   "action.allow": "Allow",
@@ -175,8 +180,6 @@ export const en = {
   "newSession.folderEmpty": "No folder chosen",
   "newSession.chooseFolder": "Choose folder…",
   "newSession.recent": "Recent",
-  "newSession.message": "First message",
-  "newSession.messagePlaceholder": "What should the agent work on?",
   "newSession.model": "Model",
   "newSession.modelDefault": "Claude Code default",
   "newSession.modelDefaultCodex": "Codex default",
@@ -189,9 +192,7 @@ export const en = {
   "newSession.start": "Start session",
   "newSession.starting": "Starting…",
   "newSession.cancel": "Cancel",
-  "newSession.shortcut": "{key}↩ to start",
   "newSession.needFolder": "Choose the folder the agent will work in.",
-  "newSession.needMessage": "Write the first message.",
 
   "mode.default": "Ask before acting",
   "mode.acceptEdits": "Accept edits",
@@ -230,11 +231,12 @@ export const en = {
   "terminal.title.shell": "Shell",
   "terminal.title.claude": "Claude Code",
   "terminal.title.codex": "Codex",
+  "terminal.title.cursor": "Cursor",
   "terminal.open": "Open a terminal",
   "terminal.continue": "Continue in a terminal",
   "terminal.failed": "Couldn't open a terminal. {reason}",
   "terminal.waiting":
-    "Run claude or codex here: its agents show up on the map as soon as it starts.",
+    "Run claude, codex or cursor-agent here: its agents show up on the map as soon as it starts.",
   "terminal.list": "Terminals",
   "terminal.ended": "ended",
   "session.talk": "Talk",
@@ -250,7 +252,6 @@ export const en = {
   "newSession.runIn": "Run in",
   "newSession.runIn.terminal": "Terminal",
   "newSession.runIn.chat": "Chat",
-  "newSession.messageOptional": "First message (optional)",
 
   "conversation.you": "You",
   "conversation.loading": "Loading the conversation…",

@@ -109,6 +109,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.sessionInterrupt, params);
   }
 
+  removeSession(params: RpcParams<"session.remove">): Promise<RpcResult<"session.remove">> {
+    return this.call(Methods.sessionRemove, params);
+  }
+
   stopAgent(params: RpcParams<"agent.stop">): Promise<RpcResult<"agent.stop">> {
     return this.call(Methods.agentStop, params);
   }

@@ -16,7 +16,14 @@ export function CursorKeyLine({ className }: { className?: string }) {
     state === "missing" ? t("home.cursor.key.configure") : t("home.cursor.key.manage");
   return (
     <p className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-ink-3", className)}>
-      <span>{t(`home.cursor.key.${state}`)}</span>
+      <span
+        className={cn(
+          state === "valid" && "text-ok-ink",
+          state === "invalid" && "text-error-ink",
+        )}
+      >
+        {t(`home.cursor.key.${state}`)}
+      </span>
       <button
         type="button"
         onClick={() => navigate({ level: "settings" })}

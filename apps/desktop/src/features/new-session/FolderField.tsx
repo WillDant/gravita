@@ -80,12 +80,14 @@ export function FolderField({
           >
             <span
               className={cn(
-                "block h-8 truncate px-2.5 font-mono text-xs leading-8",
-                hasFolder ? "text-ink" : "font-sans text-sm text-ink-3",
+                "flex h-8 items-center px-2.5",
+                hasFolder ? "font-mono text-xs text-ink" : "font-sans text-sm text-ink-3",
               )}
               title={hasFolder ? tildify(folder) : undefined}
             >
-              {hasFolder ? tildify(folder) : t("newSession.folderEmpty")}
+              <span className="truncate">
+                {hasFolder ? tildify(folder) : t("newSession.folderEmpty")}
+              </span>
             </span>
           </button>
         ) : (
@@ -99,12 +101,14 @@ export function FolderField({
           >
             <span
               className={cn(
-                "block h-8 truncate px-2.5 font-mono text-xs leading-8",
-                hasFolder ? "text-ink" : "font-sans text-sm text-ink-3",
+                "flex h-8 items-center px-2.5",
+                hasFolder ? "font-mono text-xs text-ink" : "font-sans text-sm text-ink-3",
               )}
               title={hasFolder ? tildify(folder) : undefined}
             >
-              {hasFolder ? tildify(folder) : t("newSession.folderEmpty")}
+              <span className="truncate">
+                {hasFolder ? tildify(folder) : t("newSession.folderEmpty")}
+              </span>
             </span>
           </div>
         )}

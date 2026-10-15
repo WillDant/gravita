@@ -71,7 +71,7 @@ export function projectSummaries(state: GravitaState, now: number): ProjectSumma
   for (const project of Object.values(state.projects)) {
     const sessions = project.sessionIds
       .map((id) => state.sessions[id])
-      .filter((s): s is SessionState => Boolean(s))
+      .filter((s): s is SessionState => s != null && !s.removed)
       .sort((a, b) => b.lastEventTs.localeCompare(a.lastEventTs));
     if (sessions.length === 0) continue;
     let counts = ZERO;

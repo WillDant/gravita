@@ -1,6 +1,6 @@
 # T14 — (Pós-MVP) Terminal embutido rodando `cursor-agent`
 
-- **Status:** blocked (T10)
+- **Status:** done
 - **Fase:** Pós-MVP
 - **Dependências:** T10
 - **Estimativa:** P
@@ -36,3 +36,5 @@ já é feito com `claude` e `codex` (ADR 007).
 `pnpm --filter @gravita/engine test -- terminal`
 
 ## Notas de execução
+
+Feito. O terminal Cursor também aparece no mapa (linhas, órbita e árvore) pela leitura da transcrição do CLI (ADR 008, emenda “observing terminal chats”).

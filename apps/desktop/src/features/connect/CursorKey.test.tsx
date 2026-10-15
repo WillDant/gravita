@@ -77,7 +77,7 @@ describe("the Cursor key panel", () => {
     expect(JSON.stringify(store.getState())).not.toContain(KEY);
 
     act(() => store.getState().setEngineStatus(status({ source: "app", state: "valid" })));
-    expect(screen.getByText("Key set and working.")).toBeTruthy();
+    expect(screen.getByText("Key set and working.").className).toContain("text-ok-ink");
   });
 
   it("refuses something that isn't one word, without storing it", async () => {
@@ -95,7 +95,7 @@ describe("the Cursor key panel", () => {
   it("says a rejected key plainly and lets it be replaced", async () => {
     const { bridge } = fakeBridge(true);
     await renderKey(bridge, { source: "app", state: "invalid" });
-    expect(screen.getByText(/Cursor turned this key down/)).toBeTruthy();
+    expect(screen.getByText(/Cursor turned this key down/).className).toContain("text-error-ink");
     expect(keyField()).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));

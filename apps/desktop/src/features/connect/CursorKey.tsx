@@ -1,8 +1,9 @@
 import type { CredentialState } from "@gravita/protocol/constants";
-import { KeyRound } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
 import { useId, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { fieldFrame } from "@/shared/ui/form";
+import { ProviderIcon } from "@/shared/ui/ProviderIcon";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { looksLikeKey, useCursorKey } from "./useCursorKey";
@@ -10,7 +11,7 @@ import { looksLikeKey, useCursorKey } from "./useCursorKey";
 const STATE_TONE: Readonly<Record<CredentialState, string>> = {
   missing: "text-ink-3",
   unchecked: "text-ink-2",
-  valid: "text-ink",
+  valid: "text-ok-ink",
   invalid: "text-error-ink",
 };
 
@@ -53,14 +54,19 @@ export function CursorKey({ className }: { className?: string }) {
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-lg bg-ground text-ink ring-1 ring-hairline">
-          <KeyRound size={15} aria-hidden="true" />
+          <ProviderIcon provider="cursor" size={16} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id={`${fieldId}-title`} className="text-sm font-semibold text-ink">
             {t("cursorKey.title")}
           </h2>
           <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t("cursorKey.body")}</p>
-          <p className={cn("mt-2 text-sm font-medium", STATE_TONE[key.state])} aria-live="polite">
+          <p
+            className={cn("mt-2 flex items-center gap-1.5 text-sm font-medium", STATE_TONE[key.state])}
+            aria-live="polite"
+          >
+            {key.state === "valid" && <CircleCheck size={15} aria-hidden="true" />}
+            {key.state === "invalid" && <CircleAlert size={15} aria-hidden="true" />}
             {t(`cursorKey.state.${key.state}`)}
           </p>
 

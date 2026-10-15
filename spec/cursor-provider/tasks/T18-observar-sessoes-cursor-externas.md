@@ -1,6 +1,6 @@
 # T18 — (Pós-MVP) Observar sessões Cursor iniciadas fora do gravita
 
-- **Status:** blocked (T10; análise de compliance)
+- **Status:** parcial — feito para o terminal do Gravita (transcrição + meta.json, ADR 008); falta o editor e o CLI fora do Gravita
 - **Fase:** Pós-MVP
 - **Dependências:** T10, T13
 - **Estimativa:** G

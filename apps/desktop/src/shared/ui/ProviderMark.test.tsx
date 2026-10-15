@@ -48,7 +48,9 @@ describe("provider mark", () => {
     const rows = screen.getAllByRole("row").slice(1);
     const codex = rows.find((r) => r.textContent?.includes("Speed up the build"));
     const claude = rows.find((r) => r.textContent?.includes("Fix the login form"));
-    expect(within(codex as HTMLElement).getByRole("img", mark).textContent).toBe("Codex");
+    const codexMark = within(codex as HTMLElement).getByRole("img", mark);
+    expect(codexMark.textContent).toBe("Codex");
+    expect(codexMark.querySelector("svg")).not.toBeNull();
     expect(within(claude as HTMLElement).queryByRole("img", mark)).toBeNull();
   });
 

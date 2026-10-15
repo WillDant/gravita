@@ -39,6 +39,7 @@ export interface EngineGateway {
   startSession(params: RpcParams<"session.start">): Promise<RpcResult<"session.start">>;
   sendMessage(params: RpcParams<"session.send">): Promise<RpcResult<"session.send">>;
   interruptSession(params: RpcParams<"session.interrupt">): Promise<RpcResult<"session.interrupt">>;
+  removeSession(params: RpcParams<"session.remove">): Promise<RpcResult<"session.remove">>;
   stopAgent(params: RpcParams<"agent.stop">): Promise<RpcResult<"agent.stop">>;
   setModel(params: RpcParams<"session.setModel">): Promise<RpcResult<"session.setModel">>;
   setPermissionMode(

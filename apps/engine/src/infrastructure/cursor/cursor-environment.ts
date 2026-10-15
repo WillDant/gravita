@@ -23,11 +23,21 @@ export function cursorChatEnv(
   shellEnv: Record<string, string>,
   key: string,
 ): Record<string, string> {
+  return { ...cursorTerminalEnv(shellEnv, key), GRAVITA_MANAGED: "1" };
+}
+
+/**
+ * The same for an interactive `cursor-agent` in an embedded terminal: only the app's key,
+ * but not marked `GRAVITA_MANAGED`, as terminal sessions are not driven by Gravita.
+ */
+export function cursorTerminalEnv(
+  shellEnv: Record<string, string>,
+  key: string,
+): Record<string, string> {
   return {
     ...filterCursorEnv(shellEnv),
     CURSOR_API_KEY: key,
     AGENT_CLI_CREDENTIAL_STORE: "memory",
     NO_OPEN_BROWSER: "1",
-    GRAVITA_MANAGED: "1",
   };
 }

@@ -26,6 +26,7 @@
   --error-bg: #fef0ee;
   --ok: #12a15f;
   --ok-ink: #0e7a48;
+  --scrim: rgb(18 20 23 / 40%);
   --station: #ffffff;
   --shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%);
   --shadow-lg: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%);
@@ -53,6 +54,7 @@
     --error-bg: #2b1513;
     --ok: #3ccb86;
     --ok-ink: #5fd99d;
+    --scrim: rgb(0 0 0 / 62%);
     --station: #0f1115;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
     --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
@@ -80,6 +82,7 @@
   --color-error-bg: var(--error-bg);
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
+  --color-scrim: var(--scrim);
   --shadow-panel: var(--shadow);
   --shadow-float: var(--shadow-lg);
   /* Product type scale, ratio ~1.125, fixed rem. */

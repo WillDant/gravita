@@ -161,7 +161,8 @@ const SessionRef = z.object({ sessionId: z.string() });
 
 export const SessionStartParams = z.object({
   cwd: z.string().min(1),
-  prompt: z.string().min(1).max(32_000),
+  /** The first message; without one the session waits for the user to write it. */
+  prompt: z.string().min(1).max(32_000).optional(),
   /** Which agent runs the session; Claude Code when absent. */
   provider: AgentProviderSchema.optional(),
   model: z.string().optional(),
@@ -258,8 +259,8 @@ export const CodexProfileSignInResult = z.object({ authUrl: z.string().url() });
  */
 export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
-// Embedded terminals: a PTY in the engine, running the user's shell or their own `claude` or
-// `codex` in a folder. Output streams as `terminal.output` notifications (not events: never
+// Embedded terminals: a PTY in the engine, running the user's shell or their own `claude`,
+// `codex` or `cursor-agent` in a folder. Output streams as `terminal.output` notifications (not events: never
 // stored); `terminal.attach` returns what was printed so far, for a reconnecting client.
 
 const TerminalId = z.string().min(1).max(64);
@@ -329,6 +330,8 @@ export const RpcContract = {
   "session.start": { params: SessionStartParams, result: SessionStartResult },
   "session.send": { params: SessionSendParams, result: OkResult },
   "session.interrupt": { params: SessionRef, result: OkResult },
+  /** Stops a live session if needed and hides it from lists (`session.removed`). */
+  "session.remove": { params: SessionRef, result: OkResult },
   "agent.stop": { params: AgentStopParams, result: OkResult },
   "session.setModel": { params: SetModelParams, result: OkResult },
   "session.setPermissionMode": { params: SetPermissionModeParams, result: OkResult },

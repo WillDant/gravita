@@ -35,6 +35,7 @@ export const EventSource = z.enum([
   "codex-rpc",
   "codex-rollout",
   "cursor-acp",
+  "cursor-transcript",
   "fake",
 ]);
 export type EventSource = z.infer<typeof EventSource>;
@@ -114,6 +115,7 @@ export const SessionPresence = ev("session.presence", {
 
 export const SessionDetached = ev("session.detached", { reason: z.string() });
 export const SessionEnded = ev("session.ended", { reason: z.string() });
+export const SessionRemoved = ev("session.removed", { reason: z.literal("user") });
 
 /** Whether Gravita runs this session and can answer, interrupt or message it. Ephemeral. */
 export const SessionControl = ev("session.control", { controllable: z.boolean() });
@@ -561,6 +563,7 @@ export const GravitaEvent = z.discriminatedUnion("type", [
   SessionPresence,
   SessionDetached,
   SessionEnded,
+  SessionRemoved,
   SessionControl,
   TurnCompleted,
   AgentSpawned,

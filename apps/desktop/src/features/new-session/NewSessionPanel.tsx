@@ -1,6 +1,6 @@
 import { AGENT_PROVIDERS, type AgentProvider } from "@gravita/protocol/constants";
-import { Plus, X } from "lucide-react";
-import { useEffect, useId, useRef } from "react";
+import { MessageSquare, Plus, SquareTerminal, X } from "lucide-react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import {
   BypassWarning,
@@ -9,9 +9,10 @@ import {
   ModeSelect,
 } from "@/features/session-settings/SettingsSelects";
 import { t } from "@/shared/i18n/i18n";
-import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
+
+import { ProviderIcon } from "@/shared/ui/ProviderIcon";
 import { Button } from "@/shared/ui/ui";
-import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
+import { cn } from "@/shared/utils";
 import {
   useIsDemo,
   useModels,
@@ -22,6 +23,10 @@ import { FolderField, type RecentFolder } from "./FolderField";
 import { type RunIn, useNewSession } from "./useNewSession";
 
 const RUN_IN: readonly RunIn[] = ["terminal", "chat"];
+const RUN_IN_ICON: Readonly<Record<RunIn, ReactNode>> = {
+  terminal: <SquareTerminal size={14} aria-hidden="true" />,
+  chat: <MessageSquare size={14} aria-hidden="true" />,
+};
 
 export type { RecentFolder };
 
@@ -49,7 +54,7 @@ export function NewSessionButton({
 }
 
 /**
- * Starts a session inline, under the page header (not a modal): agent, folder, first message,
+ * Starts a session inline, under the page header (not a modal): agent, folder, where it runs,
  * model and permissions. On success it opens the new session.
  */
 export function NewSessionPanel({
@@ -65,12 +70,11 @@ export function NewSessionPanel({
 }) {
   const form = useNewSession(defaultFolder);
   const isDemo = useIsDemo();
-  const canTerminal = useTerminalSupported() && form.provider !== "cursor";
+  const canTerminal = useTerminalSupported();
   const models = useModels(form.provider);
   const statusProblem = useProviderProblem(form.provider);
   const fieldId = useId();
   const folderRef = useRef<HTMLButtonElement>(null);
-  const messageRef = useRef<HTMLTextAreaElement>(null);
   const providerBlocked = statusProblem !== undefined;
   // An error names its provider; otherwise the chosen agent's status.
   const connect =
@@ -78,16 +82,14 @@ export function NewSessionPanel({
 
   const disabledProviders: readonly AgentProvider[] = isDemo ? ["codex", "cursor"] : [];
 
-  // Land where the typing starts: the message when the folder is known.
+  // Land on the folder when it still has to be chosen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: only on open.
   useEffect(() => {
-    if (defaultFolder) messageRef.current?.focus();
-    else folderRef.current?.focus();
+    if (!defaultFolder) folderRef.current?.focus();
   }, []);
 
   useEffect(() => {
     if (form.missing === "folder") folderRef.current?.focus();
-    if (form.missing === "message") messageRef.current?.focus();
   }, [form.missing]);
 
   return (
@@ -141,39 +143,16 @@ export function NewSessionPanel({
           focusRef={folderRef}
         />
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${fieldId}-message`} className="text-xs font-semibold text-ink-2">
-            {form.runIn === "terminal" ? t("newSession.messageOptional") : t("newSession.message")}
-          </label>
-          <div className={cn(fieldFrame, "px-3 py-2")}>
-            <AutoTextarea
-              ref={messageRef}
-              id={`${fieldId}-message`}
-              value={form.message}
-              onChange={(e) => form.setMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (isSendChord(e)) {
-                  e.preventDefault();
-                  form.submit();
-                }
-              }}
-              placeholder={t("newSession.messagePlaceholder")}
-              maxRows={10}
-              aria-invalid={form.missing === "message"}
-              className="min-h-[60px]"
-            />
-          </div>
-          {form.missing === "message" && (
-            <p className="text-xs text-error-ink">{t("newSession.needMessage")}</p>
-          )}
-        </div>
-
         <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
           {canTerminal && (
             <Segmented
               name={`${fieldId}-run-in`}
               legend={t("newSession.runIn")}
-              options={RUN_IN.map((v) => ({ value: v, label: t(`newSession.runIn.${v}`) }))}
+              options={RUN_IN.map((v) => ({
+                value: v,
+                label: t(`newSession.runIn.${v}`),
+                icon: RUN_IN_ICON[v],
+              }))}
               value={form.runIn}
               onChange={form.setRunIn}
             />
@@ -214,7 +193,6 @@ export function NewSessionPanel({
               {form.error.text}
             </p>
           )}
-          <span className="text-xs text-ink-3">{t("newSession.shortcut", { key: MOD_KEY })}</span>
           <Button variant="ghost" onClick={onClose}>
             {t("newSession.cancel")}
           </Button>
@@ -254,6 +232,7 @@ function ProviderChoice({
       options={providers.map((p) => ({
         value: p,
         label: t(`newSession.provider.${p}`),
+        icon: <ProviderIcon provider={p} />,
         disabled: blocked.has(p),
       }))}
       value={value}
@@ -275,7 +254,7 @@ function Segmented<T extends string>({
 }: {
   name: string;
   legend: string;
-  options: readonly { value: T; label: string; disabled?: boolean }[];
+  options: readonly { value: T; label: string; icon?: ReactNode; disabled?: boolean }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -287,7 +266,7 @@ function Segmented<T extends string>({
           <label
             key={o.value}
             className={cn(
-              "flex items-center rounded-md px-3 text-sm font-medium transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-focus",
+              "flex items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-focus",
               o.disabled
                 ? "cursor-not-allowed text-ink-3 opacity-50"
                 : "cursor-pointer text-ink-2 hover:text-ink",
@@ -304,6 +283,7 @@ function Segmented<T extends string>({
               onChange={() => onChange(o.value)}
               className="sr-only"
             />
+            {o.icon}
             {o.label}
           </label>
         ))}

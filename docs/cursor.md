@@ -9,7 +9,9 @@ Gravita can run [Cursor](https://cursor.com)'s coding agent next to Claude Code 
 - **Modes and models.** See below; both can be changed during a chat.
 - **The kill switch** (tray, or `engine.stopAll`) stops Cursor chats too, and they count toward the six chats Gravita runs at once.
 
-Not yet: Cursor in a terminal inside Gravita, Cursor roles in squads, observing Cursor sessions you run elsewhere (the editor, your own terminal), resuming a Cursor chat after Gravita restarts, plan usage for Cursor accounts, and answering Cursor's own questions (only approvals).
+You can also choose "Terminal" when starting a Cursor session: your `cursor-agent` opens in a terminal inside Gravita, with the key you pasted in Gravita (never your own Cursor login), and without a terminal there is no key, no Cursor terminal. The chat shows up on the map like a Claude Code or Codex session (lines, orbit and tree, with its subagents), read from the transcript the CLI writes under `~/.cursor`; the transcript has no tool results or times, so every call reads as done once the agent moves on.
+
+Not yet: Cursor roles in squads, observing Cursor sessions you run elsewhere (the editor, your own terminal outside Gravita), resuming a Cursor chat after Gravita restarts, plan usage for Cursor accounts, and answering Cursor's own questions (only approvals).
 
 ## Requirements
 

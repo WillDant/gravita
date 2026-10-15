@@ -222,6 +222,12 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       s.ended = true;
       s.controllable = false;
       return;
+    case "session.removed":
+      s.removed = true;
+      s.live = false;
+      s.ended = true;
+      s.controllable = false;
+      return;
     case "turn.completed": {
       const main = ensureAgent(s, MAIN_AGENT, e.ts);
       main.inflight = {};

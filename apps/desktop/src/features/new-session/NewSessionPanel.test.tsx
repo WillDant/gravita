@@ -47,7 +47,7 @@ const offered = (label: string) =>
   [...(field(label) as unknown as HTMLSelectElement).options].map((o) => o.textContent);
 
 describe("NewSessionPanel", () => {
-  it("asks for the folder, then the message, before starting", async () => {
+  it("asks for the folder before starting, and only the folder", async () => {
     const { gateway, store } = renderPanel();
     act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
     await act(flush);
@@ -57,9 +57,9 @@ describe("NewSessionPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "app" }));
     expect(folderField().textContent).toContain("/work/app");
-    await start();
-    expect(screen.getByText("Write the first message.")).toBeTruthy();
     expect(gateway.callsOf("startSession")).toEqual([]);
+    await start();
+    expect(gateway.callsOf("startSession")).toEqual([{ cwd: "/work/app", permissionMode: "default" }]);
   });
 
   it("starts with the chosen settings and opens the new session", async () => {
@@ -69,19 +69,14 @@ describe("NewSessionPanel", () => {
     expect(folderField().textContent).toContain("/work/p1");
     await act(flush);
 
-    fireEvent.change(field("First message"), { target: { value: " Fix the login " } });
     fireEvent.change(field("Model"), { target: { value: "opus" } });
     fireEvent.change(field("Permissions"), { target: { value: "bypassPermissions" } });
     expect(screen.getByRole("note").textContent).toContain("without asking");
-    await act(async () => {
-      fireEvent.keyDown(field("First message"), { key: "Enter", metaKey: true });
-      await flush();
-    });
+    await start();
 
     expect(gateway.callsOf("startSession")).toEqual([
       {
         cwd: "/work/p1",
-        prompt: "Fix the login",
         model: "opus",
         permissionMode: "bypassPermissions",
       },
@@ -103,7 +98,6 @@ describe("NewSessionPanel", () => {
     gateway.failures.startSession = new GatewayError(error.code, error.message);
     const { navigate, store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
     act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
-    fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
 
     expect(screen.getByRole("alert").textContent).toContain(text);
@@ -118,7 +112,6 @@ describe("NewSessionPanel", () => {
     );
     const { store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
     act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
-    fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
 
     expect(screen.getByRole("heading", { name: "Log in to Claude Code" })).toBeTruthy();
@@ -219,7 +212,6 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
       "Edit in this folder",
       "Full access",
     ]);
-    fireEvent.change(field("First message"), { target: { value: "Fix the login" } });
     await start();
     expect(gateway.callsOf("startSession")).toEqual([
       expect.objectContaining({ provider: "codex", permissionMode: "ask" }),
@@ -275,13 +267,11 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     fireEvent.change(field("Permissions"), { target: { value: "workspace" } });
     expect(screen.queryByRole("note")).toBeNull();
     fireEvent.change(field("Model"), { target: { value: "gpt-5.5-codex" } });
-    fireEvent.change(field("First message"), { target: { value: "Fix the login" } });
     await start();
 
     expect(gateway.callsOf("startSession")).toEqual([
       {
         cwd: "/work/p1",
-        prompt: "Fix the login",
         provider: "codex",
         model: "gpt-5.5-codex",
         permissionMode: "workspace",
@@ -299,11 +289,10 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
 
     expect(field("Permissions").value).toBe("default");
     expect(offered("Permissions")).toContain("Don't ask");
-    fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
     // Claude Code is the engine's default, so the request names no provider.
     expect(gateway.callsOf("startSession")).toEqual([
-      { cwd: "/work/p1", prompt: "go", permissionMode: "default" },
+      { cwd: "/work/p1", permissionMode: "default" },
     ]);
   });
 
@@ -338,7 +327,6 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     const { store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
     act(() => store.getState().setEngineStatus(engine(BOTH)));
     fireEvent.click(screen.getByRole("radio", { name: "Codex" }));
-    fireEvent.change(field("First message"), { target: { value: "go" } });
     await start();
 
     expect(screen.getByRole("alert").textContent).toContain("Codex isn't logged in.");
@@ -371,17 +359,35 @@ describe("NewSessionPanel with Cursor", () => {
     expect(offered("Model")[0]).toBe("Auto");
     expect(offered("Permissions")).toEqual(["Agent", "Plan first", "Ask (read only)"]);
     expect(field("Permissions").value).toBe("agent");
-    // Cursor has no mode that acts without asking, nor a terminal of its own here.
+    // Cursor has no mode that acts without asking.
     expect(screen.queryByRole("note")).toBeNull();
+    // This engine opens no terminals, so the session runs as a chat.
     expect(screen.queryByRole("group", { name: "Run in" })).toBeNull();
 
     fireEvent.change(field("Permissions"), { target: { value: "ask" } });
-    fireEvent.change(field("First message"), { target: { value: "Explain the login" } });
     await start();
     expect(gateway.callsOf("startSession")).toEqual([
-      { cwd: "/work/p1", prompt: "Explain the login", provider: "cursor", permissionMode: "ask" },
+      { cwd: "/work/p1", provider: "cursor", permissionMode: "ask" },
     ]);
     expect(gateway.callsOf("spawnTerminal")).toEqual([]);
+  });
+
+  it("opens Cursor's CLI in a terminal when the engine can", async () => {
+    const { store, gateway } = renderPanel({ defaultFolder: "/work/p1" });
+    act(() => store.getState().setEngineStatus({ ...engine(ALL), terminal: true }));
+    await act(flush);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
+      await flush();
+    });
+    expect(screen.getByRole("group", { name: "Run in" })).toBeTruthy();
+
+    fireEvent.change(field("Permissions"), { target: { value: "plan" } });
+    await start();
+    expect(gateway.callsOf("startSession")).toEqual([]);
+    expect(gateway.callsOf("spawnTerminal")).toEqual([
+      expect.objectContaining({ cwd: "/work/p1", command: "cursor", permissionMode: "plan" }),
+    ]);
   });
 
   it("shows install steps when Cursor is chosen but its CLI is missing", async () => {

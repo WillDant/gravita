@@ -38,6 +38,7 @@ export interface ControlSlice {
   /** `mode` in the session's provider's terms: the engine refuses another provider's mode. */
   setPermissionMode: (sessionId: string, mode: SessionMode) => Promise<CommandResult>;
   answerQuestion: (params: RpcParams<"question.answer">) => Promise<CommandResult>;
+  removeSession: (sessionId: string, projectId: string) => Promise<CommandResult>;
 }
 
 export async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
@@ -91,4 +92,14 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
   setPermissionMode: (sessionId, mode) =>
     done(() => gateway.setPermissionMode({ sessionId, mode })),
   answerQuestion: (params) => done(() => gateway.answerQuestion(params)),
+  removeSession: async (sessionId, projectId) => {
+    const r = await done(() => gateway.removeSession({ sessionId }));
+    if (r.ok) {
+      const route = get().route;
+      if (route.level === "session" && route.sessionId === sessionId) {
+        get().setRoute({ level: "project", projectId });
+      }
+    }
+    return r;
+  },
 });

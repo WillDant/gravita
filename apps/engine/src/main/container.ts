@@ -48,6 +48,7 @@ import { InterruptSession } from "../application/usecases/interrupt-session";
 import { DEFAULT_FALLBACKS, ListModels } from "../application/usecases/list-models";
 import { PrepareSquadWorkspace } from "../application/usecases/prepare-squad-workspace";
 import { RegenerateShared } from "../application/usecases/regenerate-shared";
+import { RemoveSession } from "../application/usecases/remove-session";
 import { RespondToPermission } from "../application/usecases/respond-to-permission";
 import { RunChecks } from "../application/usecases/run-checks";
 import { SendMessage } from "../application/usecases/send-message";
@@ -93,7 +94,13 @@ import { CodexTranscriptReader } from "../infrastructure/codex/codex-transcript-
 import { MemoryCredentialSource } from "../infrastructure/credentials/memory-credential-source";
 import { CursorAcpRuntimeFactory } from "../infrastructure/cursor/cursor-acp-runtime";
 import { CursorDetector } from "../infrastructure/cursor/cursor-detector";
-import { DetectedCursorEnvironment } from "../infrastructure/cursor/cursor-environment";
+import { CursorPresence } from "../infrastructure/cursor/cursor-presence";
+import { CursorSessionDiscovery } from "../infrastructure/cursor/cursor-session-discovery";
+import { CursorSessionSource } from "../infrastructure/cursor/cursor-session-source";
+import {
+  cursorTerminalEnv,
+  DetectedCursorEnvironment,
+} from "../infrastructure/cursor/cursor-environment";
 import { CursorCliKeyValidator } from "../infrastructure/cursor/cursor-key-validator";
 import { cursorModelsCatalog } from "../infrastructure/cursor/cursor-models-catalog";
 import { RuntimeConversationReader } from "../infrastructure/cursor/runtime-conversation-reader";
@@ -544,6 +551,8 @@ export function createCore(o: CoreOptions): EngineCore {
         shellEnv: o.terminal.shellEnv,
         defaultShell: o.terminal.defaultShell,
         ...(providers ? { providers } : {}),
+        ...(o.chat?.credentials ? { credentials: o.chat.credentials } : {}),
+        cursorEnv: cursorTerminalEnv,
         flags: providerTerminalFlags,
         ids,
         clock,
@@ -560,6 +569,7 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(startChat ? { startChat } : {}),
       sendMessage: new SendMessage(runtimes, ingest, ids, clock),
       interruptSession: new InterruptSession(runtimes),
+      removeSession: new RemoveSession(runtimes, projection, ingest, clock),
       stopAgent: new StopAgent(runtimes),
       setModel: new SetModel(runtimes, settings),
       setPermissionMode: new SetPermissionMode(runtimes, settings),
@@ -623,10 +633,13 @@ export function createCore(o: CoreOptions): EngineCore {
   };
 }
 
-export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHome"> {
+export interface EngineOptions
+  extends Omit<EngineArgs, "tokenStdin" | "codexHome" | "cursorHome"> {
   token: string;
   /** `--codex-home`; `~/.codex` when absent. */
   codexHome?: string;
+  /** `--cursor-home`; `~/.cursor` when absent. */
+  cursorHome?: string;
   /** Tests pin it; otherwise 256 random bits per run. */
   hookToken?: string;
   /** Seed of the demo story. */
@@ -731,6 +744,13 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         debug,
       };
 
+  // Cursor's chats are read from <cursorHome>: each chat's transcript and meta.json only.
+  const cursorDiscovery = new CursorSessionDiscovery({
+    cursorHome: opts.cursorHome ?? join(homedir(), ".cursor"),
+    lookbackDays: opts.lookbackDays,
+    clock,
+    onSkip: (path, reason) => stderrLogger.log(`skipped ${path}: ${reason}`),
+  });
   const codexDiscovery = new CodexSessionDiscovery({
     codexHome,
     lookbackDays: opts.lookbackDays,
@@ -842,6 +862,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       logger,
     });
     const codexPresence = new CodexPresence({ ingest, clock });
+    const cursorPresence = new CursorPresence({ ingest, clock });
     const tails = new TailScheduler({
       sources: [
         new ClaudeSessionSource({
@@ -860,6 +881,12 @@ export function startEngine(opts: EngineOptions): RunningEngine {
           clock,
           logger,
         }),
+        new CursorSessionSource({
+          discovery: cursorDiscovery,
+          presence: cursorPresence,
+          clock,
+          logger,
+        }),
       ],
       ingest,
       checkpoints: core.checkpoints,
@@ -871,6 +898,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     });
     registry.start();
     codexPresence.start();
+    cursorPresence.start();
     tails.start();
     const spool = new DrainHookSpool(
       new FsHookSpool(join(opts.dataDir, "spool")),
@@ -886,6 +914,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     stops.push(
       () => registry.stop(),
       () => codexPresence.stop(),
+      () => cursorPresence.stop(),
       () => tails.stop(),
       () => clearInterval(drainTimer),
     );

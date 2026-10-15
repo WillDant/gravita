@@ -399,11 +399,12 @@ function WatchingBar({ session, hasTerminal }: { session: SessionState; hasTermi
   const { spawn } = useTerminalControl();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  // Cursor has no terminal of its own here yet: its sessions are chats Gravita runs.
+  // A Cursor chat Gravita runs can't be picked up by the CLI; one seen in a terminal can.
   const provider = sessionProvider(session);
-  const canContinue = supported && !hasTerminal && !session.live && provider !== "cursor";
+  const resumable = provider !== "cursor" || session.kind === "external";
+  const canContinue = supported && !hasTerminal && !session.live && resumable;
   const resume = async () => {
-    if (provider === "cursor") return;
+    if (!resumable) return;
     setBusy(true);
     setError(undefined);
     const r = await spawn({

@@ -1,5 +1,5 @@
 import { STALE_MS } from "@gravita/core";
-import type { GravitaEvent } from "@gravita/protocol";
+import type { EventSource, GravitaEvent, Provider } from "@gravita/protocol";
 import type { Clock } from "../../application/ports/clock";
 import type { IngestEvents } from "../../application/usecases/ingest-events";
 import { CODEX } from "./provider";
@@ -27,6 +27,9 @@ export interface CodexPresenceOptions {
   ingest: IngestEvents;
   clock: Clock;
   intervalMs?: number;
+  /** Whose sessions these are, and which reader saw them (Codex unless said otherwise). */
+  provider?: Provider;
+  source?: EventSource;
 }
 
 export class CodexPresence {
@@ -61,8 +64,8 @@ export class CodexPresence {
     this.emit({
       key: `presence:${sessionId}:${status}:${now}`,
       ts: new Date(now).toISOString(),
-      source: "codex-rollout",
-      provider: CODEX,
+      source: this.o.source ?? "codex-rollout",
+      provider: this.o.provider ?? CODEX,
       projectId,
       sessionId,
       type: "session.presence",
@@ -84,8 +87,8 @@ export class CodexPresence {
     this.emit({
       key: `detached:${sessionId}:${now}`,
       ts: new Date(now).toISOString(),
-      source: "codex-rollout",
-      provider: CODEX,
+      source: this.o.source ?? "codex-rollout",
+      provider: this.o.provider ?? CODEX,
       projectId: l.projectId,
       sessionId,
       type: "session.detached",

@@ -14,6 +14,7 @@ import {
   squadDecisions,
   squadTitle,
 } from "@/shared/presenters/squad";
+import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { cn } from "@/shared/utils";
 import { useNow, useProjection, useRoute } from "@/state/hooks";
@@ -122,6 +123,7 @@ export function Sidebar() {
                   <SubItem
                     key={item.kind === "squad" ? `q:${item.squad.id}` : item.session.id}
                     item={item}
+                    projectId={project.id}
                     now={now}
                     state={state}
                     active={
@@ -170,12 +172,14 @@ export function Sidebar() {
 /** A session or a squad under its project: status dot, name, live count or age. */
 function SubItem({
   item,
+  projectId,
   state,
   now,
   active,
   onOpen,
 }: {
   item: ProjectItem;
+  projectId: string;
   state: GravitaState;
   now: number;
   active: boolean;
@@ -214,29 +218,39 @@ function SubItem({
     count = c.running + c.waiting;
   }
   return (
-    <button
-      type="button"
-      aria-current={active ? "page" : undefined}
-      onClick={onOpen}
+    <div
       className={cn(
-        "flex w-full items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm text-ink-2 hover:text-ink max-[1100px]:hidden",
-        active ? "bg-ground text-ink shadow-panel" : "hover:bg-panel-2",
+        "group/subitem flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 pl-1 max-[1100px]:hidden",
+        active ? "bg-ground shadow-panel" : "hover:bg-panel-2",
       )}
     >
-      {item.kind === "squad" ? (
-        <UsersRound size={12} aria-hidden="true" className="flex-none text-ink-3" />
-      ) : (
-        <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
+      <button
+        type="button"
+        aria-current={active ? "page" : undefined}
+        onClick={onOpen}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1 pl-7 text-left text-sm text-ink-2 hover:text-ink",
+          active && "text-ink",
+        )}
+      >
+        {item.kind === "squad" ? (
+          <UsersRound size={12} aria-hidden="true" className="flex-none text-ink-3" />
+        ) : (
+          <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
+        )}
+        <span className="truncate">{title}</span>
+        {item.kind === "session" && <ProviderMark provider={item.session.provider} />}
+        {item.kind === "squad" && (
+          <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
+        )}
+        <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
+          {count > 0 ? count : ago(item.lastEventTs, now)}
+        </span>
+      </button>
+      {item.kind === "session" && (
+        <RemoveSessionButton sessionId={item.session.id} projectId={projectId} />
       )}
-      <span className="truncate">{title}</span>
-      {item.kind === "session" && <ProviderMark provider={item.session.provider} compact />}
-      {item.kind === "squad" && (
-        <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
-      )}
-      <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
-        {count > 0 ? count : ago(item.lastEventTs, now)}
-      </span>
-    </button>
+    </div>
   );
 }
 

@@ -68,6 +68,7 @@ export const Methods = {
   sessionStart: "session.start",
   sessionSend: "session.send",
   sessionInterrupt: "session.interrupt",
+  sessionRemove: "session.remove",
   agentStop: "agent.stop",
   sessionSetModel: "session.setModel",
   sessionSetPermissionMode: "session.setPermissionMode",
@@ -104,9 +105,9 @@ export const Methods = {
 
 /**
  * What an embedded terminal starts in its folder: the user's login shell, or their own
- * Claude Code or Codex CLI (interactive, exactly as they would run it).
+ * Claude Code, Codex or Cursor CLI (interactive, exactly as they would run it).
  */
-export const TERMINAL_COMMANDS = ["shell", "claude", "codex"] as const;
+export const TERMINAL_COMMANDS = ["shell", "claude", "codex", "cursor"] as const;
 export type TerminalCommand = (typeof TERMINAL_COMMANDS)[number];
 
 /**

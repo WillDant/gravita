@@ -1,3 +1,5 @@
+import type { AgentProvider } from "@gravita/protocol";
+
 /** One process running in a pseudo-terminal. */
 export interface PtyProcess {
   readonly pid: number;
@@ -28,9 +30,9 @@ export interface TerminalHost {
 /** How each provider's CLI takes Gravita's choices in an interactive terminal. */
 export interface ProviderTerminalFlags {
   /** A session mode (in the provider's terms) as the CLI's flags. */
-  modeArgs(provider: "claude" | "codex", mode: string, cwd: string): string[];
+  modeArgs(provider: AgentProvider, mode: string, cwd: string): string[];
   /** The CLI's own id for a Gravita session id (Codex: the thread id). */
-  resumeArg(provider: "claude" | "codex", sessionId: string): string;
+  resumeArg(provider: AgentProvider, sessionId: string): string;
   /** The Gravita session id a resumed CLI session has. */
-  sessionIdOf(provider: "claude" | "codex", resumeId: string): string;
+  sessionIdOf(provider: AgentProvider, resumeId: string): string;
 }

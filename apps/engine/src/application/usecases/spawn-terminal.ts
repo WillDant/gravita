@@ -3,10 +3,12 @@ import type { SessionMode, TerminalCommand, TerminalInfo } from "@gravita/protoc
 import {
   InvalidCwdError,
   InvalidSessionModeError,
+  NotLoggedInError,
   ProviderUnavailableError,
 } from "../../domain/errors";
 import { terminalArgv, terminalEnv } from "../../domain/terminal-command";
 import type { Clock } from "../ports/clock";
+import type { CredentialSource } from "../ports/credential-source";
 import type { IdGenerator } from "../ports/id-generator";
 import type { ProviderTerminalFlags } from "../ports/terminal-host";
 import type { Workspace } from "../ports/workspace";
@@ -33,16 +35,20 @@ export interface SpawnTerminalDeps {
   shellEnv: () => Promise<Record<string, string>>;
   /** The shell when the login environment names none. */
   defaultShell: string;
-  /** Where the user's `claude` and `codex` are; absent in the demo (shells only). */
+  /** Where the user's `claude`, `codex` and `cursor-agent` are; absent in the demo (shells only). */
   providers?: RuntimeFactoryRegistry;
+  /** The app's Cursor key: the only credential a Cursor terminal gets. */
+  credentials?: CredentialSource;
+  /** A Cursor terminal's whole environment, built around the key (ADR 008). */
+  cursorEnv?: (shellEnv: Record<string, string>, key: string) => Record<string, string>;
   flags: ProviderTerminalFlags;
   ids: IdGenerator;
   clock: Clock;
 }
 
 /**
- * Opens a terminal in a folder: the user's login shell, or their own Claude Code or Codex
- * started through it. A new Claude Code session gets its id here, so the terminal is linked
+ * Opens a terminal in a folder: the user's login shell, or their own Claude Code, Codex or
+ * Cursor started through it (Cursor with the app's key only, never the user's own login). A new Claude Code session gets its id here, so the terminal is linked
  * to its session before the session even writes its transcript.
  */
 export class SpawnTerminal {
@@ -65,6 +71,11 @@ export class SpawnTerminal {
       const ready = await this.d.providers.ready(provider);
       cliPath = ready.environment.cliPath;
       env = { ...loginEnv, ...ready.environment.env };
+      if (provider === "cursor") {
+        const key = this.d.credentials?.cursorKey();
+        if (!key || !this.d.cursorEnv) throw new NotLoggedInError("cursor");
+        env = this.d.cursorEnv(env, key);
+      }
     }
     // A new Claude Code session takes its id from here; a resumed one keeps its own.
     const sessionId = !provider

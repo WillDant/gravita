@@ -7,25 +7,23 @@ import { START_SIZE } from "@/features/terminal/TerminalView";
 import { describeError, type ErrorView } from "@/shared/presenters/errors";
 import { useControl, useTerminalControl, useTerminalSupported } from "@/state/hooks";
 
-export type MissingField = "folder" | "message";
+export type MissingField = "folder";
 
 /** Where the session runs: the agent's own CLI in a terminal here, or a chat Gravita drives. */
 export type RunIn = "terminal" | "chat";
 
 export interface NewSessionForm {
   folder: string;
-  message: string;
   /** The agent the session runs: Claude Code unless Codex or Cursor is chosen. */
   provider: AgentProvider;
   /** "" means the provider's own default. */
   model: string;
   /** In the provider's own terms. */
   mode: SessionMode;
-  /** Only offered when the engine can open terminals (and never for Cursor). */
+  /** Only offered when the engine can open terminals. */
   runIn: RunIn;
   setRunIn: (v: RunIn) => void;
   setFolder: (v: string) => void;
-  setMessage: (v: string) => void;
   /** Switches the agent, back to its default model and mode (models and modes are its own). */
   setProvider: (v: AgentProvider) => void;
   setModel: (v: string) => void;
@@ -45,10 +43,9 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
   const [chosenRunIn, setRunIn] = useState<RunIn>("terminal");
   const navigate = useNavigate();
   const [folder, setFolder] = useState(defaultFolder);
-  const [message, setMessage] = useState("");
   const [provider, setProvider] = useState<AgentProvider>(DEFAULT_PROVIDER);
-  // A terminal is the first choice wherever the engine can open one; Cursor runs chats only.
-  const runIn: RunIn = canTerminal && provider !== "cursor" ? chosenRunIn : "chat";
+  // A terminal is the first choice wherever the engine can open one.
+  const runIn: RunIn = canTerminal ? chosenRunIn : "chat";
   const [model, setModel] = useState("");
   const [mode, setMode] = useState<SessionMode>(DEFAULT_MODE[DEFAULT_PROVIDER]);
   const [busy, setBusy] = useState(false);
@@ -58,25 +55,19 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
   const submit = () => {
     if (busy) return;
     const cwd = folder.trim();
-    const prompt = message.trim();
-    // In a terminal the first message is optional: the user can type it there.
-    const empty: MissingField | undefined = !cwd
-      ? "folder"
-      : !prompt && runIn === "chat"
-        ? "message"
-        : undefined;
+    // Only the folder is needed: the user writes the first message in the session itself.
+    const empty: MissingField | undefined = cwd ? undefined : "folder";
     setMissing(empty);
     setError(undefined);
     if (empty) return;
     setBusy(true);
-    if (runIn === "terminal" && provider !== "cursor") {
+    if (runIn === "terminal") {
       void terminals
         .spawn({
           cwd,
           command: provider,
           ...START_SIZE,
           permissionMode: mode,
-          ...(prompt ? { prompt } : {}),
           ...(model ? { model } : {}),
         })
         .then((r) => {
@@ -96,7 +87,6 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
     }
     void startSession({
       cwd,
-      prompt,
       permissionMode: mode,
       // The engine starts Claude Code when no provider is named, as it always did.
       ...(provider !== DEFAULT_PROVIDER ? { provider } : {}),
@@ -113,7 +103,6 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
 
   return {
     folder,
-    message,
     provider,
     model,
     mode,
@@ -122,10 +111,6 @@ export function useNewSession(defaultFolder = ""): NewSessionForm {
     setFolder: (v) => {
       setFolder(v);
       if (missing === "folder") setMissing(undefined);
-    },
-    setMessage: (v) => {
-      setMessage(v);
-      if (missing === "message") setMissing(undefined);
     },
     setProvider: (v) => {
       if (v === provider) return;

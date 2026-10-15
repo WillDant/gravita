@@ -25,7 +25,8 @@ import type { IngestEvents } from "./ingest-events";
 
 export interface StartChatParams {
   cwd: string;
-  prompt: string;
+  /** The first message; absent, the session starts idle and waits for the user's first. */
+  prompt?: string;
   /** Claude Code when absent. */
   provider?: AgentProvider;
   model?: string;
@@ -48,7 +49,7 @@ export interface StartChatDeps {
 
 /**
  * Starts a session of the chosen provider (Claude Code unless the request names another)
- * in a folder and sends its first message. The runtime is registered before the first
+ * in a folder and sends its first message, if it has one. The runtime is registered before the first
  * event, so the transcript tailer leaves the session to it from the start; the first
  * message's event and the message sent to the agent share one uuid, so the transcript's
  * copy of it is deduplicated.
@@ -132,17 +133,19 @@ export class StartChat {
         { sessionId, projectId: project.id, provider },
         { ...(p.model ? { model: p.model } : {}), permissionMode },
       );
-      this.d.ingest.execute([
-        {
-          ...base,
-          agentId: MAIN_AGENT,
-          key: keys.userMessage(uuid),
-          type: "message.user",
-          data: { uuid, textPreview: preview(p.prompt), origin: "gravita" },
-        },
-      ]);
+      if (p.prompt) {
+        this.d.ingest.execute([
+          {
+            ...base,
+            agentId: MAIN_AGENT,
+            key: keys.userMessage(uuid),
+            type: "message.user",
+            data: { uuid, textPreview: preview(p.prompt), origin: "gravita" },
+          },
+        ]);
+      }
       runtime.start();
-      await runtime.send(p.prompt, uuid);
+      if (p.prompt) await runtime.send(p.prompt, uuid);
     } catch (err) {
       this.d.runtimes.unregister(sessionId);
       await runtime.dispose();

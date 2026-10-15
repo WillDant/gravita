@@ -20,6 +20,7 @@ export type FakeCommand =
   | "startSession"
   | "sendMessage"
   | "interruptSession"
+  | "removeSession"
   | "stopAgent"
   | "setModel"
   | "setPermissionMode"
@@ -176,6 +177,9 @@ export class FakeGateway implements EngineGateway {
   }
   interruptSession(params: RpcParams<"session.interrupt">) {
     return this.run("interruptSession", params, () => ({ ok: true }) as const);
+  }
+  removeSession(params: RpcParams<"session.remove">) {
+    return this.run("removeSession", params, () => ({ ok: true }) as const);
   }
   stopAgent(params: RpcParams<"agent.stop">) {
     return this.run("stopAgent", params, () => ({ ok: true }) as const);

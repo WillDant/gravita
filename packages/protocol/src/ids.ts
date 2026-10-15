@@ -22,6 +22,7 @@ export function toolNodeId(provider: Provider, toolUseId: string): string {
 export const keys = {
   sessionStarted: (sid: string) => `session:${sid}:started`,
   sessionEnded: (sid: string) => `session:${sid}:ended`,
+  sessionRemoved: (sid: string) => `session:${sid}:removed`,
   agentSpawned: (sid: string, agentId: string) => `agent:${sid}:${agentId}:spawned`,
   agentCompleted: (sid: string, agentId: string) => `agent:${sid}:${agentId}:completed`,
   agentLifecycle: (sid: string, agentId: string, status: string) =>

@@ -27,7 +27,7 @@ The spike (`spec/cursor-provider/tasks/T01-spike-acp-cursor-agent.md`, CLI `2026
 - **Optional, like Codex.** Without `cursor-agent` (or older than 2026.10.14) the provider shows a note and Claude Code and Codex work as before.
 
 ## Out of scope
-Squads on Cursor (dropped), observing Cursor sessions started outside Gravita, Cursor in the embedded terminal, and the Conversation lens for Cursor sessions. `allowedProviders` never offers Cursor and `validatePlan` refuses it.
+Squads on Cursor (dropped), observing Cursor chats of the editor, the Conversation lens for Cursor sessions. `allowedProviders` never offers Cursor and `validatePlan` refuses it.
 
 ## Alternatives rejected
 - `@cursor/sdk`, `cursor-agent -p --output-format stream-json`, Cloud Agents: no approvals in the loop (or not local).
@@ -40,3 +40,7 @@ Squads on Cursor (dropped), observing Cursor sessions started outside Gravita, C
 - `AGENT_CLI_CREDENTIAL_STORE` is internal to the CLI and may change (risk R17): the minimum version is pinned and the compliance test checks the environment Gravita builds; a CLI that stops honouring it must block Cursor sessions rather than fall back.
 - ACP has no steer, no per-subagent stop, no questions Gravita can answer and no usage: a message sent during a turn waits for it, `stopAgent` stops only the main agent, Cursor's own questions are declined, and Cursor sessions report no cost.
 - Whether the agent's shell tools see `CURSOR_API_KEY` is still to be confirmed with a real key; the masking covers it meanwhile.
+
+**Amendment (embedded terminal).** The D6 exception covers a Cursor terminal too: `cursor-agent` opened in the embedded terminal gets the same environment as a chat (no inherited `CURSOR_*`/`AGENT_CLI_*`, `CURSOR_API_KEY` from the app, in-memory credential store, no browser login), but not `GRAVITA_MANAGED`. Without a key the terminal does not open. No other terminal (shell, Claude Code, Codex) ever receives the key. The PTY output is not scanned for the key: the process receives it only as an environment variable and Gravita never types it.
+
+**Amendment (observing terminal chats).** The engine reads the Cursor home (`--cursor-home`, default `~/.cursor`) read-only, and only `projects/*/agent-transcripts/<chat>/<chat>.jsonl` and `chats/*/<chat>/meta.json`, to put the `cursor-agent` chats of the embedded terminal (and their subagents) on the map. It never opens the login, `cli-config.json`, `mcp-auth.json`, `acp-sessions/` or the SQLite stores, and follows no symlinks; `cursor-compliance.test.ts` and the discovery test audit the paths. A transcript holds text and tool calls, no results, ids or times, so Gravita makes those up from the file (ids from the line, a call completes when the agent moves on, times from the file's modification time). A subagent is a transcript of its own with no link to its parent: it is tied to the `Task` call whose prompt is its first message. The CLI's chats are told from the editor's by their `meta.json`.
