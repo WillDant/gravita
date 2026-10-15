@@ -45,7 +45,7 @@ export function Settings() {
   );
 }
 
-/** Theme, language and notifications: what the menu's footer shortcuts also set. */
+/** Theme, language and notifications: the notification shortcut in the menu's footer sets the same switches. */
 function Preferences() {
   const theme = useTheme();
   const toggleTheme = useToggleTheme();

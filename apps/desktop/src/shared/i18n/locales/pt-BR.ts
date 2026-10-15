@@ -205,7 +205,6 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "engine.offline":
     "Não consigo falar com o motor do Gravita. Ele reinicia sozinho; esta tela reconecta quando ele voltar.",
   "engine.demo": "Dados de demonstração",
-  "theme.toggle": "Trocar tema",
 
   "session.lens.conversation": "Conversa",
   "session.starting": "Iniciando a sessão…",
@@ -378,7 +377,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "settings.title": "Configurações",
   "settings.prefs": "Preferências",
   "settings.prefs.body":
-    "Como o Gravita aparece e quando ele avisa você. Os mesmos controles estão no rodapé do menu.",
+    "Como o Gravita aparece e quando ele avisa você. As notificações também estão no rodapé do menu.",
   "settings.theme": "Tema",
   "settings.theme.body": "Claro ou escuro.",
   "settings.theme.light": "Claro",

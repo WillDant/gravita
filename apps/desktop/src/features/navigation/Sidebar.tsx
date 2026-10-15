@@ -1,10 +1,10 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
+import { House, Settings, UsersRound } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate, useProjectAppearances, useToggleTheme } from "@/app/providers";
+import { useNavigate, useProjectAppearances } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
-import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
+import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
   type ProjectItem,
@@ -25,7 +25,6 @@ export function Sidebar() {
   const now = useNow();
   const route = useRoute();
   const navigate = useNavigate();
-  const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const appearances = useProjectAppearances();
   const currentProject =
@@ -138,23 +137,6 @@ export function Sidebar() {
           )}
         >
           <Settings size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={t("theme.toggle")}
-          className="rounded-md p-2 text-ink-2 hover:bg-panel-2 hover:text-ink"
-        >
-          <Sun size={16} className="hidden dark:block" />
-          <MoonStar size={16} className="dark:hidden" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setLocale(getLocale() === "en" ? "pt-BR" : "en")}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-ink-2 hover:bg-panel-2 hover:text-ink"
-        >
-          <Languages size={15} />
-          <span className="max-[1100px]:sr-only">{getLocale() === "en" ? "EN" : "PT"}</span>
         </button>
         <NotificationSettings />
       </div>
