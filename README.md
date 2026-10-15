@@ -4,7 +4,7 @@
 
 When Claude Code or Codex fans out into subagents, it gets hard to tell who is doing what, how many are running, and which one is waiting for you. Gravita draws your sessions as a live transit map: each agent is a coloured line, every tool call is a station, and a subagent is a branch line that leaves its parent and merges back when it's done. The agent itself rides at the head of its line as a small orb with eyes that react to what it's doing.
 
-> Status: **v0.4.0-beta**, a preview for macOS. Works with Claude Code and Codex, in Gravita's own terminal or chat, and squads can mix both. Open source under Apache-2.0.
+> Status: **v0.5.0-beta**, a preview for macOS. Works with Claude Code, Codex and Cursor, in Gravita's own terminal or chat, and squads can mix Claude Code and Codex. Open source under Apache-2.0.
 
 ## What it does
 
@@ -15,7 +15,7 @@ When Claude Code or Codex fans out into subagents, it gets hard to tell who is d
 - **Tray and notifications:** close the window and agents keep running; the menu-bar icon shows who is waiting and stops every Gravita agent at once, and the OS tells you when someone needs you.
 - **Agent panel:** what the agent is doing now, what it did (Story → Steps → Raw), its subagents and the files it touched.
 - **Codex:** your Codex sessions show up live, Codex chats run in Gravita, and squad roles can run on Codex. See [docs/codex.md](docs/codex.md).
-- **Cursor (optional):** Cursor chats run in Gravita through the `cursor-agent` you installed, with a Cursor API key you paste into Gravita. See [docs/cursor.md](docs/cursor.md).
+- **Cursor (optional):** Cursor chats and terminals run in Gravita through the `cursor-agent` you installed, with a Cursor API key you paste into Gravita, and their sessions show up on the map. See [docs/cursor.md](docs/cursor.md).
 - **Plan usage:** squad budgets are a share of your plan's 5-hour or weekly limit, for Claude and Codex alike; Home shows how much of each is used.
 - Sessions you start in your own terminal show up on their own. Gravita reads Claude Code's transcripts and Codex's session files (read-only) and Claude Code's live session registry.
 

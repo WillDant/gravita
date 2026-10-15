@@ -4,6 +4,28 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.0-beta] - 2026-10-15
+
+Cursor as a third agent: Cursor chats and terminals run your own `cursor-agent`, with a Cursor API key you paste into Gravita, and their sessions show up on the map.
+
+### Cursor
+- **Cursor chats:** choose Cursor in the new-session panel. Gravita runs the `cursor-agent` you installed (its `acp` server, 2026.10.14 or later) in the chat's folder, with Cursor's Agent, Plan and Ask modes and your account's models ("Auto" by default). Every approval Cursor asks for waits for you; Gravita answers once at a time, never "always".
+- **Cursor in the terminal:** "Run in: Terminal" opens `cursor-agent` in Gravita's terminal, with the same key, and its chats (and subagents) show up on the map beside it, read-only from the CLI's own transcripts under `~/.cursor`.
+- **Your Cursor API key:** paste it in Gravita's settings. It's kept only in your macOS Keychain, handed to the engine over its stdin, and given only to the `cursor-agent` processes Gravita starts (never to other terminals, never on a command line, never over the WebSocket). It's masked in everything Gravita shows, and checked with `cursor-agent models` (valid, invalid or offline). Gravita never uses a key from your shell or a saved `cursor-agent login`. See [ADR 008](docs/adr/008-cursor-provider.md) and [docs/cursor.md](docs/cursor.md).
+- Cursor is optional, like Codex: without `cursor-agent`, Claude Code and Codex work as before. Squads don't run on Cursor.
+
+### Interface
+- **An icon and a colour per project**, in the sidebar, the project's header and Home.
+- **Provider and run-in icons:** Claude Code, Codex and Cursor marks, and Terminal or Chat, wherever you choose them; the Cursor key shows green when valid, red when not.
+- **A chat opens empty:** the new-session panel no longer asks for a first message; you write it in the composer.
+- **Removing a session asks first.** The confirmation dims the screen behind it.
+
+### Known limits
+- Cursor reports no token use or cost, can't be steered mid-turn, stops only its main agent, and its own questions are declined.
+- A Cursor chat's conversation shows while the chat runs; once it ends, its map stays but the text doesn't.
+- The app also lists older `cursor-agent` chats that have a `meta.json`, within the 14-day history window.
+- Builds are signed ad hoc, so macOS may ask once more for Gravita to read its Keychain item after an update.
+
 ## [0.4.0-beta] - 2026-10-14
 
 Terminal and conversation: run Claude Code or Codex in a terminal inside Gravita with the map beside it, and a conversation that shows the agent at work.
@@ -115,6 +137,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.5.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.5.0-beta
 [0.4.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta
 [0.3.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta
 [0.2.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.2.0-beta

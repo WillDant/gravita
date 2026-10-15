@@ -19,10 +19,10 @@ OpenAI's Codex alongside Claude Code: observe Codex sessions, start and steer Co
 ### Terminal and conversation — [v0.4.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta)
 Run Claude Code, Codex or your shell in a terminal inside Gravita, with the map beside it; resume a finished session in one. A chat-like composer, a live line saying what the agent is doing, and tool calls folded between messages.
 
-## Next
+### Cursor — [v0.5.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.5.0-beta)
+Cursor as a third agent: start and steer Cursor chats through the `cursor-agent` you installed (ACP), with approvals, Agent/Plan/Ask modes and your account's models, or run it in Gravita's terminal with its chats on the map; a Cursor API key you paste into Gravita and keep in your macOS Keychain. Later: observing Cursor sessions you run elsewhere, and the conversation of a Cursor chat after it ends. See [cursor.md](cursor.md).
 
-### Cursor chats
-Cursor as a third agent: start and steer Cursor chats through the `cursor-agent` you installed (ACP), with approvals, Agent/Plan/Ask modes and your account's models, using a Cursor API key you paste into Gravita and keep in your macOS Keychain. Later: Cursor in Gravita's terminal and observing Cursor sessions you run elsewhere. See [cursor.md](cursor.md).
+## Next
 
 ### Polish and public launch
 Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater, the landing page, docs, an in-app tour and an accessibility audit.
