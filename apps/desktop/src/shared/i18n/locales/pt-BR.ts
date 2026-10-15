@@ -370,6 +370,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "settings.updates.available": "A versão {version} está disponível.",
   "settings.updates.install": "Instalar",
   "settings.updates.installing": "Baixando…",
+  "settings.updates.installingPct": "Baixando {pct}%…",
+  "settings.updates.restartNote": "O Gravita fecha e abre de novo; os agentes em andamento param.",
   "settings.updates.opened":
     "O instalador está aberto. Arraste o Gravita para Aplicações e abra o app de novo.",
   "settings.updates.installFailed": "Não deu para baixar o instalador.",

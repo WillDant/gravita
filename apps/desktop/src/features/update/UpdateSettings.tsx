@@ -1,6 +1,6 @@
 import { Download, RefreshCw, Tag } from "lucide-react";
 import { useState } from "react";
-import { useGateway, useOpenRelease } from "@/app/providers";
+import { useAppUpdater, useGateway, useOpenRelease } from "@/app/providers";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { Row } from "@/shared/ui/SettingsRow";
 import { Button } from "@/shared/ui/ui";
@@ -19,10 +19,12 @@ export function UpdateSettings() {
   useLocale();
   const gateway = useGateway();
   const openRelease = useOpenRelease();
+  const appUpdater = useAppUpdater();
   const version = useEngineVersion();
   const update = useAvailableUpdate();
   const [check, setCheck] = useState<Check>("idle");
   const [install, setInstall] = useState<Install>("idle");
+  const [share, setShare] = useState<number>();
 
   const look = () => {
     setCheck("checking");
@@ -32,12 +34,21 @@ export function UpdateSettings() {
       () => setCheck("failed"),
     );
   };
+  // Inside the app: download, swap and restart by itself. If that can't be done (the release
+  // has no package for this build), fall back to downloading the installer and opening it.
   const run = () => {
     setInstall("installing");
-    gateway.installUpdate().then(
-      () => setInstall("opened"),
-      () => setInstall("failed"),
-    );
+    setShare(undefined);
+    const viaInstaller = () =>
+      gateway.installUpdate().then(
+        () => setInstall("opened"),
+        () => setInstall("failed"),
+      );
+    if (!appUpdater) {
+      void viaInstaller();
+      return;
+    }
+    appUpdater.install(setShare).catch(viaInstaller);
   };
 
   return (
@@ -72,7 +83,9 @@ export function UpdateSettings() {
                 ? t("settings.updates.opened")
                 : install === "failed"
                   ? t("settings.updates.installFailed")
-                  : ""
+                  : update && appUpdater
+                    ? t("settings.updates.restartNote")
+                    : ""
             }
           >
             {update &&
@@ -83,7 +96,9 @@ export function UpdateSettings() {
                   disabled={install === "installing" || install === "opened"}
                 >
                   {install === "installing"
-                    ? t("settings.updates.installing")
+                    ? share === undefined
+                      ? t("settings.updates.installing")
+                      : t("settings.updates.installingPct", { pct: Math.round(share * 100) })
                     : t("settings.updates.install")}
                 </Button>
               ) : (

@@ -369,6 +369,8 @@ export const en = {
   "settings.updates.available": "Version {version} is available.",
   "settings.updates.install": "Install",
   "settings.updates.installing": "Downloading…",
+  "settings.updates.installingPct": "Downloading {pct}%…",
+  "settings.updates.restartNote": "Gravita closes and opens again; running agents stop.",
   "settings.updates.opened":
     "The installer is open. Drag Gravita to Applications, then open it again.",
   "settings.updates.installFailed": "Couldn't download the installer.",

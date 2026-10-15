@@ -78,6 +78,43 @@ export function createSignInOpener(): OpenSignIn {
   };
 }
 
+/**
+ * Installs the newest release in place: downloads its package, checks it against the public
+ * key built into the app, swaps the app and opens it again. `onProgress` gets the share
+ * downloaded (0 to 1) while it runs, or undefined when the size isn't known.
+ */
+export interface AppUpdater {
+  install(onProgress?: (share: number | undefined) => void): Promise<void>;
+}
+
+/**
+ * The shell's own updater, only inside Tauri (capability `updater:default`; the restart is
+ * the shell's `restart_app` command, which stops the engine first). The plugin loads on
+ * first use. It rejects when the release publishes no package for this build, and the
+ * caller then falls back to the installer download.
+ */
+export function createAppUpdater(): AppUpdater | undefined {
+  if (!isTauri()) return undefined;
+  return {
+    async install(onProgress) {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (!update) throw new Error("No update package for this build");
+      let total: number | undefined;
+      let done = 0;
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started") total = event.data.contentLength;
+        else if (event.event === "Progress") {
+          done += event.data.chunkLength;
+          onProgress?.(total ? Math.min(1, done / total) : undefined);
+        }
+      });
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("restart_app");
+    },
+  };
+}
+
 /** Opens a release page of Gravita's repository in the user's browser. */
 export type OpenRelease = (url: string) => Promise<void>;
 

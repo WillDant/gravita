@@ -5,6 +5,7 @@ import { WsEngineGateway } from "@/infrastructure/engine/WsEngineGateway";
 import { domAttention } from "@/infrastructure/platform/attention";
 import { createNotifier } from "@/infrastructure/platform/notifier";
 import {
+  createAppUpdater,
   createCursorKeyBridge,
   createFolderPicker,
   createSignInOpener,
@@ -70,6 +71,7 @@ export function bootstrap(): App {
       pickFolder: createFolderPicker(),
       openSignIn: createSignInOpener(),
       cursorKey: createCursorKeyBridge(),
+      appUpdater: createAppUpdater(),
       notificationPrefs,
       projectAppearance,
     },
