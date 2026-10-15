@@ -4,6 +4,22 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.6.0-beta] - 2026-10-15
+
+Gravita now tells you, inside the app, when a newer release is out, and Settings gets the preferences that used to live only in the menu.
+
+### New releases
+- **A notice in the bottom-right corner** when a release newer than the one you run is published: "Download" opens its page in your browser, "Later" hides that version until a newer one comes out. Nothing is downloaded or installed by the app.
+- **How it looks:** a few seconds after start and every six hours, the engine makes one anonymous request to GitHub's public releases list for `WillDant/gravita`; it sends only `gravita/<version>` as its user agent, and nothing about you or your projects. It is not telemetry, never runs in the demo, and fails quietly when you're offline. Only the repository's own release pages are ever opened. See [COMPLIANCE](docs/COMPLIANCE.md).
+
+### Interface
+- **Preferences in Settings:** theme (light or dark), language and the three notification switches, each with an icon. The shortcuts in the menu's footer stay.
+- **The menu:** "Needs you" is gone from it (it only opened Home); Settings moved to the footer with the other controls, and Home is larger and stands out.
+
+### Known limits
+- The release check can't be turned off yet, and the app never updates itself: that needs signed updates, still ahead.
+- Builds before this one don't show the notice.
+
 ## [0.5.0-beta] - 2026-10-15
 
 Cursor as a third agent: Cursor chats and terminals run your own `cursor-agent`, with a Cursor API key you paste into Gravita, and their sessions show up on the map.
@@ -137,6 +153,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.6.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.6.0-beta
 [0.5.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.5.0-beta
 [0.4.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta
 [0.3.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.3.0-beta
