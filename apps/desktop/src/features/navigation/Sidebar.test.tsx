@@ -25,16 +25,18 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("button", { name: "Needs you" })).toBeNull();
   });
 
-  it("puts Settings in the footer with the other controls, and opens it", async () => {
+  it("keeps only Settings and Notifications in the footer, and opens Settings", async () => {
     const { navigate } = renderWithApp(<Sidebar />, { state });
     await act(flush);
     const settings = screen.getByRole("button", { name: "Settings" });
     const heading = screen.getByText("Projects");
-    const theme = screen.getByRole("button", { name: /theme/i });
+    const notifications = screen.getByRole("button", { name: /notif/i });
     expect(
       heading.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(settings.parentElement).toBe(theme.parentElement);
+    expect(settings.parentElement?.contains(notifications)).toBe(true);
+    expect(screen.queryByRole("button", { name: /theme/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(EN|PT)$/ })).toBeNull();
     fireEvent.click(settings);
     expect(navigate).toHaveBeenCalledWith({ level: "settings" });
   });

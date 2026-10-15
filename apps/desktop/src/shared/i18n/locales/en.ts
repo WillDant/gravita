@@ -205,7 +205,6 @@ export const en = {
   "engine.offline":
     "Can't reach the Gravita engine. It restarts on its own; this page reconnects when it's back.",
   "engine.demo": "Demo data",
-  "theme.toggle": "Switch theme",
 
   "session.lens.conversation": "Conversation",
   "session.starting": "Starting the session…",
@@ -377,7 +376,7 @@ export const en = {
   "settings.title": "Settings",
   "settings.prefs": "Preferences",
   "settings.prefs.body":
-    "How Gravita looks and when it taps you on the shoulder. The same controls are in the menu's footer.",
+    "How Gravita looks and when it taps you on the shoulder. Notifications are also in the menu's footer.",
   "settings.theme": "Theme",
   "settings.theme.body": "Light or dark.",
   "settings.theme.light": "Light",
