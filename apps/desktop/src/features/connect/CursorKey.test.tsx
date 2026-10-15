@@ -6,7 +6,6 @@ import { setLocale } from "@/shared/i18n/i18n";
 import { FakeGateway, flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
 import { CursorKey } from "./CursorKey";
-import { CursorKeyLine } from "./CursorKeyLine";
 
 afterEach(cleanup);
 setLocale("en");
@@ -143,19 +142,6 @@ describe("the Cursor key panel", () => {
     });
     expect(screen.getByRole("alert").textContent).toContain("Couldn't store the key");
     expect(screen.getByText("No key is set.")).toBeTruthy();
-  });
-});
-
-describe("Home's line about the Cursor key", () => {
-  it("is quiet until the engine found Cursor, then links to Settings", async () => {
-    const { store, navigate } = renderWithApp(<CursorKeyLine />);
-    act(() => store.getState().setEngineStatus(status(NONE, false)));
-    expect(screen.queryByText(/API key/)).toBeNull();
-
-    act(() => store.getState().setEngineStatus(status(NONE)));
-    expect(screen.getByText(/its API key isn't set in Gravita/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
-    expect(navigate).toHaveBeenCalledWith({ level: "settings" });
   });
 });
 

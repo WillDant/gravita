@@ -42,12 +42,6 @@ export const en = {
   "home.codex.hide": "Hide the steps",
   "home.cursor.missing": "Using Cursor? Once its CLI is installed, Gravita can run it too.",
   "home.cursor.outdated": "This Cursor CLI is older than Gravita supports.",
-  "home.cursor.key.missing": "Cursor is installed, but its API key isn't set in Gravita.",
-  "home.cursor.key.unchecked": "Cursor's API key is set. Gravita hasn't checked it yet.",
-  "home.cursor.key.valid": "Cursor's API key is set and works.",
-  "home.cursor.key.invalid": "Cursor turned down the API key set in Gravita.",
-  "home.cursor.key.configure": "Open settings",
-  "home.cursor.key.manage": "Manage in settings",
 
   "project.appearance.open": "Change icon and colour",
   "project.appearance.title": "Project appearance",

@@ -44,6 +44,7 @@ export function Sidebar() {
       aria-label="Gravita"
       className="flex h-full w-[232px] flex-none flex-col border-r border-hairline bg-panel max-[1100px]:w-14"
     >
+      <div data-tauri-drag-region className="h-7 flex-none" />
       <div className="flex h-12 items-center gap-2 px-4 max-[1100px]:px-[17px]">
         <Wordmark />
       </div>

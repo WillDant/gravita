@@ -38,6 +38,7 @@ export function App() {
     <div className="flex h-full">
       <Sidebar />
       <main className="relative flex min-w-0 flex-1 flex-col">
+        <div data-tauri-drag-region className="h-7 flex-none" />
         {connection === "offline" && (
           <div
             role="status"

@@ -7,7 +7,6 @@ import { MiniLines } from "@/features/agents/MiniLines";
 import { Orb } from "@/features/agents/Orb";
 import { CodexNote } from "@/features/connect/CodexNote";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
-import { CursorKeyLine } from "@/features/connect/CursorKeyLine";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
 import { PermissionActions } from "@/features/permissions/PermissionActions";
@@ -75,7 +74,6 @@ export function Home() {
           {cursorNote === "outdated" && !empty && (
             <CodexNote provider="cursor" note="outdated" className="mt-1.5" />
           )}
-          <CursorKeyLine className="mt-1.5" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={all} />

@@ -42,14 +42,6 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "home.cursor.missing":
     "Usa o Cursor? Depois de instalar o CLI dele, o Gravita também pode rodá-lo.",
   "home.cursor.outdated": "Este CLI do Cursor é mais antigo do que o Gravita suporta.",
-  "home.cursor.key.missing":
-    "O Cursor está instalado, mas a chave da API não está configurada no Gravita.",
-  "home.cursor.key.unchecked":
-    "A chave da API do Cursor está configurada. O Gravita ainda não a verificou.",
-  "home.cursor.key.valid": "A chave da API do Cursor está configurada e funciona.",
-  "home.cursor.key.invalid": "O Cursor recusou a chave da API configurada no Gravita.",
-  "home.cursor.key.configure": "Abrir configurações",
-  "home.cursor.key.manage": "Gerenciar nas configurações",
 
   "project.appearance.open": "Mudar ícone e cor",
   "project.appearance.title": "Aparência do projeto",
