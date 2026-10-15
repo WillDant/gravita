@@ -139,6 +139,8 @@ export const EngineStatus = z.object({
   demo: z.boolean(),
   /** Whether embedded terminals can run here (not on Windows yet). Absent: an older engine. */
   terminal: z.boolean().optional(),
+  /** A release newer than this one is out: its version and its page. Absent: none known. */
+  update: z.object({ version: z.string(), url: z.string() }).optional(),
 });
 export type EngineStatus = z.infer<typeof EngineStatus>;
 

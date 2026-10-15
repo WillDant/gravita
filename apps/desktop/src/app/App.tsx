@@ -6,6 +6,7 @@ import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
 import { Settings } from "@/features/settings/Settings";
 import { TerminalScreen } from "@/features/terminal/TerminalScreen";
+import { UpdateToast } from "@/features/update/UpdateToast";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";
 
@@ -46,6 +47,7 @@ export function App() {
           </div>
         )}
         <NoticeLine />
+        <UpdateToast />
         {demo && (
           <div className="pointer-events-none absolute right-4 bottom-3 z-10 rounded-full bg-panel px-2.5 py-1 text-2xs font-medium text-ink-3">
             {t("engine.demo")}

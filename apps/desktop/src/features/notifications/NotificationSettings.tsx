@@ -1,5 +1,5 @@
 import { BellRing } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useNotificationPrefs } from "@/app/providers";
 import type { NotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { t, useLocale } from "@/shared/i18n/i18n";
@@ -11,10 +11,44 @@ const TOGGLES: { key: keyof NotificationPrefs; label: string }[] = [
   { key: "failures", label: "notify.pref.failures" },
 ];
 
+/**
+ * The three notification switches, as checkboxes: in the sidebar's small popover, and (with
+ * an icon for each) on the Settings screen.
+ */
+export function NotificationToggles({
+  icons,
+  className,
+}: {
+  /** An icon per switch; the popover goes without. */
+  icons?: Readonly<Record<keyof NotificationPrefs, ReactNode>>;
+  className?: string;
+}) {
+  useLocale();
+  const [prefs, setPrefs] = useNotificationPrefs();
+  return (
+    <div className={className}>
+      {TOGGLES.map(({ key, label }) => (
+        <label
+          key={key}
+          className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 text-sm text-ink-2 hover:text-ink"
+        >
+          <input
+            type="checkbox"
+            checked={prefs[key]}
+            onChange={(e) => setPrefs({ [key]: e.target.checked })}
+            className="mt-[3px] size-3.5 flex-none accent-ink"
+          />
+          {icons && <span className="mt-px flex-none text-ink-3">{icons[key]}</span>}
+          {t(label)}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 /** The sidebar footer's notification switches: three checkboxes in a small popover. */
 export function NotificationSettings() {
   useLocale();
-  const [prefs, setPrefs] = useNotificationPrefs();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -64,20 +98,7 @@ export function NotificationSettings() {
             {t("notify.settings")}
           </legend>
           <p className="mb-2 text-xs text-ink-3">{t("notify.settingsHint")}</p>
-          {TOGGLES.map(({ key, label }) => (
-            <label
-              key={key}
-              className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 text-sm text-ink-2 hover:text-ink"
-            >
-              <input
-                type="checkbox"
-                checked={prefs[key]}
-                onChange={(e) => setPrefs({ [key]: e.target.checked })}
-                className="mt-[3px] size-3.5 flex-none accent-ink"
-              />
-              {t(label)}
-            </label>
-          ))}
+          <NotificationToggles />
         </fieldset>
       )}
     </div>

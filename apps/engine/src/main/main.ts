@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { MemoryCredentialSource } from "../infrastructure/credentials/memory-credential-source";
+import { GithubReleaseSource } from "../infrastructure/releases/github-release-source";
 import { parseArgs } from "./args";
-import { type RunningEngine, startEngine, stderrLogger } from "./container";
+import { ENGINE_VERSION, type RunningEngine, startEngine, stderrLogger } from "./container";
 import { readStdinBootstrap } from "./stdin-bootstrap";
 
 // gravita-engine: the local sidecar. Prints exactly one JSON line on stdout when ready:
@@ -37,7 +38,13 @@ async function main() {
   }
   if (!token) throw new Error("Empty token");
 
-  engine = startEngine({ ...args, token, credentials });
+  // Real runs look for a newer release (public GitHub, anonymous); tests start the engine without.
+  engine = startEngine({
+    ...args,
+    token,
+    credentials,
+    releaseSource: new GithubReleaseSource(ENGINE_VERSION),
+  });
   if (exiting) return;
   const ready = {
     event: "ready",

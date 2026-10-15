@@ -232,6 +232,10 @@ export function useCodexProfileRefresh(enabled: boolean) {
 export const useTerminalSupported = (): boolean =>
   useAppStore((s) => s.engineStatus?.terminal === true);
 
+/** The newer release the engine found, if any: its version and its page. */
+export const useAvailableUpdate = (): { version: string; url: string } | undefined =>
+  useAppStore((s) => s.engineStatus?.update);
+
 export const useTerminal = (terminalId: string): TerminalInfo | undefined =>
   useAppStore((s) => s.terminals[terminalId]);
 

@@ -26,11 +26,13 @@ export function renderWithApp(
     gateway = new FakeGateway(),
     cursorKey,
     pickFolder,
+    toggleTheme = () => {},
   }: {
     state?: GravitaState;
     gateway?: FakeGateway;
     cursorKey?: CursorKeyBridge;
     pickFolder?: PickFolder;
+    toggleTheme?: () => void;
   } = {},
 ): AppRender {
   const store = createAppStore(gateway, { now: NOW });
@@ -43,7 +45,7 @@ export function renderWithApp(
         store,
         gateway,
         navigate,
-        toggleTheme: () => {},
+        toggleTheme,
         ...(cursorKey ? { cursorKey } : {}),
         ...(pickFolder ? { pickFolder } : {}),
         notificationPrefs: createNotificationPrefs(() => storage),

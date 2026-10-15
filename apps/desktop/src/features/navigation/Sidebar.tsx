@@ -1,5 +1,5 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { Bell, House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
+import { House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useProjectAppearances, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
@@ -7,7 +7,6 @@ import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
-  needsYouCount,
   type ProjectItem,
   projectItems,
   squadActive,
@@ -29,7 +28,6 @@ export function Sidebar() {
   const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
   const appearances = useProjectAppearances();
-  const waiting = needsYouCount(state, now);
   const currentProject =
     route.level === "project" || route.level === "session" || route.level === "squad"
       ? route.projectId
@@ -49,40 +47,19 @@ export function Sidebar() {
       <div className="flex h-12 items-center gap-2 px-4 max-[1100px]:px-[17px]">
         <Wordmark />
       </div>
-      <div className="flex flex-col gap-0.5 px-2">
+      <div className="flex flex-col gap-0.5 px-2 pt-1">
         <NavItem
+          prominent
           active={route.level === "home"}
           onClick={() => navigate({ level: "home" })}
-          icon={<House size={16} />}
+          icon={<House size={18} />}
           label={t("nav.home")}
         >
           {t("nav.home")}
         </NavItem>
-        <NavItem
-          active={false}
-          onClick={() => navigate({ level: "home" })}
-          icon={<Bell size={16} />}
-          label={t("nav.needsYou")}
-          badge={{ count: waiting, waiting: true }}
-        >
-          {t("nav.needsYou")}
-          {waiting > 0 && (
-            <span className="ml-auto rounded-full bg-waiting px-1.5 text-2xs font-bold leading-5 text-white tabular-nums">
-              {waiting}
-            </span>
-          )}
-        </NavItem>
-        <NavItem
-          active={route.level === "settings"}
-          onClick={() => navigate({ level: "settings" })}
-          icon={<Settings size={16} />}
-          label={t("nav.settings")}
-        >
-          {t("nav.settings")}
-        </NavItem>
       </div>
 
-      <div className="mt-5 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
+      <div className="mt-4 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
         {t("nav.projects")}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
@@ -148,6 +125,19 @@ export function Sidebar() {
       </div>
 
       <div className="flex items-center gap-1 border-t border-hairline px-2 py-2 max-[1100px]:flex-col">
+        <button
+          type="button"
+          onClick={() => navigate({ level: "settings" })}
+          aria-label={t("nav.settings")}
+          title={t("nav.settings")}
+          aria-current={route.level === "settings" ? "page" : undefined}
+          className={cn(
+            "rounded-md p-2 text-ink-2 hover:bg-panel-2 hover:text-ink",
+            route.level === "settings" && "bg-ground text-ink shadow-panel",
+          )}
+        >
+          <Settings size={16} />
+        </button>
         <button
           type="button"
           onClick={toggleTheme}
@@ -257,6 +247,7 @@ function SubItem({
 }
 
 function NavItem({
+  prominent,
   active,
   icon,
   label,
@@ -264,6 +255,8 @@ function NavItem({
   children,
   onClick,
 }: {
+  /** The row that stands out from the rest of the menu (Home): larger, bolder, with an accent bar. */
+  prominent?: boolean;
   active: boolean;
   icon: React.ReactNode;
   /** Tooltip, so the collapsed icon rail stays understandable. */
@@ -280,11 +273,15 @@ function NavItem({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink",
+        "relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink",
+        prominent && "h-10 text-base font-semibold text-ink",
         active && "bg-ground text-ink shadow-panel",
+        prominent &&
+          active &&
+          "before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-focus",
       )}
     >
-      <span className="relative flex-none text-ink-3">
+      <span className={cn("relative flex-none", prominent ? "text-ink" : "text-ink-3")}>
         {icon}
         {badge && badge.count > 0 && (
           <span

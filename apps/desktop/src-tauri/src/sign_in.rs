@@ -32,17 +32,17 @@ pub fn open_sign_in_url(url: String) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn open(url: &str) -> std::io::Result<()> {
+pub(crate) fn open(url: &str) -> std::io::Result<()> {
     Command::new("/usr/bin/open").arg(url).spawn().map(|_| ())
 }
 
 #[cfg(target_os = "windows")]
-fn open(url: &str) -> std::io::Result<()> {
+pub(crate) fn open(url: &str) -> std::io::Result<()> {
     Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn().map(|_| ())
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn open(url: &str) -> std::io::Result<()> {
+pub(crate) fn open(url: &str) -> std::io::Result<()> {
     Command::new("xdg-open").arg(url).spawn().map(|_| ())
 }
 
