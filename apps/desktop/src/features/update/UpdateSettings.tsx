@@ -53,7 +53,8 @@ export function UpdateSettings() {
 
   return (
     <section aria-labelledby="settings-updates">
-      <h2 id="settings-updates" className="mb-1 text-md font-semibold">
+      <h2 id="settings-updates" className="mb-1 flex items-center gap-2 text-md font-semibold">
+        <Download size={16} aria-hidden="true" className="text-ink-3" />
         {t("settings.updates")}
       </h2>
       <p className="mb-4 max-w-[68ch] text-sm text-ink-2">{t("settings.updates.body")}</p>
