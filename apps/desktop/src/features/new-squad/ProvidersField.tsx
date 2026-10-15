@@ -1,9 +1,11 @@
 import type { SquadProviderChoice } from "@gravita/protocol/constants";
-import { ExternalLink } from "lucide-react";
+import { Blend, ExternalLink, Users } from "lucide-react";
 import { type RefObject, useState } from "react";
 import { useOpenSignIn } from "@/app/providers";
 import { t } from "@/shared/i18n/i18n";
 import { describeError } from "@/shared/presenters/errors";
+import { FieldLabel } from "@/shared/ui/FieldLabel";
+import { ProviderIcon } from "@/shared/ui/ProviderIcon";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 import { useAppStore, useCodexProfile, useCodexProfileRefresh } from "@/state/hooks";
@@ -29,7 +31,9 @@ export function ProvidersField({
   useCodexProfileRefresh(form.needsCodexProfile);
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-xs font-semibold text-ink-2">{t("newSquad.providers")}</legend>
+      <FieldLabel as="legend" icon={<Users size={13} />} className="mb-1.5">
+        {t("newSquad.providers")}
+      </FieldLabel>
       <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-panel p-0.5 max-[760px]:grid-cols-1">
         {CHOICES.map((p) => (
           <label
@@ -47,7 +51,14 @@ export function ProvidersField({
               onChange={() => form.setProviders(p)}
               className="sr-only"
             />
-            <span className="text-sm font-semibold text-ink">{t(`newSquad.providers.${p}`)}</span>
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+              {p === "mixed" ? (
+                <Blend size={14} aria-hidden="true" className="flex-none text-ink-3" />
+              ) : (
+                <ProviderIcon provider={p} size={14} className="text-ink-3" />
+              )}
+              {t(`newSquad.providers.${p}`)}
+            </span>
             <span className="text-xs text-ink-2">{t(`newSquad.providers.${p}.hint`)}</span>
           </label>
         ))}

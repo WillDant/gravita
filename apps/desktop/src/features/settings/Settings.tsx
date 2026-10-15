@@ -5,6 +5,8 @@ import {
   Languages,
   MoonStar,
   Palette,
+  Plug,
+  SlidersHorizontal,
   Sun,
   TriangleAlert,
 } from "lucide-react";
@@ -30,7 +32,8 @@ export function Settings() {
       <UpdateSettings />
 
       <section aria-labelledby="settings-providers">
-        <h2 id="settings-providers" className="mb-1 text-md font-semibold">
+        <h2 id="settings-providers" className="mb-1 flex items-center gap-2 text-md font-semibold">
+          <Plug size={16} aria-hidden="true" className="text-ink-3" />
           {t("settings.providers")}
         </h2>
         <p className="mb-4 max-w-[68ch] text-sm text-ink-2">{t("settings.providers.body")}</p>
@@ -52,7 +55,8 @@ function Preferences() {
   const locale = getLocale();
   return (
     <section aria-labelledby="settings-prefs">
-      <h2 id="settings-prefs" className="mb-1 text-md font-semibold">
+      <h2 id="settings-prefs" className="mb-1 flex items-center gap-2 text-md font-semibold">
+        <SlidersHorizontal size={16} aria-hidden="true" className="text-ink-3" />
         {t("settings.prefs")}
       </h2>
       <p className="mb-4 max-w-[68ch] text-sm text-ink-2">{t("settings.prefs.body")}</p>

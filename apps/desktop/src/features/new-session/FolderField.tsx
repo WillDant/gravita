@@ -1,7 +1,8 @@
-import { FolderOpen } from "lucide-react";
+import { Folder, FolderOpen } from "lucide-react";
 import { type RefObject, useId } from "react";
 import { usePickFolder } from "@/app/providers";
 import { t } from "@/shared/i18n/i18n";
+import { FieldLabel } from "@/shared/ui/FieldLabel";
 import { fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, tildify } from "@/shared/utils";
@@ -59,9 +60,9 @@ export function FolderField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span id={`${fieldId}-folder-label`} className="text-xs font-semibold text-ink-2">
+      <FieldLabel as="span" id={`${fieldId}-folder-label`} icon={<Folder size={13} />}>
         {t("newSession.folder")}
-      </span>
+      </FieldLabel>
       <div className="flex flex-wrap items-center gap-2">
         {pickFolder ? (
           <button

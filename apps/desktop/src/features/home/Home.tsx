@@ -1,6 +1,7 @@
 import { toPersona } from "@gravita/core";
 import { agentColor } from "@gravita/orbs";
 import { AGENT_PROVIDERS } from "@gravita/protocol/constants";
+import { Activity, FolderKanban, Hand } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useProjectAppearances } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
@@ -104,7 +105,8 @@ export function Home() {
 
       {waiting.length + decisions.length > 0 && (
         <section aria-labelledby="needs-you">
-          <h2 id="needs-you" className="mb-3 text-md font-semibold">
+          <h2 id="needs-you" className="mb-3 flex items-center gap-2 text-md font-semibold">
+            <Hand size={16} aria-hidden="true" className="text-ink-3" />
             {t("home.needsYou")}
           </h2>
           <ul className="flex flex-col gap-2">
@@ -179,7 +181,8 @@ export function Home() {
 
       {running.length > 0 && (
         <section aria-labelledby="running-now">
-          <h2 id="running-now" className="mb-3 text-md font-semibold">
+          <h2 id="running-now" className="mb-3 flex items-center gap-2 text-md font-semibold">
+            <Activity size={16} aria-hidden="true" className="text-ink-3" />
             {t("home.now")}
           </h2>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-6 gap-y-1">
@@ -232,7 +235,8 @@ export function Home() {
       )}
 
       <section aria-labelledby="projects">
-        <h2 id="projects" className="mb-3 text-md font-semibold">
+        <h2 id="projects" className="mb-3 flex items-center gap-2 text-md font-semibold">
+          <FolderKanban size={16} aria-hidden="true" className="text-ink-3" />
           {t("home.projects")}
         </h2>
         {empty ? (

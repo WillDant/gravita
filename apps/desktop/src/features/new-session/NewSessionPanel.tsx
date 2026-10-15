@@ -1,5 +1,5 @@
 import { AGENT_PROVIDERS, type AgentProvider } from "@gravita/protocol/constants";
-import { MessageSquare, Plus, SquareTerminal, X } from "lucide-react";
+import { Cpu, MessageSquare, Plus, ShieldCheck, SquareTerminal, X } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/features/session-settings/SettingsSelects";
 import { t } from "@/shared/i18n/i18n";
 
+import { FieldLabel } from "@/shared/ui/FieldLabel";
 import { ProviderIcon } from "@/shared/ui/ProviderIcon";
 import { Segmented } from "@/shared/ui/Segmented";
 import { Button } from "@/shared/ui/ui";
@@ -105,7 +106,8 @@ export function NewSessionPanel({
         className="flex flex-col gap-4 px-5 pt-4 pb-5"
       >
         <div className="flex items-center justify-between gap-4">
-          <h2 id={`${fieldId}-title`} className="text-md font-semibold">
+          <h2 id={`${fieldId}-title`} className="flex items-center gap-2 text-md font-semibold">
+            <MessageSquare size={16} aria-hidden="true" className="text-ink-3" />
             {t("newSession.title")}
           </h2>
           <button
@@ -153,9 +155,9 @@ export function NewSessionPanel({
             />
           )}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${fieldId}-model`} className="text-xs font-semibold text-ink-2">
+            <FieldLabel htmlFor={`${fieldId}-model`} icon={<Cpu size={13} />}>
               {t("newSession.model")}
-            </label>
+            </FieldLabel>
             <ModelSelect
               id={`${fieldId}-model`}
               models={models}
@@ -167,9 +169,9 @@ export function NewSessionPanel({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${fieldId}-mode`} className="text-xs font-semibold text-ink-2">
+            <FieldLabel htmlFor={`${fieldId}-mode`} icon={<ShieldCheck size={13} />}>
               {t("newSession.mode")}
-            </label>
+            </FieldLabel>
             <ModeSelect
               id={`${fieldId}-mode`}
               value={form.mode}

@@ -1,12 +1,26 @@
 import type { ModelChoice } from "@gravita/core";
 import { squadUsageKey } from "@gravita/core";
 import type { PlanWindow, SquadAutonomy } from "@gravita/protocol";
-import { UsersRound, X } from "lucide-react";
+import {
+  Cpu,
+  Feather,
+  Gem,
+  Hand,
+  type LucideIcon,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  UsersRound,
+  Wallet,
+  X,
+} from "lucide-react";
 import { type RefObject, useEffect, useId, useRef } from "react";
 import { ConnectProvider } from "@/features/connect/ConnectProvider";
 import { FolderField } from "@/features/new-session/FolderField";
 import { t } from "@/shared/i18n/i18n";
 import { windowLine } from "@/shared/presenters/planUsage";
+import { FieldLabel } from "@/shared/ui/FieldLabel";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
 import { Button } from "@/shared/ui/ui";
 import { cn, isSendChord, MOD_KEY } from "@/shared/utils";
@@ -23,6 +37,17 @@ import { type NewSquadForm, useNewSquad } from "./useNewSquad";
 const AUTONOMY: readonly SquadAutonomy[] = ["ask", "guarded", "auto"];
 /** The policy first (recommended), then one model for everything. */
 const MODEL_OPTIONS: readonly ModelChoice[] = ["auto", "opus", "sonnet"];
+const AUTONOMY_ICON: Readonly<Record<SquadAutonomy, LucideIcon>> = {
+  ask: Hand,
+  guarded: ShieldCheck,
+  auto: Rocket,
+};
+const MODEL_ICON: Readonly<Record<ModelChoice, LucideIcon>> = {
+  auto: Sparkles,
+  opus: Gem,
+  sonnet: Feather,
+};
+
 /** The weekly limit first: it is what most people mean by "my plan". */
 const WINDOW_OPTIONS: readonly PlanWindow[] = ["seven_day", "five_hour"];
 
@@ -127,7 +152,8 @@ export function NewSquadPanel({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id={`${fid}-title`} className="text-md font-semibold">
+            <h2 id={`${fid}-title`} className="flex items-center gap-2 text-md font-semibold">
+              <UsersRound size={16} aria-hidden="true" className="text-ink-3" />
               {t("newSquad.title")}
             </h2>
             <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t("newSquad.intro")}</p>
@@ -155,9 +181,9 @@ export function NewSquadPanel({
         />
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${fid}-goal`} className="text-xs font-semibold text-ink-2">
+          <FieldLabel htmlFor={`${fid}-goal`} icon={<Target size={13} />}>
             {t("newSquad.goal")}
-          </label>
+          </FieldLabel>
           <div className={cn(fieldFrame, "px-3 py-2")}>
             <AutoTextarea
               ref={goalRef}
@@ -184,9 +210,9 @@ export function NewSquadPanel({
         {form.canChooseProviders && <ProvidersField form={form} id={fid} signInRef={signInRef} />}
 
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1.5 text-xs font-semibold text-ink-2">
+          <FieldLabel as="legend" icon={<ShieldCheck size={13} />} className="mb-1.5">
             {t("newSquad.autonomy")}
-          </legend>
+          </FieldLabel>
           <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-panel p-0.5 max-[760px]:grid-cols-1">
             {AUTONOMY.map((a) => (
               <label
@@ -204,7 +230,8 @@ export function NewSquadPanel({
                   onChange={() => form.setAutonomy(a)}
                   className="sr-only"
                 />
-                <span className="text-sm font-semibold text-ink">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                  <OptionIcon icon={AUTONOMY_ICON[a]} />
                   {t(`newSquad.autonomy.${a}`)}
                   {a === "guarded" && (
                     <span className="ml-1.5 text-xs font-medium text-ink-3">
@@ -223,9 +250,9 @@ export function NewSquadPanel({
         ) : (
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor={`${fid}-budget`} className="text-xs font-semibold text-ink-2">
+              <FieldLabel htmlFor={`${fid}-budget`} icon={<Wallet size={13} />}>
                 {t("newSquad.budget")}
-              </label>
+              </FieldLabel>
               <div className={cn(fieldFrame, "flex w-36 items-center pl-2.5")}>
                 <span aria-hidden="true" className="tabular text-sm text-ink-3">
                   $
@@ -255,9 +282,9 @@ export function NewSquadPanel({
         )}
 
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1.5 text-xs font-semibold text-ink-2">
+          <FieldLabel as="legend" icon={<Cpu size={13} />} className="mb-1.5">
             {t("newSquad.models")}
-          </legend>
+          </FieldLabel>
           <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-panel p-0.5 max-[760px]:grid-cols-1">
             {MODEL_OPTIONS.map((m) => (
               <label
@@ -275,7 +302,8 @@ export function NewSquadPanel({
                   onChange={() => form.setModels(m)}
                   className="sr-only"
                 />
-                <span className="text-sm font-semibold text-ink">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                  <OptionIcon icon={MODEL_ICON[m]} />
                   {t(`${modelKeys}.${m}`)}
                   {m === "auto" && (
                     <span className="ml-1.5 text-xs font-medium text-ink-3">
@@ -311,6 +339,11 @@ export function NewSquadPanel({
   );
 }
 
+/** The small icon before an option card's title. */
+export function OptionIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon size={14} aria-hidden="true" className="flex-none text-ink-3" />;
+}
+
 /**
  * The budget as a share of the plan: "Use at most [20]% of my [weekly limit]", with what
  * the account has used of that window and when it resets. Usage is account-wide, and the
@@ -338,7 +371,9 @@ function PlanShareField({
   const invalid = form.invalid === "share";
   return (
     <fieldset className="flex flex-col gap-1.5" aria-describedby={`${id}-share-hint`}>
-      <legend className="mb-1.5 text-xs font-semibold text-ink-2">{t("newSquad.budget")}</legend>
+      <FieldLabel as="legend" icon={<Wallet size={13} />} className="mb-1.5">
+        {t("newSquad.budget")}
+      </FieldLabel>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-ink">
         <span>{t("newSquad.budget.useAtMost")}</span>
         <div className={cn(fieldFrame, "flex w-16 items-center")}>
