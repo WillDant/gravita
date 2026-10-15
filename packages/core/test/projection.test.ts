@@ -278,6 +278,36 @@ describe("questions, settings and Gravita prompts", () => {
   });
 });
 
+describe("session.removed", () => {
+  test("marks the session removed and not live", () => {
+    const state = applyAll(emptyState(), [
+      {
+        key: "session:s1:started",
+        ts: "2026-10-13T10:00:00.000Z",
+        source: "gravita",
+        provider: "claude",
+        projectId: "p",
+        sessionId: "s1",
+        type: "session.started",
+        data: { kind: "chat", cwd: "/w", permissionMode: "default" },
+      },
+      {
+        key: "session:s1:removed",
+        ts: "2026-10-13T11:00:00.000Z",
+        source: "gravita",
+        provider: "claude",
+        projectId: "p",
+        sessionId: "s1",
+        type: "session.removed",
+        data: { reason: "user" },
+      },
+    ] as GravitaEvent[]);
+    expect(state.sessions.s1?.removed).toBe(true);
+    expect(state.sessions.s1?.ended).toBe(true);
+    expect(state.sessions.s1?.live).toBe(false);
+  });
+});
+
 describe("session model", () => {
   test("session.started names the model until session.settings changes it", () => {
     const base = {

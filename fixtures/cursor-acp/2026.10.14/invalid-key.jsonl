@@ -1,0 +1,2 @@
+{"expect":{"method":"initialize"},"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"image":true,"audio":false,"embeddedContext":false}},"authMethods":[{"id":"cursor_login","name":"Cursor login","description":"Synthetic"}]}}
+{"expect":{"method":"session/new"},"error":{"code":-32603,"message":"Internal error","data":{"message":"Failed to initialize session services"}}}

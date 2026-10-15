@@ -19,6 +19,31 @@ export function createFolderPicker(): PickFolder | undefined {
   };
 }
 
+/**
+ * The Cursor API key's storage in the desktop shell (the macOS Keychain, ADR 008). The key
+ * goes one way: the webview can store, replace or remove it and ask whether there is one,
+ * never read it back. The shell hands it to the engine itself.
+ */
+export interface CursorKeyBridge {
+  present(): Promise<boolean>;
+  set(key: string): Promise<void>;
+  remove(): Promise<void>;
+}
+
+/** The shell's key commands; absent in a plain browser, where no key can be set. */
+export function createCursorKeyBridge(): CursorKeyBridge | undefined {
+  if (!isTauri()) return undefined;
+  const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+    const core = await import("@tauri-apps/api/core");
+    return core.invoke<T>(cmd, args);
+  };
+  return {
+    present: () => invoke<boolean>("cursor_key_present"),
+    set: (value) => invoke<void>("cursor_key_set", { value }),
+    remove: () => invoke<void>("cursor_key_remove"),
+  };
+}
+
 /** Opens Codex's sign-in page (Gravita's Codex profile for squads) in the user's browser. */
 export type OpenSignIn = (url: string) => Promise<void>;
 

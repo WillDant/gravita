@@ -1,8 +1,9 @@
 import type { EngineStatus } from "@gravita/protocol";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/shared/i18n/i18n";
-import { codexNoteOf, problemOf } from "@/state/hooks";
+import { canStartWith, codexNoteOf, optionalNoteOf, problemOf } from "@/state/hooks";
+import { renderWithApp } from "@/test/render";
 import { ConnectProvider } from "./ConnectProvider";
 
 afterEach(cleanup);
@@ -48,6 +49,43 @@ describe("connect guidance per provider", () => {
     expect(screen.getByRole("heading", { name: "Update Codex" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy brew upgrade --cask codex" })).toBeTruthy();
   });
+
+  it("shows how to install or update Cursor's CLI, never how to log in", () => {
+    render(<ConnectProvider provider="cursor" problem="missing" />);
+    expect(screen.getByRole("heading", { name: "Connect Cursor" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Copy curl https://cursor.com/install -fsS | bash" }),
+    ).toBeTruthy();
+    cleanup();
+    render(<ConnectProvider provider="cursor" problem="outdated" />);
+    expect(screen.getByRole("heading", { name: "Update Cursor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy cursor-agent update" })).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/login|CURSOR_API_KEY/);
+  });
+
+  it("sends missing or invalid keys to Settings, not a login", () => {
+    const { navigate } = renderWithApp(<ConnectProvider provider="cursor" problem="keyMissing" />);
+    expect(screen.getByRole("heading", { name: "Cursor API key not set" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(navigate).toHaveBeenCalledWith({ level: "settings" });
+    cleanup();
+    const invalid = renderWithApp(<ConnectProvider provider="cursor" problem="keyInvalid" />);
+    expect(screen.getByRole("heading", { name: "Cursor API key not working" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    expect(invalid.navigate).toHaveBeenCalledWith({ level: "settings" });
+  });
+});
+
+describe("what Gravita says about Cursor", () => {
+  it("is optional like Codex: a note when missing or old, never in demo mode", () => {
+    const cursor = (over: Partial<NonNullable<EngineStatus["providers"]["cursor"]>>) =>
+      status({ providers: { claude: { found: true }, cursor: { found: true, ...over } } });
+    expect(optionalNoteOf(status(), "cursor")).toBeUndefined();
+    expect(optionalNoteOf(cursor({}), "cursor")).toBeUndefined();
+    expect(optionalNoteOf(cursor({ found: false }), "cursor")).toBe("missing");
+    expect(optionalNoteOf(cursor({ outdated: true }), "cursor")).toBe("outdated");
+    expect(optionalNoteOf({ ...cursor({ found: false }), demo: true }, "cursor")).toBeUndefined();
+  });
 });
 
 describe("what Gravita says about Codex", () => {
@@ -75,6 +113,35 @@ describe("a provider's problem from the engine status", () => {
     expect(problemOf(status(), "codex")).toBe("missing");
     expect(problemOf(status({ demo: true }), "codex")).toBeUndefined();
     expect(problemOf(undefined, "claude")).toBeUndefined();
+  });
+
+  it("tells a missing Cursor CLI from a missing or rejected key", () => {
+    const cursor = (over: Partial<NonNullable<EngineStatus["providers"]["cursor"]>>) =>
+      status({ providers: { claude: { found: true }, cursor: { found: true, ...over } } });
+    expect(problemOf(status(), "cursor")).toBe("missing");
+    expect(problemOf(cursor({ outdated: true }), "cursor")).toBe("outdated");
+    expect(problemOf(cursor({}), "cursor")).toBe("keyMissing");
+    expect(problemOf(cursor({ credential: { source: "none", state: "missing" } }), "cursor")).toBe(
+      "keyMissing",
+    );
+    const app = (state: "unchecked" | "valid" | "invalid") =>
+      cursor({ credential: { source: "app", state } });
+    expect(problemOf(app("invalid"), "cursor")).toBe("keyInvalid");
+    expect(problemOf(app("unchecked"), "cursor")).toBeUndefined();
+    expect(problemOf(app("valid"), "cursor")).toBeUndefined();
+    // Cursor never logs in: a stale `loggedIn: false` isn't a login problem.
+    const stale = cursor({ loggedIn: false, credential: { source: "app", state: "valid" } });
+    expect(problemOf(stale, "cursor")).toBeUndefined();
+    expect(problemOf({ ...cursor({}), demo: true }, "cursor")).toBeUndefined();
+  });
+
+  it("can start Cursor once its CLI is usable; the key panel covers the rest", () => {
+    const cursor = (over: Partial<NonNullable<EngineStatus["providers"]["cursor"]>>) =>
+      status({ providers: { claude: { found: true }, cursor: { found: true, ...over } } });
+    expect(canStartWith(cursor({}), "cursor")).toBe(true);
+    expect(canStartWith(cursor({ outdated: true }), "cursor")).toBe(false);
+    expect(canStartWith(status(), "cursor")).toBe(false);
+    expect(canStartWith({ ...cursor({}), demo: true }, "cursor")).toBe(false);
   });
 
   it("falls back to the claude field of an engine from before providers", () => {

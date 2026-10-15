@@ -3,7 +3,8 @@ import type { TerminalCommand } from "@gravita/protocol";
 // What an embedded terminal runs. The user's own CLI goes through their login shell
 // (`-l -i`), so it sees exactly the environment it gets in their own terminal: profile
 // exports, version managers, the variables their MCP servers read. Nothing of Gravita's
-// is added (no GRAVITA_MANAGED: Deep Observe hooks must report these sessions).
+// is added (no GRAVITA_MANAGED: Deep Observe hooks must report these sessions). Cursor's
+// terminal is the one exception to "the user's environment": see `cursorTerminalEnv`.
 
 export const MAX_TERMINALS = 8;
 
@@ -53,11 +54,26 @@ function codexArgs(l: TerminalLaunch): string[] {
   ];
 }
 
+function cursorArgs(l: TerminalLaunch): string[] {
+  return [
+    ...(l.resume ? ["--resume", l.resume] : []),
+    ...(l.model ? ["--model", l.model] : []),
+    ...(l.modeArgs ?? []),
+    ...promptArgs(l.prompt),
+  ];
+}
+
+const ARGS_OF: Record<Exclude<TerminalCommand, "shell">, (l: TerminalLaunch) => string[]> = {
+  claude: claudeArgs,
+  codex: codexArgs,
+  cursor: cursorArgs,
+};
+
 /** The argv a terminal's process starts with. */
 export function terminalArgv(l: TerminalLaunch): string[] {
   if (l.command === "shell") return [l.shell, "-l"];
   if (!l.cliPath) throw new Error(`${l.command} needs its CLI path`);
-  const cli = [l.cliPath, ...(l.command === "claude" ? claudeArgs(l) : codexArgs(l))];
+  const cli = [l.cliPath, ...ARGS_OF[l.command](l)];
   // `-c script name args…` makes args the script's "$@" (fish: $argv, without the name).
   return basename(l.shell) === "fish"
     ? [l.shell, "-lic", "exec $argv", ...cli]

@@ -15,6 +15,7 @@ When Claude Code or Codex fans out into subagents, it gets hard to tell who is d
 - **Tray and notifications:** close the window and agents keep running; the menu-bar icon shows who is waiting and stops every Gravita agent at once, and the OS tells you when someone needs you.
 - **Agent panel:** what the agent is doing now, what it did (Story → Steps → Raw), its subagents and the files it touched.
 - **Codex:** your Codex sessions show up live, Codex chats run in Gravita, and squad roles can run on Codex. See [docs/codex.md](docs/codex.md).
+- **Cursor (optional):** Cursor chats run in Gravita through the `cursor-agent` you installed, with a Cursor API key you paste into Gravita. See [docs/cursor.md](docs/cursor.md).
 - **Plan usage:** squad budgets are a share of your plan's 5-hour or weekly limit, for Claude and Codex alike; Home shows how much of each is used.
 - Sessions you start in your own terminal show up on their own. Gravita reads Claude Code's transcripts and Codex's session files (read-only) and Claude Code's live session registry.
 
@@ -33,7 +34,7 @@ Coming next: polish and a public launch. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Your account, your machine
 
-Gravita runs the `claude` and `codex` you already installed and logged into. It never offers its own Claude login, never reads your credentials, and never sends telemetry. Codex squads use a separate profile you sign in to once, through Codex itself. See [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
+Gravita runs the `claude` and `codex` you already installed and logged into. It never offers its own Claude login, never reads your Claude or Codex credentials, and never sends telemetry. Codex squads use a separate profile you sign in to once, through Codex itself. Cursor is the one exception: Cursor chats use a Cursor API key you paste into Gravita, kept only in your macOS Keychain and handed only to the `cursor-agent` processes Gravita starts. See [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
 
 ## Develop
 
@@ -74,6 +75,7 @@ packages/protocol     The normalized event model (zod) and the RPC contract
 packages/core         Reducer, status machine, personas, line-map model (pure TS)
 packages/adapter-claude  Claude Code transcripts and hooks → events
 packages/adapter-codex   Codex session files and app-server → events
+packages/adapter-cursor  Cursor's cursor-agent ACP server → events
 packages/adapter-fake    Scripted demo agents
 plugins/deep-observe  Optional Claude Code plugin (observe-only hooks)
 fixtures/             Recorded/synthetic transcripts used by tests

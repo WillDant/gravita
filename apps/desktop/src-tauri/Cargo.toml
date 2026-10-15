@@ -24,6 +24,10 @@ getrandom = "0.3"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# The Cursor API key's Keychain item (cursor_key.rs).
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+
 [profile.release]
 codegen-units = 1
 lto = true

@@ -70,6 +70,29 @@ describe("terminalArgv", () => {
     ]);
   });
 
+  test("Cursor resumes with --resume and takes model, mode and prompt", () => {
+    expect(
+      terminalArgv({
+        command: "cursor",
+        shell: zsh,
+        cliPath: "/opt/cursor-agent",
+        resume: "c-1",
+        model: "gpt-5.5",
+        modeArgs: ["--mode", "ask"],
+        prompt: "why",
+      }).slice(4),
+    ).toEqual([
+      "/opt/cursor-agent",
+      "--resume",
+      "c-1",
+      "--model",
+      "gpt-5.5",
+      "--mode",
+      "ask",
+      "why",
+    ]);
+  });
+
   test("a prompt that looks like an option comes after --", () => {
     expect(
       terminalArgv({ command: "codex", shell: zsh, cliPath: "/opt/codex", prompt: "-h me" }).slice(

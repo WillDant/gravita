@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACCOUNT_PLANS, TERMINAL_COMMANDS } from "./constants";
+import { ACCOUNT_PLANS, CREDENTIAL_STATES, TERMINAL_COMMANDS } from "./constants";
 import { AgentProviderSchema, GravitaEvent, SessionModeSchema } from "./events";
 import {
   DeliverMode,
@@ -20,6 +20,11 @@ export {
   AGENT_PROVIDERS,
   CLAUDE_MODES,
   CODEX_MODES,
+  CREDENTIAL_SOURCES,
+  CREDENTIAL_STATES,
+  type CredentialSource,
+  type CredentialState,
+  CURSOR_MODES,
   DEFAULT_PROVIDER,
   Methods,
   Notifications,
@@ -28,7 +33,9 @@ export {
   type ProviderErrorData,
   RPC_VERSION,
   RpcErrors,
+  SQUAD_AGENT_PROVIDERS,
   SQUAD_PROVIDER_CHOICES,
+  type SquadAgentProvider,
   type SquadProviderChoice,
   TERMINAL_COMMANDS,
   type TerminalCommand,
@@ -67,6 +74,23 @@ export const CodexProfileStatus = z.object({
 });
 export type CodexProfileStatus = z.infer<typeof CodexProfileStatus>;
 
+/**
+ * A credential Gravita holds for a provider (Cursor's API key): where it comes from and
+ * what is known of it. No key means nothing to check (`none` ⇔ `missing`). The value
+ * itself never crosses the protocol.
+ */
+export const ProviderCredential = z.union([
+  z.object({ source: z.literal("none"), state: z.literal("missing") }),
+  z.object({
+    source: z.literal("app"),
+    state: z.enum(CREDENTIAL_STATES).exclude(["missing"]),
+  }),
+]);
+export type ProviderCredential = z.infer<typeof ProviderCredential>;
+
+/** `cursorKey.validate`: the key's state after checking it with Cursor. */
+export const CursorKeyValidateResult = ProviderCredential;
+
 /** What the engine knows about one provider's CLI on this machine. */
 export const ProviderStatus = z.object({
   found: z.boolean(),
@@ -91,6 +115,8 @@ export const ProviderStatus = z.object({
     .optional(),
   /** Codex only: Gravita's own Codex profile for squads. Absent until the engine looked. */
   squadProfile: CodexProfileStatus.optional(),
+  /** Cursor only: the API key pasted in Gravita (its state, never its value). */
+  credential: ProviderCredential.optional(),
 });
 export type ProviderStatus = z.infer<typeof ProviderStatus>;
 
@@ -99,7 +125,11 @@ export const ClaudeStatus = ProviderStatus;
 
 export const EngineStatus = z.object({
   /** Each detected provider's CLI; a provider the engine doesn't look for is absent. */
-  providers: z.object({ claude: ProviderStatus.optional(), codex: ProviderStatus.optional() }),
+  providers: z.object({
+    claude: ProviderStatus.optional(),
+    codex: ProviderStatus.optional(),
+    cursor: ProviderStatus.optional(),
+  }),
   /**
    * @deprecated Kept equal to `providers.claude` for one version, so an older UI still
    * knows whether Claude Code is there. Read `providers` instead.
@@ -131,7 +161,8 @@ const SessionRef = z.object({ sessionId: z.string() });
 
 export const SessionStartParams = z.object({
   cwd: z.string().min(1),
-  prompt: z.string().min(1).max(32_000),
+  /** The first message; without one the session waits for the user to write it. */
+  prompt: z.string().min(1).max(32_000).optional(),
   /** Which agent runs the session; Claude Code when absent. */
   provider: AgentProviderSchema.optional(),
   model: z.string().optional(),
@@ -228,8 +259,8 @@ export const CodexProfileSignInResult = z.object({ authUrl: z.string().url() });
  */
 export const UsageRefreshParams = z.object({ provider: AgentProviderSchema.optional() }).optional();
 
-// Embedded terminals: a PTY in the engine, running the user's shell or their own `claude` or
-// `codex` in a folder. Output streams as `terminal.output` notifications (not events: never
+// Embedded terminals: a PTY in the engine, running the user's shell or their own `claude`,
+// `codex` or `cursor-agent` in a folder. Output streams as `terminal.output` notifications (not events: never
 // stored); `terminal.attach` returns what was printed so far, for a reconnecting client.
 
 const TerminalId = z.string().min(1).max(64);
@@ -299,6 +330,8 @@ export const RpcContract = {
   "session.start": { params: SessionStartParams, result: SessionStartResult },
   "session.send": { params: SessionSendParams, result: OkResult },
   "session.interrupt": { params: SessionRef, result: OkResult },
+  /** Stops a live session if needed and hides it from lists (`session.removed`). */
+  "session.remove": { params: SessionRef, result: OkResult },
   "agent.stop": { params: AgentStopParams, result: OkResult },
   "session.setModel": { params: SetModelParams, result: OkResult },
   "session.setPermissionMode": { params: SetPermissionModeParams, result: OkResult },
@@ -326,6 +359,7 @@ export const RpcContract = {
   "codexProfile.status": { params: z.object({}).optional(), result: CodexProfileStatus },
   "codexProfile.signIn": { params: z.object({}).optional(), result: CodexProfileSignInResult },
   "codexProfile.signOut": { params: z.object({}).optional(), result: OkResult },
+  "cursorKey.validate": { params: z.object({}).optional(), result: CursorKeyValidateResult },
   "terminal.spawn": { params: TerminalSpawnParams, result: TerminalInfo },
   "terminal.write": { params: TerminalWriteParams, result: OkResult },
   "terminal.resize": { params: TerminalResizeParams, result: OkResult },

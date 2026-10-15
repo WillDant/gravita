@@ -74,6 +74,20 @@ export function filterCodexEnv(env: Record<string, string | undefined>): Record<
   return filterEnv(env, isCodexEnvKey);
 }
 
+/**
+ * Cursor gets the base allowlist and the locale only: no `CURSOR_*` or `AGENT_CLI_*` of the
+ * shell (a key, a token, an endpoint or a credential store of the user's own) ever reaches
+ * it. Its key is the one pasted in Gravita (ADR 008), set by `cursorChatEnv`.
+ */
+export function isCursorEnvKey(key: string): boolean {
+  return EXACT.has(key) || key.startsWith("LC_");
+}
+
+/** Keeps only the non-empty variables `cursor-agent` may get from the shell. */
+export function filterCursorEnv(env: Record<string, string | undefined>): Record<string, string> {
+  return filterEnv(env, isCursorEnvKey);
+}
+
 /** What the login shell's capture keeps: anything one of the providers may get. */
 export function filterShellEnv(env: Record<string, string | undefined>): Record<string, string> {
   return filterEnv(env, (k) => isAllowedEnvKey(k) || isCodexEnvKey(k));

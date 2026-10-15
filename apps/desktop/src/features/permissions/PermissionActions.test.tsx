@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest";
 import { AppProviders } from "@/app/providers";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
+import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import { setLocale } from "@/shared/i18n/i18n";
 import { createAppStore } from "@/state/store";
 import { ago, ev, NOW, started, stateOf } from "@/test/events";
@@ -43,6 +44,7 @@ function renderActions(state: GravitaState) {
         navigate: () => {},
         toggleTheme: () => {},
         notificationPrefs: createNotificationPrefs(memoryStorage),
+        projectAppearance: createProjectAppearance(memoryStorage),
       }}
     >
       <PermissionActions session={session} agent={session.agents.a!} />

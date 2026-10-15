@@ -20,6 +20,7 @@ export type FakeCommand =
   | "startSession"
   | "sendMessage"
   | "interruptSession"
+  | "removeSession"
   | "stopAgent"
   | "setModel"
   | "setPermissionMode"
@@ -42,6 +43,7 @@ export type FakeCommand =
   | "codexProfileStatus"
   | "codexProfileSignIn"
   | "codexProfileSignOut"
+  | "validateCursorKey"
   | "spawnTerminal"
   | "writeTerminal"
   | "resizeTerminal"
@@ -82,6 +84,7 @@ export class FakeGateway implements EngineGateway {
   signInResult: RpcResult<"codexProfile.signIn"> = {
     authUrl: "https://auth.openai.com/oauth/authorize?client_id=codex",
   };
+  cursorKeyResult: RpcResult<"cursorKey.validate"> = { source: "app", state: "valid" };
   terminalInfo: TerminalInfo = {
     terminalId: "t1",
     command: "shell",
@@ -175,6 +178,9 @@ export class FakeGateway implements EngineGateway {
   interruptSession(params: RpcParams<"session.interrupt">) {
     return this.run("interruptSession", params, () => ({ ok: true }) as const);
   }
+  removeSession(params: RpcParams<"session.remove">) {
+    return this.run("removeSession", params, () => ({ ok: true }) as const);
+  }
   stopAgent(params: RpcParams<"agent.stop">) {
     return this.run("stopAgent", params, () => ({ ok: true }) as const);
   }
@@ -240,6 +246,9 @@ export class FakeGateway implements EngineGateway {
   }
   codexProfileSignOut() {
     return this.run("codexProfileSignOut", {}, () => ({ ok: true }) as const);
+  }
+  validateCursorKey() {
+    return this.run("validateCursorKey", {}, () => this.cursorKeyResult);
   }
 
   spawnTerminal(params: RpcParams<"terminal.spawn">) {

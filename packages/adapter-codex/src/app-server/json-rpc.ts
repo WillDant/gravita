@@ -72,6 +72,8 @@ export interface JsonRpcConnectionOptions {
   maxLineChars?: number;
   /** How long a request waits for its answer when the call doesn't say (default: forever). */
   requestTimeoutMs?: number;
+  /** Fields every message we send carries (ACP peers want `jsonrpc: "2.0"`; Codex omits it). */
+  envelope?: Readonly<Record<string, unknown>>;
 }
 
 /** Codex's largest messages carry a command's whole output; 16 MiB of text is plenty. */
@@ -152,7 +154,7 @@ export class JsonRpcConnection {
 
   private write(message: Loose) {
     try {
-      this.transport.send(`${JSON.stringify(message)}\n`);
+      this.transport.send(`${JSON.stringify({ ...this.o.envelope, ...message })}\n`);
     } catch (err) {
       this.o.onProtocolError?.(`sending failed: ${err instanceof Error ? err.message : err}`);
       this.finish();

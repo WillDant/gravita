@@ -3,7 +3,7 @@
 export const RPC_VERSION = 1;
 
 /** The coding agents Gravita observes and runs. Events also carry "gravita" and "fake". */
-export const AGENT_PROVIDERS = ["claude", "codex"] as const;
+export const AGENT_PROVIDERS = ["claude", "codex", "cursor"] as const;
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number];
 
 /** The provider of a session or a request that names none (everything before Codex). */
@@ -11,15 +11,31 @@ export const DEFAULT_PROVIDER: AgentProvider = "claude";
 
 /**
  * Who builds a squad: every role on Claude Code, every role on Codex, or each role on the
- * provider the plan gives it (`mixed`).
+ * provider the plan gives it (`mixed`). Cursor never builds squads.
  */
 export const SQUAD_PROVIDER_CHOICES = ["claude", "codex", "mixed"] as const;
 export type SquadProviderChoice = (typeof SQUAD_PROVIDER_CHOICES)[number];
+
+/** The providers a squad role (and its planner) may run on. */
+export const SQUAD_AGENT_PROVIDERS = ["claude", "codex"] as const;
+export type SquadAgentProvider = (typeof SQUAD_AGENT_PROVIDERS)[number];
 
 /** Claude Code's permission modes. */
 export const CLAUDE_MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
 /** Codex's session modes: ask before acting, write in the workspace, or full access. */
 export const CODEX_MODES = ["ask", "workspace", "fullAccess"] as const;
+/** Cursor's session modes: act (asking for approvals), plan, or answer questions read-only. */
+export const CURSOR_MODES = ["agent", "plan", "ask"] as const;
+
+/**
+ * Where a provider's credential comes from, when Gravita holds one (Cursor's API key):
+ * pasted in Gravita (`app`), or none yet. Never the credential itself.
+ */
+export const CREDENTIAL_SOURCES = ["app", "none"] as const;
+export type CredentialSource = (typeof CREDENTIAL_SOURCES)[number];
+/** What Gravita knows of that credential: none, not checked yet, accepted, or refused. */
+export const CREDENTIAL_STATES = ["missing", "unchecked", "valid", "invalid"] as const;
+export type CredentialState = (typeof CREDENTIAL_STATES)[number];
 
 /**
  * The plan usage windows a provider reports: the 5-hour and weekly limits, a weekly limit
@@ -52,6 +68,7 @@ export const Methods = {
   sessionStart: "session.start",
   sessionSend: "session.send",
   sessionInterrupt: "session.interrupt",
+  sessionRemove: "session.remove",
   agentStop: "agent.stop",
   sessionSetModel: "session.setModel",
   sessionSetPermissionMode: "session.setPermissionMode",
@@ -76,6 +93,8 @@ export const Methods = {
   codexProfileStatus: "codexProfile.status",
   codexProfileSignIn: "codexProfile.signIn",
   codexProfileSignOut: "codexProfile.signOut",
+  /** Checks the Cursor API key the engine holds (never takes or returns the key). */
+  cursorKeyValidate: "cursorKey.validate",
   terminalSpawn: "terminal.spawn",
   terminalWrite: "terminal.write",
   terminalResize: "terminal.resize",
@@ -86,9 +105,9 @@ export const Methods = {
 
 /**
  * What an embedded terminal starts in its folder: the user's login shell, or their own
- * Claude Code or Codex CLI (interactive, exactly as they would run it).
+ * Claude Code, Codex or Cursor CLI (interactive, exactly as they would run it).
  */
-export const TERMINAL_COMMANDS = ["shell", "claude", "codex"] as const;
+export const TERMINAL_COMMANDS = ["shell", "claude", "codex", "cursor"] as const;
 export type TerminalCommand = (typeof TERMINAL_COMMANDS)[number];
 
 /**

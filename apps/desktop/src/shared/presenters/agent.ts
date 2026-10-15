@@ -28,8 +28,8 @@ export function agentTypeLabel(agentType: string): string {
   return key ? t(key) : agentType;
 }
 
-/** Codex prefixes its session and agent ids with "codex:" for routing; people never need it. */
-const PROVIDER_ID_PREFIX = /^codex:/;
+/** Codex and Cursor prefix their session and agent ids for routing; people never need it. */
+const PROVIDER_ID_PREFIX = /^(codex|cursor):/;
 
 /** A session or agent id as text on screen, without the provider prefix kept for routing. */
 export function displayId(id: string): string {

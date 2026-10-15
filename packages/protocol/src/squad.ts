@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AGENT_PROVIDERS, PLAN_WINDOWS, SQUAD_PROVIDER_CHOICES } from "./constants";
+import { PLAN_WINDOWS, SQUAD_AGENT_PROVIDERS, SQUAD_PROVIDER_CHOICES } from "./constants";
 
 // The Squad contract: a team of role agents, each in its own git worktree, working one
 // validated plan. The planner proposes a SquadPlan, the user approves it on the Board,
@@ -31,7 +31,7 @@ export const PlanRole = z.object({
    * Which coding agent runs this role: Claude Code when absent. Allowed only as the squad's
    * provider choice says (`SquadProviders`); core's validatePlan checks it.
    */
-  provider: z.enum(AGENT_PROVIDERS).optional(),
+  provider: z.enum(SQUAD_AGENT_PROVIDERS).optional(),
 });
 export type PlanRole = z.infer<typeof PlanRole>;
 

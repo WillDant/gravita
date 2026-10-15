@@ -26,6 +26,7 @@
   --error-bg: #fef0ee;
   --ok: #12a15f;
   --ok-ink: #0e7a48;
+  --scrim: rgb(18 20 23 / 40%);
   --station: #ffffff;
   --shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%);
   --shadow-lg: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%);
@@ -53,6 +54,7 @@
     --error-bg: #2b1513;
     --ok: #3ccb86;
     --ok-ink: #5fd99d;
+    --scrim: rgb(0 0 0 / 62%);
     --station: #0f1115;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
     --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
@@ -80,6 +82,7 @@
   --color-error-bg: var(--error-bg);
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
+  --color-scrim: var(--scrim);
   --shadow-panel: var(--shadow);
   --shadow-float: var(--shadow-lg);
   /* Product type scale, ratio ~1.125, fixed rem. */
@@ -96,6 +99,72 @@
   --default-transition-duration: 120ms;
   --default-transition-timing-function: var(--ease-signature);
   --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* Project tile colours: a tint with its ink, one pair per theme (see ProjectTile). */
+[data-tone="blue"] {
+  --tile-bg: #dce7ff;
+  --tile-fg: #1f3fa8;
+}
+:root[data-theme="dark"] [data-tone="blue"] {
+  --tile-bg: #1c2a52;
+  --tile-fg: #a8bfff;
+}
+[data-tone="violet"] {
+  --tile-bg: #e8e1ff;
+  --tile-fg: #4b2fb0;
+}
+:root[data-theme="dark"] [data-tone="violet"] {
+  --tile-bg: #2a2152;
+  --tile-fg: #c5b6ff;
+}
+[data-tone="pink"] {
+  --tile-bg: #ffe0ee;
+  --tile-fg: #a31f5c;
+}
+:root[data-theme="dark"] [data-tone="pink"] {
+  --tile-bg: #4a1830;
+  --tile-fg: #ffb3d6;
+}
+[data-tone="red"] {
+  --tile-bg: #ffe0dc;
+  --tile-fg: #a3221a;
+}
+:root[data-theme="dark"] [data-tone="red"] {
+  --tile-bg: #4a1a17;
+  --tile-fg: #ffb0a8;
+}
+[data-tone="orange"] {
+  --tile-bg: #ffe8d6;
+  --tile-fg: #9a4308;
+}
+:root[data-theme="dark"] [data-tone="orange"] {
+  --tile-bg: #46240f;
+  --tile-fg: #ffbf8a;
+}
+[data-tone="yellow"] {
+  --tile-bg: #fff3c4;
+  --tile-fg: #6e5200;
+}
+:root[data-theme="dark"] [data-tone="yellow"] {
+  --tile-bg: #3d3109;
+  --tile-fg: #f5d869;
+}
+[data-tone="green"] {
+  --tile-bg: #d9f5e6;
+  --tile-fg: #0d6b3f;
+}
+:root[data-theme="dark"] [data-tone="green"] {
+  --tile-bg: #14382a;
+  --tile-fg: #8fe3b8;
+}
+[data-tone="teal"] {
+  --tile-bg: #d4f3f2;
+  --tile-fg: #0b6462;
+}
+:root[data-theme="dark"] [data-tone="teal"] {
+  --tile-bg: #11393a;
+  --tile-fg: #86e0dd;
 }
 
 html,

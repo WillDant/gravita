@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type GravitaEvent, keys, type SquadPlan } from "@gravita/protocol";
+import { type GravitaEvent, keys, SquadPlan } from "@gravita/protocol";
 import {
   AUTO_MODELS,
   AUTO_MODELS_BY_PROVIDER,
@@ -87,6 +87,14 @@ describe("who builds a squad", () => {
     // Without a choice: Claude Code only, as before Codex roles.
     expect(validatePlan(plan).map((i) => i.code)).toEqual(["provider_not_allowed"]);
     expect(validatePlan(samplePlan())).toEqual([]);
+  });
+
+  test("Cursor never builds a squad: no choice allows it, and a plan can't name it", () => {
+    for (const choice of ["claude", "codex", "mixed"] as const)
+      expect(allowedProviders(choice)).not.toContain("cursor");
+    const plan = mixed();
+    const roles = plan.roles.map((r, i) => (i === 1 ? { ...r, provider: "cursor" } : r));
+    expect(SquadPlan.safeParse({ ...plan, roles }).success).toBe(false);
   });
 
   test("squad.created keeps the choice; older squads have none", () => {

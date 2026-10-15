@@ -34,6 +34,7 @@ describe("Codex subagent roles", () => {
 
   it("show ids without the provider prefix kept for routing", () => {
     expect(displayId("codex:019cf4f0-977f-7e41")).toBe("019cf4f0-977f-7e41");
+    expect(displayId("cursor:0af03c5f-4a38")).toBe("0af03c5f-4a38");
     expect(displayId("a1b2c3")).toBe("a1b2c3");
   });
 });

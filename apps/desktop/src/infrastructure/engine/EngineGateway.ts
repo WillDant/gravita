@@ -39,6 +39,7 @@ export interface EngineGateway {
   startSession(params: RpcParams<"session.start">): Promise<RpcResult<"session.start">>;
   sendMessage(params: RpcParams<"session.send">): Promise<RpcResult<"session.send">>;
   interruptSession(params: RpcParams<"session.interrupt">): Promise<RpcResult<"session.interrupt">>;
+  removeSession(params: RpcParams<"session.remove">): Promise<RpcResult<"session.remove">>;
   stopAgent(params: RpcParams<"agent.stop">): Promise<RpcResult<"agent.stop">>;
   setModel(params: RpcParams<"session.setModel">): Promise<RpcResult<"session.setModel">>;
   setPermissionMode(
@@ -77,6 +78,12 @@ export interface EngineGateway {
   /** Starts the sign-in: the link to open in the browser; the end arrives as a status. */
   codexProfileSignIn(): Promise<RpcResult<"codexProfile.signIn">>;
   codexProfileSignOut(): Promise<RpcResult<"codexProfile.signOut">>;
+
+  /**
+   * Checks the Cursor key the desktop shell handed the engine; only its state comes back.
+   * The key itself never travels here: the shell's own commands store it (platform/tauri).
+   */
+  validateCursorKey(): Promise<RpcResult<"cursorKey.validate">>;
 
   // Embedded terminals: a PTY in the engine. Output arrives through `onTerminalOutput`.
   spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">>;

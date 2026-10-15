@@ -24,9 +24,10 @@ afterAll(() => vi.unstubAllGlobals());
 
 const CODEX = "codex:019cf4f0-977f-7e41-9672-55468e49cc0c";
 const CLAUDE = "5f0c2b8e-claude";
+const CURSOR = "cursor:7d1e5a40-cursor";
 
 /** Events as `provider` sends them. */
-const from = (provider: "claude" | "codex", events: GravitaEvent[]) =>
+const from = (provider: "claude" | "codex" | "cursor", events: GravitaEvent[]) =>
   events.map((e) => ({ ...e, provider }));
 
 const titled = (sessionId: string, title: string) =>
@@ -35,6 +36,7 @@ const titled = (sessionId: string, title: string) =>
 const state = stateOf(
   from("claude", [...started(CLAUDE, 6, "p1"), titled(CLAUDE, "Fix the login form")]),
   from("codex", [...started(CODEX, 5, "p1"), titled(CODEX, "Speed up the build")]),
+  from("cursor", [...started(CURSOR, 4, "p1"), titled(CURSOR, "Explain the cache")]),
 );
 
 const mark = { name: "Codex session" };
@@ -46,8 +48,20 @@ describe("provider mark", () => {
     const rows = screen.getAllByRole("row").slice(1);
     const codex = rows.find((r) => r.textContent?.includes("Speed up the build"));
     const claude = rows.find((r) => r.textContent?.includes("Fix the login form"));
-    expect(within(codex as HTMLElement).getByRole("img", mark).textContent).toBe("Codex");
+    const codexMark = within(codex as HTMLElement).getByRole("img", mark);
+    expect(codexMark.textContent).toBe("Codex");
+    expect(codexMark.querySelector("svg")).not.toBeNull();
     expect(within(claude as HTMLElement).queryByRole("img", mark)).toBeNull();
+  });
+
+  it("marks a Cursor session's row as Cursor's", async () => {
+    renderWithApp(<Project projectId="p1" />, { state });
+    await act(flush);
+    const row = screen
+      .getAllByRole("row")
+      .find((r) => r.textContent?.includes("Explain the cache"));
+    const cursor = within(row as HTMLElement).getByRole("img", { name: "Cursor session" });
+    expect(cursor.textContent).toBe("Cursor");
   });
 
   it("names a Codex session in the breadcrumb and the agent panel", async () => {

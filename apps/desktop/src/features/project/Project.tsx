@@ -5,6 +5,7 @@ import { useNavigate } from "@/app/providers";
 import { MiniLines } from "@/features/agents/MiniLines";
 import { NewSessionButton, NewSessionPanel } from "@/features/new-session/NewSessionPanel";
 import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPanel";
+import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { SquadRow } from "@/features/squad-row/SquadRow";
 import { OpenTerminalButton, TerminalList } from "@/features/terminal/ProjectTerminals";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
@@ -19,6 +20,7 @@ import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { CountChips, StatusText } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
 import { useNow, useProjection } from "@/state/hooks";
+import { ProjectAppearancePicker } from "./ProjectAppearancePicker";
 
 export function Project({ projectId }: { projectId: string }) {
   useLocale();
@@ -39,17 +41,20 @@ export function Project({ projectId }: { projectId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-8 px-8 pt-8 pb-16">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-[-0.02em]">{project.name}</h1>
-          <p className="mt-1 flex items-center gap-3 text-sm text-ink-2">
-            <span className="truncate">{tildify(project.root)}</span>
-            {branch && (
-              <span className="inline-flex items-center gap-1 text-ink-3">
-                <GitBranch size={13} aria-hidden="true" />
-                {branch}
-              </span>
-            )}
-          </p>
+        <div className="flex min-w-0 items-center gap-4">
+          <ProjectAppearancePicker projectId={projectId} name={project.name} />
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-[-0.02em]">{project.name}</h1>
+            <p className="mt-1 flex items-center gap-3 text-sm text-ink-2">
+              <span className="truncate">{tildify(project.root)}</span>
+              {branch && (
+                <span className="inline-flex items-center gap-1 text-ink-3">
+                  <GitBranch size={13} aria-hidden="true" />
+                  {branch}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={counts} />
@@ -103,8 +108,11 @@ export function Project({ projectId }: { projectId: string }) {
               <th className="w-[10%] border-b border-hairline pb-2 text-right font-medium">
                 {t("project.col.tokens")}
               </th>
-              <th className="w-[10%] border-b border-hairline pb-2 pr-3 text-right font-medium">
+              <th className="w-[10%] border-b border-hairline pb-2 text-right font-medium">
                 {t("project.col.activity")}
+              </th>
+              <th className="w-10 border-b border-hairline pb-2 pr-3 font-medium">
+                <span className="sr-only">{t("session.remove")}</span>
               </th>
             </tr>
           </thead>
@@ -132,7 +140,7 @@ export function Project({ projectId }: { projectId: string }) {
                     if (e.key === "Enter")
                       navigate({ level: "session", projectId, sessionId: s.id });
                   }}
-                  className="cursor-pointer transition-colors hover:bg-panel focus-visible:bg-panel"
+                  className="group/row cursor-pointer transition-colors hover:bg-panel focus-visible:bg-panel"
                 >
                   <td className="border-b border-hairline py-3 pl-3">
                     <span className="flex min-w-0 items-center gap-2">
@@ -154,8 +162,11 @@ export function Project({ projectId }: { projectId: string }) {
                   <td className="border-b border-hairline py-3 text-right text-ink-2 tabular">
                     {compact(tokensOf(s))}
                   </td>
-                  <td className="border-b border-hairline py-3 pr-3 text-right text-xs text-ink-3">
+                  <td className="border-b border-hairline py-3 text-right text-xs text-ink-3">
                     {ago(s.lastEventTs, now)}
+                  </td>
+                  <td className="border-b border-hairline py-3 pr-3 text-right">
+                    <RemoveSessionButton sessionId={s.id} projectId={projectId} />
                   </td>
                 </tr>
               );

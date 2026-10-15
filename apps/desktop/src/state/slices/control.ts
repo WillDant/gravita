@@ -24,6 +24,8 @@ export interface ControlSlice {
    * (a failure can retry).
    */
   loadModels: (provider?: AgentProvider) => void;
+  /** Refetches models even when the provider was already `ready` (e.g. after Cursor session/new). */
+  reloadModels: (provider?: AgentProvider) => void;
   /** The session just started from Gravita, until the projection catches up with it. */
   startingSessionId?: string;
   startSession: (
@@ -36,6 +38,7 @@ export interface ControlSlice {
   /** `mode` in the session's provider's terms: the engine refuses another provider's mode. */
   setPermissionMode: (sessionId: string, mode: SessionMode) => Promise<CommandResult>;
   answerQuestion: (params: RpcParams<"question.answer">) => Promise<CommandResult>;
+  removeSession: (sessionId: string, projectId: string) => Promise<CommandResult>;
 }
 
 export async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
@@ -57,6 +60,9 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
   loadModels: (provider = "claude") => {
     const status = get().modelsStatus[provider];
     if (status === "loading" || status === "ready") return;
+    get().reloadModels(provider);
+  },
+  reloadModels: (provider = "claude") => {
     const mark = (next: ModelsStatus, models?: ModelOption[]) =>
       set((s) => ({
         modelsStatus: { ...s.modelsStatus, [provider]: next },
@@ -86,4 +92,14 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
   setPermissionMode: (sessionId, mode) =>
     done(() => gateway.setPermissionMode({ sessionId, mode })),
   answerQuestion: (params) => done(() => gateway.answerQuestion(params)),
+  removeSession: async (sessionId, projectId) => {
+    const r = await done(() => gateway.removeSession({ sessionId }));
+    if (r.ok) {
+      const route = get().route;
+      if (route.level === "session" && route.sessionId === sessionId) {
+        get().setRoute({ level: "project", projectId });
+      }
+    }
+    return r;
+  },
 });

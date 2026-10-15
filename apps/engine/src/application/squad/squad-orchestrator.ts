@@ -324,7 +324,7 @@ export class SquadOrchestrator {
     if (account !== squadAccountOf(provider)) return;
     for (const q of this.d.squads.squads()) {
       if (!q.created || !isPlanSquad(q) || q.paused || !ACTIVE_PHASES.has(q.phase)) continue;
-      if (!squadProvidersOf(q.providers, squadPlan(q)).includes(provider)) continue;
+      if (!squadProvidersOf(q.providers, squadPlan(q)).some((p) => p === provider)) continue;
       if (this.d.profiles?.accountPlan(provider) === "limited") continue;
       this.d.scheduler.pause(
         this.run(q),

@@ -1,8 +1,10 @@
 import type { AgentProvider } from "@gravita/protocol/constants";
-import { Check, Copy, Terminal } from "lucide-react";
+import { Check, Copy, KeyRound, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "@/app/providers";
 import { t } from "@/shared/i18n/i18n";
 import type { ProviderProblem } from "@/shared/presenters/errors";
+import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 
 interface Step {
@@ -16,13 +18,15 @@ interface Step {
 interface ProviderGuide {
   /** The copy of a problem's title and body. */
   copy: (problem: ProviderProblem, part: "title" | "body") => string;
-  steps: Readonly<Record<ProviderProblem, readonly Step[]>>;
+  steps: Readonly<Partial<Record<ProviderProblem, readonly Step[]>>>;
 }
 
 const CLAUDE_INSTALL = "npm install -g @anthropic-ai/claude-code";
 // Codex's own README offers both: a Homebrew cask and the npm package.
 const CODEX_BREW = "brew install --cask codex";
 const CODEX_NPM = "npm install -g @openai/codex";
+// Cursor's official installer puts cursor-agent in ~/.local/bin.
+const CURSOR_INSTALL = "curl https://cursor.com/install -fsS | bash";
 
 /** Each provider's steps; a provider without guidance yet shows only the error line. */
 const GUIDES: Readonly<Partial<Record<AgentProvider, ProviderGuide>>> = {
@@ -56,11 +60,23 @@ const GUIDES: Readonly<Partial<Record<AgentProvider, ProviderGuide>>> = {
       loggedOut: [{ label: "connect.codex.step.login", command: "codex login" }],
     },
   },
+  // Cursor never logs in: key problems are handled in Settings, not here.
+  cursor: {
+    copy: (problem, part) => `connect.cursor.${problem}.${part}`,
+    steps: {
+      missing: [{ label: "connect.step.install", command: CURSOR_INSTALL }],
+      outdated: [{ label: "connect.step.update", command: "cursor-agent update" }],
+    },
+  },
 };
+
+export const isCursorKeyProblem = (problem: ProviderProblem) =>
+  problem === "keyMissing" || problem === "keyInvalid";
 
 /**
  * Calm guidance when a provider's CLI is missing, outdated or logged out. Gravita never
  * logs anyone in: the steps send the user to the provider's CLI in their own Terminal.
+ * Cursor's key problems point to Settings, where the key is set.
  */
 export function ConnectProvider({
   provider,
@@ -71,6 +87,8 @@ export function ConnectProvider({
   problem: ProviderProblem;
   className?: string;
 }) {
+  if (provider === "cursor" && isCursorKeyProblem(problem))
+    return <CursorKeyNotice problem={problem} className={className} />;
   const guide = GUIDES[provider];
   if (!guide) return null;
   const headingId = `connect-${provider}`;
@@ -89,7 +107,7 @@ export function ConnectProvider({
           </h2>
           <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t(guide.copy(problem, "body"))}</p>
           <ol className="mt-3 flex flex-col gap-2">
-            {numbered(guide.steps[problem]).map(({ step, n }) => (
+            {numbered(guide.steps[problem] ?? []).map(({ step, n }) => (
               <li key={step.command} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="w-56 max-w-full text-xs text-ink-2">
                   {/* An alternative keeps the room of a number, so the commands line up. */}
@@ -112,6 +130,44 @@ export function ConnectProvider({
 function numbered(steps: readonly Step[]): { step: Step; n: number }[] {
   let n = 0;
   return steps.map((step) => ({ step, n: step.or ? n : ++n }));
+}
+
+function CursorKeyNotice({
+  problem,
+  className,
+}: {
+  problem: "keyMissing" | "keyInvalid";
+  className?: string;
+}) {
+  const navigate = useNavigate();
+  const titleKey =
+    problem === "keyMissing"
+      ? "connect.cursor.keyMissing.title"
+      : "connect.cursor.keyInvalid.title";
+  const bodyKey =
+    problem === "keyMissing" ? "connect.cursor.keyMissing.body" : "connect.cursor.keyInvalid.body";
+  const headingId = "connect-cursor-key";
+  return (
+    <section
+      aria-labelledby={headingId}
+      className={cn("rounded-xl border border-hairline bg-panel px-4 py-3.5", className)}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-lg bg-ground text-ink ring-1 ring-hairline">
+          <KeyRound size={15} aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id={headingId} className="text-sm font-semibold text-ink">
+            {t(titleKey)}
+          </h2>
+          <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t(bodyKey)}</p>
+          <Button className="mt-3" onClick={() => navigate({ level: "settings" })}>
+            {t("connect.cursor.openSettings")}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function CopyCommand({ command }: { command: string }) {

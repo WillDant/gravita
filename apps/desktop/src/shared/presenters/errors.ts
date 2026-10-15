@@ -2,10 +2,13 @@ import type { AgentProvider } from "@gravita/protocol/constants";
 import { type GatewayError, KnownErrors, LocalErrors } from "@/infrastructure/engine/GatewayError";
 import { t } from "@/shared/i18n/i18n";
 
-/** Why a provider's agent can't run sessions right now. */
-export type ProviderProblem = "missing" | "outdated" | "loggedOut";
+/**
+ * Why a provider's agent can't run sessions right now. Cursor never logs in: it runs only
+ * with the API key set in Gravita, so it has key problems instead of `loggedOut`.
+ */
+export type ProviderProblem = "missing" | "outdated" | "loggedOut" | "keyMissing" | "keyInvalid";
 
-/** A problem the user fixes in a provider's own CLI: what the connect steps show. */
+/** A problem the user fixes in a provider's own CLI (or Cursor's key): the connect steps. */
 export interface ConnectIssue {
   provider: AgentProvider;
   problem: ProviderProblem;
@@ -23,6 +26,7 @@ const PROVIDER_COPY: Readonly<Record<AgentProvider, { unavailable: string; notLo
   {
     claude: { unavailable: "error.claudeUnavailable", notLoggedIn: "error.notLoggedIn" },
     codex: { unavailable: "error.codexUnavailable", notLoggedIn: "error.codexNotLoggedIn" },
+    cursor: { unavailable: "error.cursorUnavailable", notLoggedIn: "error.cursorNoKey" },
   };
 
 /** An engine error in the user's words. */
@@ -43,9 +47,10 @@ export function describeError(error: GatewayError): ErrorView {
       return { text: t("error.tooManySessions") };
     case KnownErrors.notLoggedIn: {
       const provider = error.provider;
+      // Cursor's key panel tells a missing key from a rejected one by the live status.
       return {
         text: t(PROVIDER_COPY[provider].notLoggedIn),
-        connect: { provider, problem: "loggedOut" },
+        connect: { provider, problem: provider === "cursor" ? "keyMissing" : "loggedOut" },
       };
     }
     case KnownErrors.squadNotFound:

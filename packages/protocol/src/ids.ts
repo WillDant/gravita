@@ -1,7 +1,7 @@
 // Deterministic ids and idempotency keys. Every source (SDK stream, transcript tailer,
 // hooks) must derive the same id for the same thing, across restarts. Never random.
 
-export type Provider = "claude" | "codex" | "gravita" | "fake";
+export type Provider = "claude" | "codex" | "cursor" | "gravita" | "fake";
 
 /** Id of the main agent of a session. */
 export const MAIN_AGENT = "main";
@@ -22,6 +22,7 @@ export function toolNodeId(provider: Provider, toolUseId: string): string {
 export const keys = {
   sessionStarted: (sid: string) => `session:${sid}:started`,
   sessionEnded: (sid: string) => `session:${sid}:ended`,
+  sessionRemoved: (sid: string) => `session:${sid}:removed`,
   agentSpawned: (sid: string, agentId: string) => `agent:${sid}:${agentId}:spawned`,
   agentCompleted: (sid: string, agentId: string) => `agent:${sid}:${agentId}:completed`,
   agentLifecycle: (sid: string, agentId: string, status: string) =>

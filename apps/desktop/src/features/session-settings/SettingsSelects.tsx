@@ -1,5 +1,5 @@
 import type { PermissionMode, SessionMode } from "@gravita/protocol";
-import { type AgentProvider, CODEX_MODES } from "@gravita/protocol/constants";
+import { type AgentProvider, CODEX_MODES, CURSOR_MODES } from "@gravita/protocol/constants";
 import { TriangleAlert } from "lucide-react";
 import { t } from "@/shared/i18n/i18n";
 import { Select } from "@/shared/ui/form";
@@ -19,10 +19,13 @@ const PROVIDER_MODES: Readonly<
     AgentProvider,
     {
       modes: readonly SessionMode[];
-      /** The mode that acts without asking: only chosen when a session starts. */
-      fullAccess: SessionMode;
+      /**
+       * The mode that acts without asking: only chosen when a session starts. Cursor has
+       * none, Gravita never runs it with `--force`.
+       */
+      fullAccess?: SessionMode;
       label: (mode: SessionMode) => string;
-      warning: string;
+      warning?: string;
     }
   >
 > = {
@@ -38,16 +41,22 @@ const PROVIDER_MODES: Readonly<
     label: (m) => `mode.codex.${m}`,
     warning: "mode.codex.fullAccessWarning",
   },
+  cursor: {
+    modes: CURSOR_MODES,
+    label: (m) => `mode.cursor.${m}`,
+  },
 };
 
 /** Whether `mode` lets `provider`'s agent act without asking (Claude's bypass, Codex's full access). */
 export function isFullAccess(provider: AgentProvider, mode: SessionMode): boolean {
-  return PROVIDER_MODES[provider].fullAccess === mode;
+  const { fullAccess } = PROVIDER_MODES[provider];
+  return fullAccess !== undefined && fullAccess === mode;
 }
 
 const MODEL_DEFAULT: Readonly<Record<AgentProvider, string>> = {
   claude: "newSession.modelDefault",
   codex: "newSession.modelDefaultCodex",
+  cursor: "newSession.modelDefaultCursor",
 };
 
 /**
@@ -77,6 +86,8 @@ export function ModelSelect({
   variant?: "field" | "ghost";
 }) {
   const known = value === "" || models.some((m) => m.value === value);
+  const showDefaultOption =
+    provider !== "cursor" && (withDefault === true || (withDefault !== false && value === ""));
   return (
     <Select
       id={id}
@@ -86,7 +97,7 @@ export function ModelSelect({
       className={className}
       variant={variant}
     >
-      {(withDefault || value === "") && <option value="">{t(MODEL_DEFAULT[provider])}</option>}
+      {showDefaultOption && <option value="">{t(MODEL_DEFAULT[provider])}</option>}
       {!known && <option value={value}>{value}</option>}
       {models.map((m) => (
         <option key={m.value} value={m.value}>
@@ -150,10 +161,12 @@ export function BypassWarning({
   provider?: AgentProvider;
   className?: string;
 }) {
+  const warning = PROVIDER_MODES[provider].warning;
+  if (!warning) return null;
   return (
     <p role="note" className={cn("flex items-start gap-1.5 text-xs text-error-ink", className)}>
       <TriangleAlert size={13} className="mt-px flex-none" aria-hidden="true" />
-      {t(PROVIDER_MODES[provider].warning)}
+      {t(warning)}
     </p>
   );
 }

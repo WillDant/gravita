@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { AppProviders, useToggleTheme } from "@/app/providers";
 import SquadScreen from "@/features/squad/SquadScreen";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
+import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import type { Route } from "@/state/slices/route";
 import { createAppStore } from "@/state/store";
 import { NOW } from "@/test/events";
@@ -57,6 +58,7 @@ export function SquadGallery({ fixture }: { fixture: string }) {
       navigate,
       toggleTheme,
       notificationPrefs: createNotificationPrefs(() => storage),
+      projectAppearance: createProjectAppearance(() => storage),
     };
   }, [kind, toggleTheme]);
 

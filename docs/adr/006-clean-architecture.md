@@ -61,6 +61,10 @@ Gravita ran only Claude Code; Codex comes next. Before it does, every place that
 - **`--codex-home`** (default `~/.codex`): where Codex keeps its sessions. The engine takes it and passes it to the core (`EngineCore.homes.codex`); nothing reads it until Codex sessions are observed. Like `~/.claude`, it will only ever be read.
 - **Desktop.** `ConnectProvider` shows a provider's connect steps (Claude Code's are unchanged; a provider without guidance yet shows only the error line); `useProviderProblem(provider)` and `useModels(provider)` are keyed by provider.
 
+## Addendum: the Cursor runtime
+
+Cursor is the third `AgentProvider` (ADR 008). It follows the Codex runtime's shape: `@gravita/adapter-cursor` is process-free (ACP client over `JsonRpcConnection`, `CursorAcpMapper`, `cursorToolCall`, a scripted ACP server), and `CursorAcpRuntime` in `infrastructure/cursor` is the only code that starts `cursor-agent acp`. Its credential comes through a new port, `CredentialSource` (application), filled from the engine's stdin by the composition root (`MemoryCredentialSource`); `CursorKeyValidator` checks it. Provider-dependent wording no longer uses `provider === "codex" ? … : …`: domain errors name providers through `providerName`, and exhaustive `switch`es cover the three.
+
 ## Addendum: the Codex runtime
 
 Codex chats run through `codex app-server` (newline-delimited JSON-RPC on stdio), the only Codex interface with approvals, interrupt and streaming. Its protocol is labelled experimental, so Gravita pins it: the TypeScript types `codex app-server generate-ts --experimental` produces for the tested release (0.160) are vendored, reduced to what Gravita uses, in `packages/adapter-codex/src/app-server/protocol/` (`bun tools/vendor-codex-protocol.ts` regenerates them).

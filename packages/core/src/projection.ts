@@ -208,12 +208,22 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       return;
     case "session.settings":
       if (e.data.model !== undefined) s.model = e.data.model;
-      if (e.data.permissionMode !== undefined) s.permissionMode = e.data.permissionMode;
+      if (e.data.permissionMode !== undefined) {
+        s.permissionMode = e.data.permissionMode;
+        if (e.data.providerMode !== undefined) s.providerMode = e.data.providerMode;
+        else delete s.providerMode;
+      }
       return;
     case "session.control":
       s.controllable = e.data.controllable;
       return;
     case "session.ended":
+      s.live = false;
+      s.ended = true;
+      s.controllable = false;
+      return;
+    case "session.removed":
+      s.removed = true;
       s.live = false;
       s.ended = true;
       s.controllable = false;

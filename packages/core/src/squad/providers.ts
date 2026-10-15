@@ -1,11 +1,15 @@
-import type { AgentProvider, PlanRole, SquadPlan } from "@gravita/protocol";
-import type { SquadProviderChoice } from "@gravita/protocol/constants";
+import type { PlanRole, SquadPlan } from "@gravita/protocol";
+import type {
+  SquadAgentProvider as AgentProvider,
+  SquadProviderChoice,
+} from "@gravita/protocol/constants";
 
 // Who builds a squad. The Brief's choice (`SquadProviders`) puts every role on Claude Code,
 // every role on Codex, or lets each role name its own (`mixed`, Claude Code when it names
 // none). The briefing and the planner run on Codex only in a Codex-only squad: a mixed squad
 // keeps them on Claude Code, which the planner's structured output was built and tested on.
 // Shared by the engine (which starts the sessions) and the UI (which shows the marks).
+// Cursor never builds squads: every provider here is a squad provider (Claude Code, Codex).
 
 export type { SquadProviderChoice };
 

@@ -1,5 +1,6 @@
 import { t } from "@/shared/i18n/i18n";
 import { cn } from "@/shared/utils";
+import { ProviderIcon } from "./ProviderIcon";
 
 /**
  * The providers that carry a mark, with their name and a two-letter short form for tight
@@ -9,6 +10,7 @@ import { cn } from "@/shared/utils";
  */
 const MARKS: Readonly<Record<string, { name: string; short: string; label: string }>> = {
   codex: { name: "Codex", short: "Cx", label: "provider.codex.session" },
+  cursor: { name: "Cursor", short: "Cu", label: "provider.cursor.session" },
 };
 
 /**
@@ -35,10 +37,11 @@ export function ProviderMark({
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex h-[18px] flex-none items-center rounded-full border border-hairline-strong px-1.5 text-2xs leading-none font-semibold text-ink-2",
+        "inline-flex h-[18px] flex-none items-center gap-1 rounded-full border border-hairline-strong px-1.5 text-2xs leading-none font-semibold text-ink-2",
         className,
       )}
     >
+      <ProviderIcon provider={provider} size={11} />
       {compact ? mark.short : mark.name}
     </span>
   );

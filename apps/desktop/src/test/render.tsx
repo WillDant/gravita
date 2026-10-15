@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { vi } from "vitest";
 import { AppProviders } from "@/app/providers";
+import type { CursorKeyBridge, PickFolder } from "@/infrastructure/platform/tauri";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
+import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import type { Route } from "@/state/slices/route";
 import { type AppStore, createAppStore } from "@/state/store";
 import { NOW } from "./events";
@@ -19,7 +21,17 @@ export interface AppRender extends RenderResult {
 
 export function renderWithApp(
   ui: ReactNode,
-  { state, gateway = new FakeGateway() }: { state?: GravitaState; gateway?: FakeGateway } = {},
+  {
+    state,
+    gateway = new FakeGateway(),
+    cursorKey,
+    pickFolder,
+  }: {
+    state?: GravitaState;
+    gateway?: FakeGateway;
+    cursorKey?: CursorKeyBridge;
+    pickFolder?: PickFolder;
+  } = {},
 ): AppRender {
   const store = createAppStore(gateway, { now: NOW });
   if (state) store.getState().loadSnapshot({ seq: state.seq, state });
@@ -32,7 +44,10 @@ export function renderWithApp(
         gateway,
         navigate,
         toggleTheme: () => {},
+        ...(cursorKey ? { cursorKey } : {}),
+        ...(pickFolder ? { pickFolder } : {}),
         notificationPrefs: createNotificationPrefs(() => storage),
+        projectAppearance: createProjectAppearance(() => storage),
       }}
     >
       {ui}

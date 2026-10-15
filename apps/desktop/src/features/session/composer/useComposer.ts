@@ -39,7 +39,7 @@ export function useComposer(session: SessionState): ComposerModel {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the session caught up.
   useEffect(() => setPendingModel(undefined), [session.model]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the session caught up.
-  useEffect(() => setPendingMode(undefined), [session.permissionMode]);
+  useEffect(() => setPendingMode(undefined), [session.permissionMode, session.providerMode]);
 
   const report = (r: CommandResult, kind?: "setting") => {
     if (r.ok) return;
@@ -100,8 +100,10 @@ export function useComposer(session: SessionState): ComposerModel {
     interrupt,
     provider,
     model: pendingModel ?? session.model ?? "",
-    // Settings report the mode in Claude Code's terms, whichever agent runs the session.
-    mode: pendingMode ?? modeFor(provider, session.permissionMode ?? "default"),
+    // Settings report the mode in Claude Code's terms, whichever agent runs the session,
+    // plus the agent's own mode where Claude's can't say it (Cursor's Ask).
+    mode:
+      pendingMode ?? session.providerMode ?? modeFor(provider, session.permissionMode ?? "default"),
     changeModel,
     changeMode,
   };

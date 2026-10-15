@@ -52,7 +52,7 @@ describe("NewSquadPanel", () => {
   it("prefills the project folder, a $25 budget, guarded autonomy and Automatic models", async () => {
     renderPanel(undefined, undefined, apiKey);
     await act(flush);
-    expect(field("Folder").value).toBe("/work/p1");
+    expect(screen.getByLabelText("Folder").textContent).toContain("/work/p1");
     expect(field("Budget").value).toBe("25");
     expect(radio(/Guarded/).checked).toBe(true);
     expect(radio(/Automatic/).checked).toBe(true);

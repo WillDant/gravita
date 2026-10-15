@@ -1,0 +1,10 @@
+{"expect":{"method":"initialize"},"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"image":true,"audio":false,"embeddedContext":false}},"authMethods":[{"id":"cursor_login","name":"Cursor login","description":"Synthetic"}]}}
+{"expect":{"method":"session/new","params":{"cwd":"/work/demo","mcpServers":[]}},"result":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","modes":{"currentModeId":"agent","availableModes":[{"id":"agent","name":"Agent"},{"id":"plan","name":"Plan"},{"id":"ask","name":"Ask"}]},"models":{"currentModelId":"default[]","availableModels":[{"modelId":"default[]","name":"Auto"},{"modelId":"composer-2.5[fast=true]","name":"Composer 2.5 Fast"},{"modelId":"gpt-6.1-sol[]","name":"GPT-6.1 Sol"}]}}}
+{"expect":{"method":"session/set_model","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","modelId":"composer-2.5[fast=true]"}},"result":{}}
+{"expect":{"method":"session/set_mode","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","modeId":"plan"}},"result":{}}
+{"expect":{"method":"session/prompt","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","prompt":[{"type":"text","text":"Plan the refactor"}]}},"defer":true}
+{"send":{"method":"session/update","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Here is the plan."}}}}}
+{"reply":{"method":"session/prompt"},"result":{"stopReason":"end_turn"}}
+{"expect":{"method":"session/set_mode","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","modeId":"ask"}},"result":{}}
+{"expect":{"method":"session/set_model","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","modelId":"default[]"}},"result":{}}
+{"send":{"method":"session/update","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000007","update":{"sessionUpdate":"current_mode_update","currentModeId":"agent"}}}}

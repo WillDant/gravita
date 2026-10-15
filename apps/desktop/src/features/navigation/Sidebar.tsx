@@ -1,8 +1,9 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { Bell, House, Languages, MoonStar, Sun, UsersRound } from "lucide-react";
+import { Bell, House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate, useToggleTheme } from "@/app/providers";
+import { useNavigate, useProjectAppearances, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
+import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
@@ -14,6 +15,7 @@ import {
   squadDecisions,
   squadTitle,
 } from "@/shared/presenters/squad";
+import { ProjectTile } from "@/shared/ui/ProjectTile";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { cn } from "@/shared/utils";
 import { useNow, useProjection, useRoute } from "@/state/hooks";
@@ -26,6 +28,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
+  const appearances = useProjectAppearances();
   const waiting = needsYouCount(state, now);
   const currentProject =
     route.level === "project" || route.level === "session" || route.level === "squad"
@@ -69,6 +72,14 @@ export function Sidebar() {
             </span>
           )}
         </NavItem>
+        <NavItem
+          active={route.level === "settings"}
+          onClick={() => navigate({ level: "settings" })}
+          icon={<Settings size={16} />}
+          label={t("nav.settings")}
+        >
+          {t("nav.settings")}
+        </NavItem>
       </div>
 
       <div className="mt-5 px-4 pb-1.5 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
@@ -91,7 +102,7 @@ export function Sidebar() {
               <NavItem
                 active={route.level === "project" && open}
                 onClick={() => navigate({ level: "project", projectId: project.id })}
-                icon={<ProjectMark name={project.name} />}
+                icon={<ProjectTile name={project.name} appearance={appearances[project.id]} />}
                 label={project.name}
                 badge={{ count: counts.running + counts.waiting, waiting: counts.waiting > 0 }}
               >
@@ -114,6 +125,7 @@ export function Sidebar() {
                   <SubItem
                     key={item.kind === "squad" ? `q:${item.squad.id}` : item.session.id}
                     item={item}
+                    projectId={project.id}
                     now={now}
                     state={state}
                     active={
@@ -162,12 +174,14 @@ export function Sidebar() {
 /** A session or a squad under its project: status dot, name, live count or age. */
 function SubItem({
   item,
+  projectId,
   state,
   now,
   active,
   onOpen,
 }: {
   item: ProjectItem;
+  projectId: string;
   state: GravitaState;
   now: number;
   active: boolean;
@@ -206,29 +220,39 @@ function SubItem({
     count = c.running + c.waiting;
   }
   return (
-    <button
-      type="button"
-      aria-current={active ? "page" : undefined}
-      onClick={onOpen}
+    <div
       className={cn(
-        "flex w-full items-center gap-2 rounded-md py-1 pr-2 pl-8 text-left text-sm text-ink-2 hover:text-ink max-[1100px]:hidden",
-        active ? "bg-ground text-ink shadow-panel" : "hover:bg-panel-2",
+        "group/subitem flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 pl-1 max-[1100px]:hidden",
+        active ? "bg-ground shadow-panel" : "hover:bg-panel-2",
       )}
     >
-      {item.kind === "squad" ? (
-        <UsersRound size={12} aria-hidden="true" className="flex-none text-ink-3" />
-      ) : (
-        <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
+      <button
+        type="button"
+        aria-current={active ? "page" : undefined}
+        onClick={onOpen}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1 pl-7 text-left text-sm text-ink-2 hover:text-ink",
+          active && "text-ink",
+        )}
+      >
+        {item.kind === "squad" ? (
+          <UsersRound size={12} aria-hidden="true" className="flex-none text-ink-3" />
+        ) : (
+          <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dot)} />
+        )}
+        <span className="truncate">{title}</span>
+        {item.kind === "session" && <ProviderMark provider={item.session.provider} />}
+        {item.kind === "squad" && (
+          <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
+        )}
+        <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
+          {count > 0 ? count : ago(item.lastEventTs, now)}
+        </span>
+      </button>
+      {item.kind === "session" && (
+        <RemoveSessionButton sessionId={item.session.id} projectId={projectId} />
       )}
-      <span className="truncate">{title}</span>
-      {item.kind === "session" && <ProviderMark provider={item.session.provider} compact />}
-      {item.kind === "squad" && (
-        <span aria-hidden="true" className={cn("size-1.5 flex-none rounded-full", dot)} />
-      )}
-      <span className="ml-auto flex-none text-2xs text-ink-3 tabular-nums">
-        {count > 0 ? count : ago(item.lastEventTs, now)}
-      </span>
-    </button>
+    </div>
   );
 }
 
@@ -312,18 +336,6 @@ export function Wordmark() {
       <span className="text-[15px] font-bold tracking-[-0.02em] text-ink max-[1100px]:hidden">
         Gravita
       </span>
-    </span>
-  );
-}
-
-/** A project's initial on a small tile, so projects stay distinguishable in the icon rail. */
-function ProjectMark({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-4 items-center justify-center rounded-[4px] bg-ink-3/20 text-[10px] font-bold text-ink-2 uppercase"
-    >
-      {name.replace(/[^a-z0-9]/gi, "").slice(0, 1) || "·"}
     </span>
   );
 }

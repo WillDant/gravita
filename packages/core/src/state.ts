@@ -3,6 +3,7 @@ import type {
   PermissionMode,
   Question,
   SessionKind,
+  SessionMode,
   ToolKind,
   UsageAccount,
   UsageWindow,
@@ -105,7 +106,11 @@ export interface SessionState {
   /** Model and permission mode, for sessions Gravita runs. */
   model?: string;
   permissionMode?: PermissionMode;
+  /** The mode in the provider's own terms, when Claude Code's lose it (Cursor's ask). */
+  providerMode?: SessionMode;
   ended: boolean;
+  /** Hidden from lists after the user removed it in Gravita; history stays in the event log. */
+  removed?: boolean;
   costUsd?: number;
   /** Set on a squad role's session: the squad, role and task it works for. */
   squadId?: string;

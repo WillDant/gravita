@@ -11,6 +11,11 @@ export interface EngineArgs {
    * `--claude-home`, and only its `sessions/` folder is ever read.
    */
   codexHome: string;
+  /**
+   * `--cursor-home` (default `~/.cursor`): where the Cursor CLI keeps its chats. Read-only,
+   * and only each chat's transcript and `meta.json` are ever read (ADR 008).
+   */
+  cursorHome: string;
   lookbackDays: number;
   dataDir: string;
   devOrigins: string[];
@@ -29,6 +34,7 @@ export function parseArgs(argv: string[]): EngineArgs {
       demo: { type: "boolean", default: false },
       "claude-home": { type: "string", default: "~/.claude" },
       "codex-home": { type: "string", default: "~/.codex" },
+      "cursor-home": { type: "string", default: "~/.cursor" },
       "lookback-days": { type: "string", default: "14" },
       "data-dir": { type: "string", default: "~/.gravita" },
       "dev-origin": { type: "string", multiple: true, default: [] },
@@ -53,6 +59,7 @@ export function parseArgs(argv: string[]): EngineArgs {
     demo: values.demo,
     claudeHome: expandHome(values["claude-home"]),
     codexHome: expandHome(values["codex-home"]),
+    cursorHome: expandHome(values["cursor-home"]),
     lookbackDays,
     dataDir: expandHome(values["data-dir"]),
     devOrigins,

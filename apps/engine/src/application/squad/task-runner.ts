@@ -1,7 +1,8 @@
 import { type SquadState, squadPlan } from "@gravita/core";
 import type { PlanTask } from "@gravita/protocol";
 import { rolePermission, rolePermissionMode } from "../../domain/autonomy-policy";
-import { SessionStoppedError } from "../../domain/errors";
+import { modesOf } from "../../domain/chat-policy";
+import { providerName, SessionStoppedError } from "../../domain/errors";
 import { guardToolCall } from "../../domain/ownership-guard";
 import {
   ROLE_MAX_TURNS,
@@ -173,7 +174,7 @@ export class TaskRunner {
               kind: "error",
               message:
                 o.reason === "crashed"
-                  ? `${session.runtime.provider === "codex" ? "Codex" : "Claude Code"} stopped unexpectedly.`
+                  ? `${providerName(modesOf(session.runtime.provider))} stopped unexpectedly.`
                   : "The session ended before the task was done.",
             };
       try {

@@ -157,3 +157,32 @@ describe("Composer of a Codex session", () => {
     expect(screen.getByRole("note").textContent).toContain("Codex will run commands");
   });
 });
+
+describe("Composer of a Cursor session", () => {
+  /** A Cursor chat in Ask mode: Claude Code's terms can't say it, so `providerMode` does. */
+  const cursor = stateOf(
+    started("s", 5, "p1", "chat").map((e) => ({ ...e, provider: "cursor" })),
+    [
+      ev("session.control", { controllable: true }, at),
+      ev("session.settings", { model: "default", permissionMode: "plan", providerMode: "ask" }, at),
+    ],
+  );
+
+  it("shows Cursor's own mode and modes, with no full access to offer", async () => {
+    const { gateway } = renderWithApp(<Composer session={cursor.sessions.s!} />, {
+      state: cursor,
+    });
+    gateway.modelsResult = { models: [{ value: "default", displayName: "Auto" }] };
+    await settle();
+
+    expect(gateway.callsOf("models")).toEqual([{ provider: "cursor" }]);
+    const mode = screen.getByLabelText("Permissions") as HTMLSelectElement;
+    expect(mode.value).toBe("ask");
+    expect([...mode.options].map((o) => o.value)).toEqual(["agent", "plan", "ask"]);
+    expect(screen.queryByRole("note")).toBeNull();
+    fireEvent.change(mode, { target: { value: "agent" } });
+    await settle();
+
+    expect(gateway.callsOf("setPermissionMode")).toEqual([{ sessionId: "s", mode: "agent" }]);
+  });
+});

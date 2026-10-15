@@ -7,7 +7,9 @@ import type { RpcTransport } from "../app-server/json-rpc";
 //
 //   {"expect": {"method", "params"?}, "result"? | "error"?}  the client's next request or
 //        notification must be this one (params: a subset); a request gets `result` ({}
-//        when absent) or `error`.
+//        when absent) or `error`. With `"defer": true` the request stays unanswered until a
+//        later `reply` step names its method (a request that lasts a whole turn).
+//   {"reply": {"method"}, "result"? | "error"?}             answers the oldest deferred request.
 //   {"send": {"method", "params"}}                          a notification from the server.
 //   {"ask": {"id", "method", "params"}, "expectResult"?}    a server request; the script waits
 //        for the client's answer and checks it (a subset).
@@ -21,7 +23,9 @@ type Loose = Record<string, unknown>;
 export interface ScriptStep {
   expect?: { method: string; params?: unknown };
   result?: unknown;
-  error?: { code: number; message: string };
+  error?: { code: number; message: string; data?: unknown };
+  defer?: boolean;
+  reply?: { method: string };
   send?: { method: string; params?: unknown };
   ask?: { id: string | number; method: string; params?: unknown };
   expectResult?: unknown;
@@ -193,6 +197,12 @@ export class ScriptedAppServer {
     this.inboxWaiter?.();
   }
 
+  private answer(id: unknown, step: ScriptStep) {
+    this.toClient(step.error ? { id, error: step.error } : { id, result: step.result ?? {} });
+  }
+
+  /** Requests whose answer waits for a `reply` step, oldest first. */
+  private readonly deferred: { method: string; id: unknown }[] = [];
   /** Index of the step being played. */
   private at = 0;
   /** Whether a step still to come (or the current one) expects this very message. */
@@ -239,11 +249,19 @@ export class ScriptedAppServer {
           continue;
         }
         if (msg.id === undefined) continue;
-        this.toClient(
-          step.error
-            ? { id: msg.id, error: step.error }
-            : { id: msg.id, result: step.result ?? {} },
-        );
+        if (step.defer) {
+          this.deferred.push({ method: step.expect.method, id: msg.id });
+          continue;
+        }
+        this.answer(msg.id, step);
+      } else if (step.reply) {
+        const at = this.deferred.findIndex((d) => d.method === step.reply?.method);
+        const waiting = at >= 0 ? this.deferred.splice(at, 1)[0] : undefined;
+        if (!waiting) {
+          this.failures.push(`step ${i + 1}: no deferred ${step.reply.method} to answer`);
+          continue;
+        }
+        this.answer(waiting.id, step);
       } else if (step.ask) {
         this.toClient({ ...step.ask });
         const msg = await this.next();

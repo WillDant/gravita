@@ -152,6 +152,24 @@ describe("StartChat", () => {
     expect(s.agents.main?.lifecycle).toBe("active");
   });
 
+  test("without a first message the session starts idle and waits for the user's", async () => {
+    const { startChat, store, factory, projection } = setup();
+    const out = await startChat().execute({ cwd: "/work/demo" });
+    expect(out).toEqual({ sessionId: "id-1", projectId: "p1" });
+
+    expect(store.rows.map((e) => e.type)).toEqual([
+      "project.discovered",
+      "session.started",
+      "session.settings",
+    ]);
+    const runtime = factory.created[0]!;
+    expect(runtime.registeredAtStart).toBe(true);
+    expect(runtime.sent).toEqual([]);
+    const s = projection.session("id-1")!;
+    expect(s).toMatchObject({ kind: "chat", controllable: true });
+    expect(s.firstUserText).toBeUndefined();
+  });
+
   test("validates the folder and Claude Code before creating anything", async () => {
     const { startChat, environment, factory, store, runtimes } = setup();
     const badCwd = await startChat()

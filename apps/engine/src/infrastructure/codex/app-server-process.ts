@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import type { RpcTransport } from "@gravita/adapter-codex";
 import type { Logger } from "../../application/ports/logger";
 
-// One `codex app-server` child: newline-delimited JSON-RPC on its stdin/stdout. It runs in
+// One `codex app-server` child (or `cursor-agent acp`, through `spawnStdioAgent`):
+// newline-delimited JSON-RPC on its stdin/stdout. It runs in
 // a process group of its own, so stopping it also stops whatever it started (commands,
 // MCP servers) and nothing outlives the chat. It is the user's own `codex`, with their own
 // login; Gravita reads no credentials.
@@ -28,8 +29,26 @@ export type AppServerLauncher = (o: LaunchOptions) => AppServerProcess;
 
 /** The real launcher. `debug` logs the first line of what Codex writes to stderr. */
 export function spawnAppServer(logger: Logger, debug = false): AppServerLauncher {
+  return spawnStdioAgent(logger, { name: "codex", command: ["app-server"], debug });
+}
+
+export interface StdioAgentOptions {
+  /** The CLI's name in logs. */
+  name: string;
+  /** The subcommand that serves JSON-RPC on stdio. */
+  command: readonly string[];
+  /** Log the first line of each stderr chunk. */
+  debug?: boolean;
+  /** Variables whose values are masked in what is logged (a key the CLI might echo). */
+  secretEnv?: readonly string[];
+}
+
+/** A launcher of any agent CLI that speaks newline-delimited JSON-RPC on stdio. */
+export function spawnStdioAgent(logger: Logger, o: StdioAgentOptions): AppServerLauncher {
   return ({ cliPath, cwd, env, args = [] }) => {
-    const child = spawn(cliPath, ["app-server", ...args], {
+    const secrets = (o.secretEnv ?? []).map((k) => env[k]).filter((v): v is string => !!v);
+    const mask = (text: string) => secrets.reduce((t, s) => t.split(s).join("••••"), text);
+    const child = spawn(cliPath, [...o.command, ...args], {
       cwd,
       env,
       stdio: ["pipe", "pipe", "pipe"],
@@ -39,15 +58,15 @@ export function spawnAppServer(logger: Logger, debug = false): AppServerLauncher
     const exited = new Promise<number | null>((resolve) => {
       child.once("exit", (code) => resolve(code));
       child.once("error", (err) => {
-        logger.log("codex app-server failed to start", err);
+        logger.log(`${o.name} ${o.command.join(" ")} failed to start`, mask(String(err)));
         child.stdout?.destroy();
         resolve(null);
       });
     });
     child.stderr?.on("data", (data: Buffer) => {
-      if (!debug) return;
-      const line = data.toString("utf8").split("\n")[0]?.slice(0, 200) ?? "";
-      logger.log(`codex stderr [${child.pid}] ${line}`);
+      if (!o.debug) return;
+      const line = mask(data.toString("utf8")).split("\n")[0]?.slice(0, 200) ?? "";
+      logger.log(`${o.name} stderr [${child.pid}] ${line}`);
     });
     // A write after it died must not crash the engine; the connection notices the close.
     child.stdin?.on("error", () => {});

@@ -7,8 +7,8 @@ import type {
   ProviderStatus,
   TerminalInfo,
 } from "@gravita/protocol";
-import type { AgentProvider } from "@gravita/protocol/constants";
-import { createContext, useContext, useEffect } from "react";
+import { AGENT_PROVIDERS, type AgentProvider } from "@gravita/protocol/constants";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import type { ProviderProblem } from "@/shared/presenters/errors";
 import { accountPlan } from "@/shared/presenters/planUsage";
@@ -70,8 +70,16 @@ export function problemOf(
   const p = providerStatus(status, provider);
   if (!p?.found) return "missing";
   if (p.outdated) return "outdated";
+  if (provider === "cursor") return keyProblemOf(p);
   if (p.loggedIn === false) return "loggedOut";
   return undefined;
+}
+
+/** Cursor runs only with the key set in Gravita: none yet, or one Cursor turned down. */
+function keyProblemOf(p: ProviderStatus): ProviderProblem | undefined {
+  const credential = p.credential;
+  if (!credential || credential.source === "none") return "keyMissing";
+  return credential.state === "invalid" ? "keyInvalid" : undefined;
 }
 
 /** Why `provider` (Claude Code by default) can't run sessions right now, if it can't. */
@@ -83,8 +91,8 @@ export function useProviderProblem(
 
 /**
  * Whether a session can be started with `provider` from here: its CLI is installed and
- * recent enough (a logged-out one still counts, its connect steps say how to log in).
- * Demo mode only runs Claude Code.
+ * recent enough (a logged-out one, or Cursor without a valid key, still counts: its
+ * connect steps say what to do). Demo mode only runs Claude Code.
  */
 export function canStartWith(status: EngineStatus | undefined, provider: AgentProvider): boolean {
   if (!status) return false;
@@ -96,21 +104,45 @@ export function canStartWith(status: EngineStatus | undefined, provider: AgentPr
 export const useCanStartWith = (provider: AgentProvider): boolean =>
   useAppStore((s) => canStartWith(s.engineStatus, provider));
 
-/**
- * What Gravita says about Codex: "missing" once the engine looked and found none, else
- * "outdated" when it is older than Gravita supports. Codex is optional, so unlike
- * `problemOf` an engine that doesn't look for it says nothing; never in demo mode.
- */
-export function codexNoteOf(
-  status: EngineStatus | undefined,
-): Extract<ProviderProblem, "missing" | "outdated"> | undefined {
-  const codex = status && !status.demo ? status.providers?.codex : undefined;
-  if (!codex) return undefined;
-  if (!codex.found) return "missing";
-  return codex.outdated ? "outdated" : undefined;
+/** The agents a session can be started with from here, in `AGENT_PROVIDERS` order. */
+export function useOfferedProviders(): readonly AgentProvider[] {
+  // Joined so the selector returns a stable value; split once per change.
+  const offered = useAppStore((s) =>
+    AGENT_PROVIDERS.filter((p) => canStartWith(s.engineStatus, p)).join(","),
+  );
+  return useMemo(() => AGENT_PROVIDERS.filter((p) => offered.split(",").includes(p)), [offered]);
 }
 
+/**
+ * What Gravita says about an optional agent (Codex, Cursor): "missing" once the engine
+ * looked and found none, else "outdated" when it is older than Gravita supports. Unlike
+ * `problemOf` an engine that doesn't look for it says nothing; never in demo mode.
+ */
+export function optionalNoteOf(
+  status: EngineStatus | undefined,
+  provider: Exclude<AgentProvider, "claude">,
+): Extract<ProviderProblem, "missing" | "outdated"> | undefined {
+  const p = status && !status.demo ? status.providers?.[provider] : undefined;
+  if (!p) return undefined;
+  if (!p.found) return "missing";
+  return p.outdated ? "outdated" : undefined;
+}
+
+export const codexNoteOf = (status: EngineStatus | undefined) => optionalNoteOf(status, "codex");
+
 export const useCodexNote = () => useAppStore((s) => codexNoteOf(s.engineStatus));
+export const useCursorNote = () => useAppStore((s) => optionalNoteOf(s.engineStatus, "cursor"));
+
+/**
+ * The Cursor key's standing as the engine reports it (never the key): undefined where
+ * the engine doesn't run Cursor (not found, demo, an older engine).
+ */
+export const useCursorCredential = (): ProviderStatus["credential"] =>
+  useAppStore((s) =>
+    s.engineStatus?.demo || !s.engineStatus?.providers?.cursor?.found
+      ? undefined
+      : s.engineStatus.providers.cursor.credential,
+  );
 
 const NO_MODELS: ModelOption[] = [];
 

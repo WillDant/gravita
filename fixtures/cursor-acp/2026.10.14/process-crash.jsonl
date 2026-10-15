@@ -1,0 +1,5 @@
+{"expect":{"method":"initialize"},"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"image":true,"audio":false,"embeddedContext":false}},"authMethods":[{"id":"cursor_login","name":"Cursor login","description":"Synthetic"}]}}
+{"expect":{"method":"session/new","params":{"cwd":"/work/demo","mcpServers":[]}},"result":{"sessionId":"5e55c0de-0000-4000-8000-000000000006","modes":{"currentModeId":"agent","availableModes":[{"id":"agent","name":"Agent"},{"id":"plan","name":"Plan"},{"id":"ask","name":"Ask"}]},"models":{"currentModelId":"default[]","availableModels":[{"modelId":"default[]","name":"Auto"}]}}}
+{"expect":{"method":"session/prompt"},"defer":true}
+{"send":{"method":"session/update","params":{"sessionId":"5e55c0de-0000-4000-8000-000000000006","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"Planning the refactor."}}}}}
+{"crash":{"code":1}}

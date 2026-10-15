@@ -21,9 +21,12 @@ import { SpawnTerminal } from "../../src/application/usecases/spawn-terminal";
 import {
   InvalidCwdError,
   InvalidSessionModeError,
+  NotLoggedInError,
   TerminalUnsupportedError,
   TooManyTerminalsError,
 } from "../../src/domain/errors";
+import { MemoryCredentialSource } from "../../src/infrastructure/credentials/memory-credential-source";
+import { cursorTerminalEnv } from "../../src/infrastructure/cursor/cursor-environment";
 import { providerTerminalFlags } from "../../src/infrastructure/terminal/provider-terminal-flags";
 import {
   FakeChatFactory,
@@ -160,7 +163,12 @@ describe("TerminalManager", () => {
 });
 
 describe("TerminalSessionLinker", () => {
-  const started = (sessionId: string, provider: "claude" | "codex", cwd: string, ts: string) =>
+  const started = (
+    sessionId: string,
+    provider: "claude" | "codex" | "cursor",
+    cwd: string,
+    ts: string,
+  ) =>
     ({
       key: `session:${sessionId}:started`,
       ts,
@@ -192,6 +200,23 @@ describe("TerminalSessionLinker", () => {
     expect(manager.list().map((t) => t.sessionId)).toEqual(["c1", "codex:t1"]);
   });
 
+  test("a Cursor chat observed in the folder is the Cursor terminal's session", () => {
+    const { clock, manager, spec } = setup();
+    const shell = manager.spawn(spec());
+    clock.advance(1_000);
+    const cursor = manager.spawn(spec({ command: "cursor" }));
+    const linker = new TerminalSessionLinker(manager);
+    linker.observe([
+      started("cursor:c1", "cursor", "/work/demo", new Date(clock.now() + 2_000).toISOString()),
+    ]);
+    expect(manager.list().find((t) => t.terminalId === cursor.terminalId)?.sessionId).toBe(
+      "cursor:c1",
+    );
+    expect(
+      manager.list().find((t) => t.terminalId === shell.terminalId)?.sessionId,
+    ).toBeUndefined();
+  });
+
   test("ignores sessions that started before the terminal, or elsewhere", () => {
     const { clock, manager, spec } = setup();
     manager.spawn(spec());
@@ -205,7 +230,7 @@ describe("TerminalSessionLinker", () => {
 });
 
 describe("SpawnTerminal", () => {
-  function spawning(o: { supported?: boolean } = {}) {
+  function spawning(o: { supported?: boolean; cursorKey?: string } = {}) {
     const base = setup(o);
     const store = new MemoryEventStore();
     const projection = new ProjectionService();
@@ -216,6 +241,12 @@ describe("SpawnTerminal", () => {
     });
     const ingest = new IngestEvents(store, projection, broadcaster);
     const environment = new FakeClaudeEnvironment();
+    const cursorEnvironment = new FakeClaudeEnvironment({
+      provider: "cursor",
+      cliPath: "/bin/cursor-agent",
+      cliVersion: "2026.10.14",
+      env: { PATH: "/usr/bin", CURSOR_API_KEY: "users-own", AGENT_CLI_X: "1" },
+    });
     const spawn = new SpawnTerminal({
       terminals: base.manager,
       workspace: new FakeWorkspace(),
@@ -228,7 +259,10 @@ describe("SpawnTerminal", () => {
       defaultShell: "/bin/sh",
       providers: new RuntimeFactoryRegistry({
         claude: { factory: new FakeChatFactory({} as never), environment },
+        cursor: { factory: new FakeChatFactory({} as never), environment: cursorEnvironment },
       }),
+      credentials: new MemoryCredentialSource(o.cursorKey),
+      cursorEnv: cursorTerminalEnv,
       flags: providerTerminalFlags,
       ids: new SeqIds(),
       clock: base.clock,
@@ -288,6 +322,48 @@ describe("SpawnTerminal", () => {
     ).rejects.toBeInstanceOf(InvalidSessionModeError);
   });
 
+  test("starts Cursor's CLI with the app's key only, and not managed", async () => {
+    const { spawn, host } = spawning({ cursorKey: "app-key" });
+    const t = await spawn.execute({
+      cwd: "/work/demo",
+      command: "cursor",
+      cols: 80,
+      rows: 24,
+      permissionMode: "plan",
+      model: "gpt-5.5",
+      prompt: "hi",
+    });
+    expect(t.sessionId).toBeUndefined();
+    const { argv, env } = host.spawned[0]!.o;
+    expect(argv.slice(4)).toEqual([
+      "/bin/cursor-agent",
+      "--model",
+      "gpt-5.5",
+      "--mode",
+      "plan",
+      "hi",
+    ]);
+    expect(env.CURSOR_API_KEY).toBe("app-key");
+    expect(env.AGENT_CLI_X).toBeUndefined();
+    expect(env.AGENT_CLI_CREDENTIAL_STORE).toBe("memory");
+    expect(env.GRAVITA_MANAGED).toBeUndefined();
+  });
+
+  test("a Cursor terminal does not open without the app's key", async () => {
+    const { spawn, host } = spawning();
+    await expect(
+      spawn.execute({ cwd: "/work/demo", command: "cursor", cols: 80, rows: 24 }),
+    ).rejects.toBeInstanceOf(NotLoggedInError);
+    expect(host.spawned).toEqual([]);
+  });
+
+  test("no other terminal gets the key", async () => {
+    const { spawn, host } = spawning({ cursorKey: "app-key" });
+    await spawn.execute({ cwd: "/work/demo", command: "shell", cols: 80, rows: 24 });
+    await spawn.execute({ cwd: "/work/demo", command: "claude", cols: 80, rows: 24 });
+    for (const s of host.spawned) expect(s.o.env.CURSOR_API_KEY).toBeUndefined();
+  });
+
   test("a shell needs no provider and starts unlinked", async () => {
     const { spawn, host } = spawning();
     const t = await spawn.execute({ cwd: "/work/demo", command: "shell", cols: 80, rows: 24 });
@@ -297,6 +373,14 @@ describe("SpawnTerminal", () => {
 });
 
 describe("providerTerminalFlags", () => {
+  test("Cursor: agent mode has no flag, plan and ask are --mode; ids carry the cursor: prefix only in Gravita", () => {
+    expect(providerTerminalFlags.modeArgs("cursor", "agent", "/w")).toEqual([]);
+    expect(providerTerminalFlags.modeArgs("cursor", "plan", "/w")).toEqual(["--mode", "plan"]);
+    expect(providerTerminalFlags.modeArgs("cursor", "ask", "/w")).toEqual(["--mode", "ask"]);
+    expect(providerTerminalFlags.resumeArg("cursor", "cursor:c-1")).toBe("c-1");
+    expect(providerTerminalFlags.sessionIdOf("cursor", "c-1")).toBe("cursor:c-1");
+  });
+
   test("Codex modes become its approval and sandbox flags; ids lose their prefix to resume", () => {
     expect(providerTerminalFlags.modeArgs("codex", "workspace", "/w")).toEqual([
       "-a",

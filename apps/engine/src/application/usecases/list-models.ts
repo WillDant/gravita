@@ -14,6 +14,8 @@ export const FALLBACK_MODELS: readonly ModelOption[] = [
 /** What each provider offers before a live session can tell (none known: an empty list). */
 export const DEFAULT_FALLBACKS: Readonly<Partial<Record<AgentProvider, readonly ModelOption[]>>> = {
   claude: FALLBACK_MODELS,
+  // Cursor's own list comes with a session; before one runs, Auto is always there.
+  cursor: [{ value: "default", displayName: "Auto" }],
 };
 
 const ASK_TIMEOUT_MS = 3_000;

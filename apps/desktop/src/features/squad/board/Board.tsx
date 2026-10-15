@@ -7,6 +7,7 @@ import {
   validatePlan,
 } from "@gravita/core";
 import type { AgentProvider, SquadPlan } from "@gravita/protocol";
+import type { SquadAgentProvider } from "@gravita/protocol/constants";
 import { RotateCcw } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
@@ -237,7 +238,7 @@ export function Board({ squad: q, plan: proposed }: { squad: SquadState; plan: S
                   provider={providerOf(r.id)}
                   {...(providers === "mixed"
                     ? {
-                        onProvider: (p: AgentProvider) =>
+                        onProvider: (p: SquadAgentProvider) =>
                           setDraft((d) => setRoleProvider(d, r.id, p)),
                       }
                     : {})}

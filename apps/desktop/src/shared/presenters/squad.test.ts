@@ -32,6 +32,13 @@ describe("squad presenters", () => {
     ]);
   });
 
+  it("drops removed sessions from project rows", () => {
+    const both = stateOf([...started("chat-1", 1, PROJECT, "chat")]);
+    both.sessions["chat-1"]!.removed = true;
+    const items = projectItems(both, both.projects[PROJECT]!);
+    expect(items).toEqual([]);
+  });
+
   it("keeps plain sessions as their own rows next to the squad", () => {
     const { state } = squadFixture("brief");
     const both = stateOf([...started("chat-1", 1, PROJECT, "chat")]);

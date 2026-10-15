@@ -2,10 +2,11 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { AgentProvider, ProviderStatus } from "@gravita/protocol";
+import type { AgentProvider, ProviderCredential, ProviderStatus } from "@gravita/protocol";
 import pkg from "../../package.json" with { type: "json" };
 import type { AgentEnvironmentSource } from "../application/ports/agent-environment";
 import type { Clock } from "../application/ports/clock";
+import type { CredentialSource, CursorKeyValidator } from "../application/ports/credential-source";
 import type { GitWorkspace, PullRequestHost } from "../application/ports/git-workspace";
 import type { IdGenerator } from "../application/ports/id-generator";
 import type { Logger } from "../application/ports/logger";
@@ -15,12 +16,16 @@ import type { ModelOption } from "../application/ports/session-runtime";
 import type { TerminalHost } from "../application/ports/terminal-host";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
+import { CursorKeyStatus } from "../application/services/cursor-key-status";
 import { EventBroadcaster } from "../application/services/event-broadcaster";
 import { HookIngest } from "../application/services/hook-ingest";
 import { MergeQueue } from "../application/services/merge-queue";
 import { PlanUsageMonitor } from "../application/services/plan-usage-monitor";
 import { ProjectionService } from "../application/services/projection-service";
-import { RuntimeFactoryRegistry } from "../application/services/runtime-factory-registry";
+import {
+  type ProviderRuntimes,
+  RuntimeFactoryRegistry,
+} from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
 import { TerminalManager } from "../application/services/terminal-manager";
@@ -43,6 +48,7 @@ import { InterruptSession } from "../application/usecases/interrupt-session";
 import { DEFAULT_FALLBACKS, ListModels } from "../application/usecases/list-models";
 import { PrepareSquadWorkspace } from "../application/usecases/prepare-squad-workspace";
 import { RegenerateShared } from "../application/usecases/regenerate-shared";
+import { RemoveSession } from "../application/usecases/remove-session";
 import { RespondToPermission } from "../application/usecases/respond-to-permission";
 import { RunChecks } from "../application/usecases/run-checks";
 import { SendMessage } from "../application/usecases/send-message";
@@ -67,7 +73,11 @@ import {
 } from "../infrastructure/claude/sdk/claude-sdk-runtime";
 import { TranscriptDiscovery } from "../infrastructure/claude/transcript-discovery";
 import { ClaudeTranscriptReader, noTranscripts } from "../infrastructure/claude/transcript-reader";
-import { type AppServerLauncher, spawnAppServer } from "../infrastructure/codex/app-server-process";
+import {
+  type AppServerLauncher,
+  spawnAppServer,
+  spawnStdioAgent,
+} from "../infrastructure/codex/app-server-process";
 import { CodexAccountProbe } from "../infrastructure/codex/codex-account-probe";
 import { CodexAppServerRuntimeFactory } from "../infrastructure/codex/codex-app-server-runtime";
 import { CodexDetector } from "../infrastructure/codex/codex-detector";
@@ -81,6 +91,19 @@ import { CodexSessionDiscovery } from "../infrastructure/codex/codex-session-dis
 import { CodexSessionSource } from "../infrastructure/codex/codex-session-source";
 import { CodexSquadProfile } from "../infrastructure/codex/codex-squad-profile";
 import { CodexTranscriptReader } from "../infrastructure/codex/codex-transcript-reader";
+import { MemoryCredentialSource } from "../infrastructure/credentials/memory-credential-source";
+import { CursorAcpRuntimeFactory } from "../infrastructure/cursor/cursor-acp-runtime";
+import { CursorDetector } from "../infrastructure/cursor/cursor-detector";
+import {
+  cursorTerminalEnv,
+  DetectedCursorEnvironment,
+} from "../infrastructure/cursor/cursor-environment";
+import { CursorCliKeyValidator } from "../infrastructure/cursor/cursor-key-validator";
+import { cursorModelsCatalog } from "../infrastructure/cursor/cursor-models-catalog";
+import { CursorPresence } from "../infrastructure/cursor/cursor-presence";
+import { CursorSessionDiscovery } from "../infrastructure/cursor/cursor-session-discovery";
+import { CursorSessionSource } from "../infrastructure/cursor/cursor-session-source";
+import { RuntimeConversationReader } from "../infrastructure/cursor/runtime-conversation-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
 import { GhCli } from "../infrastructure/git/gh-cli";
@@ -149,6 +172,14 @@ export interface ChatOptions {
    * on Codex.
    */
   codexSquadHome?: string;
+  /** Cursor's environment; without it (or without `credentials`), sessions don't run on Cursor. */
+  cursorEnvironment?: AgentEnvironmentSource;
+  /** Starts `cursor-agent acp`; tests inject a scripted one. */
+  cursorLaunch?: AppServerLauncher;
+  /** The Cursor API key the desktop shell handed over (ADR 008). */
+  credentials?: CredentialSource;
+  /** Checks a Cursor key (default: `cursor-agent models`); tests replace it. */
+  cursorValidator?: CursorKeyValidator;
   /** The Agent SDK's `query`; tests inject a scripted one. */
   queryFn?: QueryFn;
   /** Log Claude Code's stderr. */
@@ -278,6 +309,8 @@ export interface EngineCore {
   mcp?: LoopbackMcpServer;
   /** Gravita's Codex profile for squads (real mode with Codex). */
   codexProfile?: CodexSquadProfile;
+  /** The state of the Cursor key pasted in Gravita (real mode). */
+  cursorKey?: CursorKeyStatus;
   /** Plan usage reads (real mode); `startEngine` starts its polling. */
   usage?: PlanUsageMonitor;
   /** Embedded terminals: the user's, so the kill switch leaves them; shutdown ends them. */
@@ -314,15 +347,18 @@ export function createCore(o: CoreOptions): EngineCore {
     demo: o.demo,
   });
   const ingest = new IngestEvents(events, projection, broadcaster);
-  // Each session's conversation comes from its own provider's files.
+  const runtimes = new InMemorySessionRuntimeRegistry(ingest, clock);
+  // Each session's conversation comes from its provider (files, rollouts, or live Cursor buffer).
   const transcripts = new TranscriptRouter(
     {
       claude: o.transcripts ?? noTranscripts,
       ...(o.codexTranscripts ? { codex: o.codexTranscripts } : {}),
+      cursor: new RuntimeConversationReader(runtimes),
     },
-    (id) => projection.session(id)?.provider ?? (id.startsWith("codex:") ? "codex" : undefined),
+    (id) =>
+      projection.session(id)?.provider ??
+      (id.startsWith("codex:") ? "codex" : id.startsWith("cursor:") ? "cursor" : undefined),
   );
-  const runtimes = new InMemorySessionRuntimeRegistry(ingest, clock);
   const projects = new AnnounceProject(
     o.projectDirectory ?? new GitProjectDirectory(),
     ingest,
@@ -347,6 +383,9 @@ export function createCore(o: CoreOptions): EngineCore {
   let mcp: LoopbackMcpServer | undefined;
   let codexProfile: CodexSquadProfile | undefined;
   let codexModels: (() => Promise<ModelOption[]>) | undefined;
+  let cursorModels: (() => Promise<ModelOption[]>) | undefined;
+  let cursorKey: CursorKeyStatus | undefined;
+  let unwatchCursorKey: (() => void) | undefined;
   const squadKit = o.squad ? createSquadToolkit(o.squad, { ingest, clock }) : undefined;
   if (o.chat) {
     const workspace = o.chat.workspace ?? new NodeWorkspace();
@@ -400,9 +439,45 @@ export function createCore(o: CoreOptions): EngineCore {
         }),
     };
     codexModels = codex && (() => codexCatalog(codex.environment, codex.probe));
+    // Cursor runs chats only, with the key pasted in Gravita (ADR 008).
+    const cursorEnvironment = o.chat.cursorEnvironment;
+    const credentials = o.chat.credentials;
+    let cursor: ProviderRuntimes | undefined;
+    if (cursorEnvironment && credentials) {
+      cursorKey = new CursorKeyStatus({
+        credentials,
+        validator: o.chat.cursorValidator ?? new CursorCliKeyValidator(cursorEnvironment),
+        status: broadcaster,
+        logger,
+      });
+      unwatchCursorKey = cursorKey.watch();
+      cursorModels = () => cursorModelsCatalog(cursorEnvironment, credentials);
+      cursor = {
+        environment: cursorEnvironment,
+        factory: new CursorAcpRuntimeFactory({
+          ingest,
+          runtimes,
+          status: broadcaster,
+          clock,
+          logger,
+          launch:
+            o.chat.cursorLaunch ??
+            spawnStdioAgent(logger, {
+              name: "cursor-agent",
+              command: ["acp"],
+              debug: o.chat.debug === true,
+              secretEnv: ["CURSOR_API_KEY"],
+            }),
+          version: ENGINE_VERSION,
+          credentials,
+          keys: cursorKey,
+        }),
+      };
+    }
     providers = new RuntimeFactoryRegistry({
       claude: { factory: claude, environment: o.chat.environment },
       ...(codex ? { codex: { factory: codex.factory, environment: codex.environment } } : {}),
+      ...(cursor ? { cursor } : {}),
     });
     usage = new PlanUsageMonitor({
       sources: [
@@ -476,6 +551,8 @@ export function createCore(o: CoreOptions): EngineCore {
         shellEnv: o.terminal.shellEnv,
         defaultShell: o.terminal.defaultShell,
         ...(providers ? { providers } : {}),
+        ...(o.chat?.credentials ? { credentials: o.chat.credentials } : {}),
+        cursorEnv: cursorTerminalEnv,
         flags: providerTerminalFlags,
         ids,
         clock,
@@ -492,23 +569,22 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(startChat ? { startChat } : {}),
       sendMessage: new SendMessage(runtimes, ingest, ids, clock),
       interruptSession: new InterruptSession(runtimes),
+      removeSession: new RemoveSession(runtimes, projection, ingest, clock),
       stopAgent: new StopAgent(runtimes),
       setModel: new SetModel(runtimes, settings),
       setPermissionMode: new SetPermissionMode(runtimes, settings),
       answerQuestion: new AnswerQuestion(runtimes),
       getConversation: new GetConversation(transcripts),
-      listModels: new ListModels(
-        runtimes,
-        clock,
-        logger,
-        DEFAULT_FALLBACKS,
-        codexModels ? { codex: codexModels } : {},
-      ),
+      listModels: new ListModels(runtimes, clock, logger, DEFAULT_FALLBACKS, {
+        ...(codexModels ? { codex: codexModels } : {}),
+        ...(cursorModels ? { cursor: cursorModels } : {}),
+      }),
       stopAll,
       ...(squads ? { squads } : {}),
       ...(usage ? { usage } : {}),
       ...(codexProfile ? { codexProfile } : {}),
       ...(terminals ? { terminals } : {}),
+      ...(cursorKey ? { cursorKey } : {}),
     }),
     logger,
   );
@@ -531,6 +607,7 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(usage ? { usage } : {}),
     ...(mcp ? { mcp } : {}),
     ...(codexProfile ? { codexProfile } : {}),
+    ...(cursorKey ? { cursorKey } : {}),
     ...(terminals ? { terminals: terminals.manager } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
@@ -539,6 +616,7 @@ export function createCore(o: CoreOptions): EngineCore {
       await stopAll.execute(capMs);
     },
     close() {
+      unwatchCursorKey?.();
       usage?.stop();
       squads?.close();
       void codexProfile?.close();
@@ -549,10 +627,12 @@ export function createCore(o: CoreOptions): EngineCore {
   };
 }
 
-export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHome"> {
+export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHome" | "cursorHome"> {
   token: string;
   /** `--codex-home`; `~/.codex` when absent. */
   codexHome?: string;
+  /** `--cursor-home`; `~/.cursor` when absent. */
+  cursorHome?: string;
   /** Tests pin it; otherwise 256 random bits per run. */
   hookToken?: string;
   /** Seed of the demo story. */
@@ -563,6 +643,14 @@ export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHom
   detectCodex?: () => Promise<ProviderStatus>;
   /** Tests replace it, so no real `codex app-server` is started. */
   codexLaunch?: AppServerLauncher;
+  /** The Cursor API key the desktop shell hands over on stdin (none: Cursor can't start). */
+  credentials?: CredentialSource;
+  /** Tests replace it, so a real-mode engine doesn't look for the user's `cursor-agent`. */
+  detectCursor?: () => Promise<ProviderStatus>;
+  /** Tests replace it, so no real `cursor-agent acp` is started. */
+  cursorLaunch?: AppServerLauncher;
+  /** Tests replace it, so no real `cursor-agent models` runs. */
+  cursorValidator?: CursorKeyValidator;
 }
 
 export interface RunningEngine {
@@ -615,7 +703,15 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       opts.detectCodex,
       opts.demo ? undefined : async (cliPath) => (await codexProbe.read(cliPath))?.status,
     ),
+    // The key's state, checked once the CLI is found (it publishes itself).
+    new CursorDetector(
+      opts.detectCursor,
+      opts.demo ? undefined : async () => ({ credential: await cursorCredential() }),
+    ),
   ];
+  const credentials = opts.credentials ?? new MemoryCredentialSource();
+  const cursorCredential = async (): Promise<ProviderCredential> =>
+    core.cursorKey?.check() ?? { source: "none", state: "missing" };
   const chat: ChatOptions | undefined = opts.demo
     ? undefined
     : {
@@ -631,9 +727,23 @@ export function startEngine(opts: EngineOptions): RunningEngine {
         codexProbe,
         // Squads run Codex in a home of Gravita's own, never the user's (docs/codex.md).
         codexSquadHome: join(opts.dataDir, "codex-home"),
+        cursorEnvironment: new DetectedCursorEnvironment(
+          () => detected("cursor"),
+          () => shellEnv.load(),
+        ),
+        credentials,
+        ...(opts.cursorLaunch ? { cursorLaunch: opts.cursorLaunch } : {}),
+        ...(opts.cursorValidator ? { cursorValidator: opts.cursorValidator } : {}),
         debug,
       };
 
+  // Cursor's chats are read from <cursorHome>: each chat's transcript and meta.json only.
+  const cursorDiscovery = new CursorSessionDiscovery({
+    cursorHome: opts.cursorHome ?? join(homedir(), ".cursor"),
+    lookbackDays: opts.lookbackDays,
+    clock,
+    onSkip: (path, reason) => stderrLogger.log(`skipped ${path}: ${reason}`),
+  });
   const codexDiscovery = new CodexSessionDiscovery({
     codexHome,
     lookbackDays: opts.lookbackDays,
@@ -745,6 +855,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       logger,
     });
     const codexPresence = new CodexPresence({ ingest, clock });
+    const cursorPresence = new CursorPresence({ ingest, clock });
     const tails = new TailScheduler({
       sources: [
         new ClaudeSessionSource({
@@ -763,6 +874,12 @@ export function startEngine(opts: EngineOptions): RunningEngine {
           clock,
           logger,
         }),
+        new CursorSessionSource({
+          discovery: cursorDiscovery,
+          presence: cursorPresence,
+          clock,
+          logger,
+        }),
       ],
       ingest,
       checkpoints: core.checkpoints,
@@ -774,6 +891,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     });
     registry.start();
     codexPresence.start();
+    cursorPresence.start();
     tails.start();
     const spool = new DrainHookSpool(
       new FsHookSpool(join(opts.dataDir, "spool")),
@@ -789,6 +907,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     stops.push(
       () => registry.stop(),
       () => codexPresence.stop(),
+      () => cursorPresence.stop(),
       () => tails.stop(),
       () => clearInterval(drainTimer),
     );

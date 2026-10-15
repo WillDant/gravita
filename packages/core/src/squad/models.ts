@@ -1,4 +1,4 @@
-import type { AgentProvider, PlanTask, SquadModels, SquadPlan } from "@gravita/protocol";
+import type { PlanTask, SquadAgentProvider, SquadModels, SquadPlan } from "@gravita/protocol";
 import { overlaps } from "./paths";
 import { roleProviderOf, type SquadProviderChoice } from "./providers";
 import type { SquadState } from "./state";
@@ -43,7 +43,7 @@ export const CODEX_EFFORTS: Readonly<Record<ModelTier, string>> = {
 export const PROVIDER_MODELS = {
   claude: { low: "haiku", mid: "sonnet", high: "opus" },
   codex: { low: "default@low", mid: "default@medium", high: "default@high" },
-} as const satisfies Record<AgentProvider, Readonly<Record<ModelTier, string>>>;
+} as const satisfies Record<SquadAgentProvider, Readonly<Record<ModelTier, string>>>;
 
 /** A provider with a tier table: what the squad model policy can run. */
 export type ModelProvider = keyof typeof PROVIDER_MODELS;
