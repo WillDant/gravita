@@ -27,6 +27,14 @@ export interface TerminalHost {
   spawn(o: PtySpawnOptions): PtyProcess;
 }
 
+/**
+ * What runs in front in each shell: for every shell process id, the command lines of its
+ * terminal's foreground process group (a shell with nothing running lists only itself).
+ */
+export interface ForegroundProbe {
+  foreground(shellPids: readonly number[]): Promise<Map<number, string[]>>;
+}
+
 /** How each provider's CLI takes Gravita's choices in an interactive terminal. */
 export interface ProviderTerminalFlags {
   /** A session mode (in the provider's terms) as the CLI's flags. */

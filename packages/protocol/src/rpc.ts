@@ -288,6 +288,8 @@ export const TerminalInfo = z.object({
   projectId: z.string(),
   /** The session it runs (or that was started in it), once known. */
   sessionId: z.string().optional(),
+  /** A plain shell only: the agent running in front in it right now, if any. */
+  activeProvider: AgentProviderSchema.optional(),
   startedAt: z.string(),
   running: z.boolean(),
   /** Once it exited: the process's code, or null when a signal ended it. */
@@ -296,7 +298,8 @@ export const TerminalInfo = z.object({
 export type TerminalInfo = z.infer<typeof TerminalInfo>;
 
 export const TerminalSpawnParams = z.object({
-  cwd: z.string().min(1),
+  /** The folder to open in; the engine's home folder when absent. */
+  cwd: z.string().min(1).optional(),
   command: z.enum(TERMINAL_COMMANDS),
   cols: Cols,
   rows: Rows,

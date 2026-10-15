@@ -6,6 +6,7 @@ import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
 import { Settings } from "@/features/settings/Settings";
 import { TerminalScreen } from "@/features/terminal/TerminalScreen";
+import { TerminalsScreen } from "@/features/terminals/TerminalsScreen";
 import { UpdateToast } from "@/features/update/UpdateToast";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";
@@ -59,6 +60,8 @@ export function App() {
             <p className="p-8 text-ink-2">{t("engine.connecting")}</p>
           ) : route.level === "home" ? (
             <Home />
+          ) : route.level === "terminals" ? (
+            <TerminalsScreen {...(route.terminalId ? { terminalId: route.terminalId } : {})} />
           ) : route.level === "settings" ? (
             <Settings />
           ) : route.level === "project" ? (

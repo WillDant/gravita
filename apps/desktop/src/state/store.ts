@@ -9,6 +9,12 @@ import { createOpenSessionSlice, type OpenSessionSlice } from "./slices/openSess
 import { createProjectionSlice, type ProjectionSlice } from "./slices/projection";
 import { createRouteSlice, type Route, type RouteSlice } from "./slices/route";
 import { createSquadSlice, type SquadSlice } from "./slices/squad";
+import {
+  browserStorage,
+  createTerminalLayoutSlice,
+  type LayoutStorage,
+  type TerminalLayoutSlice,
+} from "./slices/terminalLayout";
 import { createTerminalsSlice, type TerminalsSlice } from "./slices/terminals";
 
 export type AppState = ConnectionSlice &
@@ -20,7 +26,8 @@ export type AppState = ConnectionSlice &
   ConversationSlice &
   NoticeSlice &
   SquadSlice &
-  TerminalsSlice;
+  TerminalsSlice &
+  TerminalLayoutSlice;
 export type AppStore = StoreApi<AppState>;
 
 /** A slice creator that sees the whole store and gets the engine port injected. */
@@ -29,6 +36,8 @@ export type Slice<T> = (gateway: EngineGateway) => StateCreator<AppState, [], []
 export interface AppStoreInit {
   route?: Route;
   now?: number;
+  /** Where the terminal layout is remembered (the browser's local storage by default). */
+  layoutStorage?: LayoutStorage;
 }
 
 /** One store per app (or per test). The gateway is injected: no module-level singletons. */
@@ -44,5 +53,6 @@ export function createAppStore(gateway: EngineGateway, init: AppStoreInit = {}):
     ...createNoticeSlice(gateway)(...a),
     ...createSquadSlice(gateway)(...a),
     ...createTerminalsSlice(gateway)(...a),
+    ...createTerminalLayoutSlice(init.layoutStorage ?? browserStorage)(gateway)(...a),
   }));
 }

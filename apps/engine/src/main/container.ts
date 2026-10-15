@@ -15,7 +15,7 @@ import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { ProviderDetector } from "../application/ports/provider-detector";
 import type { ReleaseSource } from "../application/ports/release-source";
 import type { ModelOption } from "../application/ports/session-runtime";
-import type { TerminalHost } from "../application/ports/terminal-host";
+import type { ForegroundProbe, TerminalHost } from "../application/ports/terminal-host";
 import type { TranscriptReader } from "../application/ports/transcript-reader";
 import type { Workspace } from "../application/ports/workspace";
 import { CursorKeyStatus } from "../application/services/cursor-key-status";
@@ -31,6 +31,7 @@ import {
 } from "../application/services/runtime-factory-registry";
 import { InMemorySessionRuntimeRegistry } from "../application/services/session-runtime-registry";
 import { SessionSettingsRecorder } from "../application/services/session-settings";
+import { TerminalActivityWatcher } from "../application/services/terminal-activity";
 import { TerminalManager } from "../application/services/terminal-manager";
 import { TerminalSessionLinker } from "../application/services/terminal-session-linker";
 import { TranscriptRouter } from "../application/services/transcript-router";
@@ -128,6 +129,7 @@ import { StderrLogger } from "../infrastructure/system/stderr-logger";
 import { SystemClock } from "../infrastructure/system/system-clock";
 import { BunPtyHost } from "../infrastructure/terminal/bun-pty-host";
 import { providerTerminalFlags } from "../infrastructure/terminal/provider-terminal-flags";
+import { PsForegroundProbe } from "../infrastructure/terminal/ps-foreground-probe";
 import { createRouter, type RpcRouter, rpcHandlers } from "../interface/rpc/router";
 import { startTransport } from "../interface/rpc/transport";
 import type { EngineArgs } from "./args";
@@ -289,6 +291,8 @@ export interface TerminalOptions {
   shellEnv: () => Promise<Record<string, string>>;
   /** The shell when the login environment names none. */
   defaultShell: string;
+  /** Tells what runs in front in each shell; absent: terminals don't show their agent. */
+  foreground?: ForegroundProbe;
 }
 
 /** Everything behind the transport: storage, projection, broadcasting and use cases. */
@@ -324,6 +328,8 @@ export interface EngineCore {
   usage?: PlanUsageMonitor;
   /** Embedded terminals: the user's, so the kill switch leaves them; shutdown ends them. */
   terminals?: TerminalManager;
+  /** Watches which agent runs in front in each shell terminal; `startEngine` starts it. */
+  terminalActivity?: TerminalActivityWatcher;
   /** Where each provider keeps its files, for the sources that read them. */
   homes: { codex: string };
   /** Disposes every runtime, waiting at most `capMs` (they may still write events meanwhile). */
@@ -559,12 +565,15 @@ export function createCore(o: CoreOptions): EngineCore {
   }
 
   let terminals: { spawn: SpawnTerminal; manager: TerminalManager } | undefined;
+  let terminalActivity: TerminalActivityWatcher | undefined;
   if (o.terminal) {
     const manager = new TerminalManager({ host: o.terminal.host, clock, ids, logger });
     const linker = new TerminalSessionLinker(manager);
     // Sessions that start in a terminal are linked to it as they're observed.
     broadcaster.listen({ events: (n) => linker.observe(n.events) });
     broadcaster.updateStatus({ terminal: manager.supported });
+    if (o.terminal.foreground)
+      terminalActivity = new TerminalActivityWatcher(manager, o.terminal.foreground, logger);
     terminals = {
       manager,
       spawn: new SpawnTerminal({
@@ -573,6 +582,7 @@ export function createCore(o: CoreOptions): EngineCore {
         projects,
         shellEnv: o.terminal.shellEnv,
         defaultShell: o.terminal.defaultShell,
+        homeDir: homedir,
         ...(providers ? { providers } : {}),
         ...(o.chat?.credentials ? { credentials: o.chat.credentials } : {}),
         cursorEnv: cursorTerminalEnv,
@@ -634,6 +644,7 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(cursorKey ? { cursorKey } : {}),
     ...(releaseChecker ? { releaseChecker } : {}),
     ...(terminals ? { terminals: terminals.manager } : {}),
+    ...(terminalActivity ? { terminalActivity } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
       // First: a squad must not mistake shutdown for the kill switch and record a pause.
@@ -795,6 +806,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
       host: new BunPtyHost(),
       shellEnv: () => shellEnv.load(),
       defaultShell: process.env.SHELL || "/bin/zsh",
+      foreground: new PsForegroundProbe(),
     },
     ...(opts.demo
       ? {}
@@ -921,6 +933,11 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     codexPresence.start();
     cursorPresence.start();
     tails.start();
+    if (core.terminalActivity) {
+      const activity = core.terminalActivity;
+      activity.start();
+      stops.push(() => activity.stop());
+    }
     if (core.releaseChecker) {
       const releases = core.releaseChecker;
       releases.start();

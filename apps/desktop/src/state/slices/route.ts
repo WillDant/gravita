@@ -1,8 +1,11 @@
 import type { Slice } from "../store";
 
 export type Route =
-  | { level: "home" }
+  /** `newSession` lands on Home with the new-session panel already open. */
+  | { level: "home"; newSession?: true }
   | { level: "settings" }
+  /** The terminals split on one screen; `terminalId` puts that one in view and focuses it. */
+  | { level: "terminals"; terminalId?: string }
   | { level: "project"; projectId: string }
   | { level: "session"; projectId: string; sessionId: string; agentId?: string }
   /** A terminal not (yet) running a session; once one starts in it, its session's screen. */

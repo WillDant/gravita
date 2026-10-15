@@ -257,6 +257,7 @@ describe("SpawnTerminal", () => {
       ),
       shellEnv: async () => ({ PATH: "/usr/bin", SHELL: "/bin/zsh" }),
       defaultShell: "/bin/sh",
+      homeDir: () => "/work/demo",
       providers: new RuntimeFactoryRegistry({
         claude: { factory: new FakeChatFactory({} as never), environment },
         cursor: { factory: new FakeChatFactory({} as never), environment: cursorEnvironment },
@@ -292,6 +293,13 @@ describe("SpawnTerminal", () => {
     expect(cwd).toBe("/work/demo");
     expect(env.TERM).toBe("xterm-256color");
     expect(env.GRAVITA_MANAGED).toBeUndefined();
+  });
+
+  test("opens in the home folder when no folder is asked for", async () => {
+    const { spawn, host } = spawning();
+    const t = await spawn.execute({ command: "shell", cols: 80, rows: 24 });
+    expect(t.cwd).toBe("/work/demo");
+    expect(host.spawned[0]!.o.cwd).toBe("/work/demo");
   });
 
   test("Claude Code's default mode passes no flag", async () => {
