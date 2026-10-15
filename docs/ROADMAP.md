@@ -31,6 +31,9 @@ A transparent macOS title bar that takes the app's colour, and a quieter Home wi
 ### Updates in Settings — [v0.7.1-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.1-beta)
 Settings shows the version you run, looks for a newer one and installs it by downloading and opening the release's installer.
 
+### Quieter menu — [v0.7.2-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta)
+The menu's footer keeps only Settings and Notifications; theme and language live in Settings.
+
 ## Next
 
 ### Polish and public launch

@@ -1,6 +1,6 @@
 {
   "name": "@gravita/orbs",
-  "version": "0.7.1-beta",
+  "version": "0.7.2-beta",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",

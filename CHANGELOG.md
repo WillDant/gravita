@@ -4,6 +4,13 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.7.2-beta] - 2026-10-15
+
+A quieter menu: the footer keeps only what you reach for while working.
+
+### Interface
+- **Menu footer:** it now has just Settings and Notifications. The theme and language buttons are gone from it; both are set in Settings, under Preferences.
+
 ## [0.7.1-beta] - 2026-10-15
 
 Settings can now tell you which version you run, look for a newer one and install it.
@@ -174,6 +181,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.7.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta
 [0.7.1-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.1-beta
 [0.7.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.0-beta
 [0.6.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.6.0-beta
