@@ -55,7 +55,9 @@ describe("transcript records", () => {
       JSON.stringify({
         role: "user",
         message: {
-          content: [{ type: "text", text: "<timestamp>x</timestamp>\n<user_query>\nfix it\n</user_query>" }],
+          content: [
+            { type: "text", text: "<timestamp>x</timestamp>\n<user_query>\nfix it\n</user_query>" },
+          ],
         },
       }),
     );
@@ -111,7 +113,9 @@ describe("CursorSessionTail", () => {
     const events = await readAll();
     for (const e of events) GravitaEvent.parse(e);
     expect(new Set(keysOf(events)).size).toBe(events.length);
-    expect(events.every((e) => e.provider === "cursor" && e.source === "cursor-transcript")).toBe(true);
+    expect(events.every((e) => e.provider === "cursor" && e.source === "cursor-transcript")).toBe(
+      true,
+    );
 
     const [started] = ofType(events, "session.started");
     expect(events[0]).toBe(started);
@@ -254,9 +258,15 @@ describe("CursorSessionTail", () => {
         role: "assistant",
         message: { content: [{ type: "tool_use", name: "Shell", input: { command: "sleep 99" } }] },
       });
-      await writeFile(path, `${call}\n${JSON.stringify({ type: "turn_ended", status: "error" })}\n`);
+      await writeFile(
+        path,
+        `${call}\n${JSON.stringify({ type: "turn_ended", status: "error" })}\n`,
+      );
       const events = await tailOf(path).poll();
-      expect(ofType(events, "tool.completed")[0]?.data).toMatchObject({ ok: false, error: "error" });
+      expect(ofType(events, "tool.completed")[0]?.data).toMatchObject({
+        ok: false,
+        error: "error",
+      });
     });
   });
 

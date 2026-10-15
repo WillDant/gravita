@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Project } from "@/features/project/Project";
 import { Sidebar } from "@/features/navigation/Sidebar";
+import { Project } from "@/features/project/Project";
 import { setLocale } from "@/shared/i18n/i18n";
 import { started, stateOf } from "@/test/events";
 import { flush } from "@/test/FakeGateway";

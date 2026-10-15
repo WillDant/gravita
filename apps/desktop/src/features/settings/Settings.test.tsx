@@ -27,7 +27,10 @@ function fakeBridge() {
 }
 
 const status = (credential?: ProviderCredential): EngineStatus => ({
-  providers: { claude: { found: true }, cursor: { found: true, ...(credential ? { credential } : {}) } },
+  providers: {
+    claude: { found: true },
+    cursor: { found: true, ...(credential ? { credential } : {}) },
+  },
   claude: { found: true },
   indexing: { done: 0, total: 0 },
   demo: false,

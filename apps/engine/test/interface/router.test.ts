@@ -14,8 +14,8 @@ import { GetSessionEvents } from "../../src/application/usecases/get-session-eve
 import { GetSnapshot } from "../../src/application/usecases/get-snapshot";
 import { IngestEvents } from "../../src/application/usecases/ingest-events";
 import { InterruptSession } from "../../src/application/usecases/interrupt-session";
-import { RemoveSession } from "../../src/application/usecases/remove-session";
 import { FALLBACK_MODELS, ListModels } from "../../src/application/usecases/list-models";
+import { RemoveSession } from "../../src/application/usecases/remove-session";
 import { RespondToPermission } from "../../src/application/usecases/respond-to-permission";
 import { SendMessage } from "../../src/application/usecases/send-message";
 import { SetModel } from "../../src/application/usecases/set-model";

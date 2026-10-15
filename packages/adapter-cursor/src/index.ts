@@ -36,6 +36,7 @@ export {
   normalizeRecord,
   type StartedTask,
 } from "./transcript/normalize";
+export { type TranscriptDigest, updateDigest } from "./transcript/read";
 export {
   normalizedPrompt,
   parseTranscriptLine,
@@ -50,5 +51,4 @@ export {
   type CursorSessionTailOptions,
   type CursorTailCheckpoint,
 } from "./transcript/tail";
-export { type TaskCall, todoItems, type TranscriptTool, transcriptTool } from "./transcript/tools";
-export { type TranscriptDigest, updateDigest } from "./transcript/read";
+export { type TaskCall, type TranscriptTool, todoItems, transcriptTool } from "./transcript/tools";

@@ -280,7 +280,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "terminal.open": "Abrir um terminal",
   "terminal.continue": "Continuar num terminal",
   "terminal.failed": "Não consegui abrir um terminal. {reason}",
-  "terminal.waiting": "Rode claude, codex ou cursor-agent aqui: os agentes aparecem no mapa assim que começar.",
+  "terminal.waiting":
+    "Rode claude, codex ou cursor-agent aqui: os agentes aparecem no mapa assim que começar.",
   "terminal.list": "Terminais",
   "terminal.ended": "encerrado",
   "session.talk": "Conversa",

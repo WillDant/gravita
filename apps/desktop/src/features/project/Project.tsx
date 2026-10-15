@@ -8,7 +8,6 @@ import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPane
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { SquadRow } from "@/features/squad-row/SquadRow";
 import { OpenTerminalButton, TerminalList } from "@/features/terminal/ProjectTerminals";
-import { ProjectAppearancePicker } from "./ProjectAppearancePicker";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
 import {
   projectSummaries,
@@ -21,6 +20,7 @@ import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { CountChips, StatusText } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
 import { useNow, useProjection } from "@/state/hooks";
+import { ProjectAppearancePicker } from "./ProjectAppearancePicker";
 
 export function Project({ projectId }: { projectId: string }) {
   useLocale();

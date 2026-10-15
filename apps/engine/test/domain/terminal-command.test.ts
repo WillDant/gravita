@@ -81,7 +81,16 @@ describe("terminalArgv", () => {
         modeArgs: ["--mode", "ask"],
         prompt: "why",
       }).slice(4),
-    ).toEqual(["/opt/cursor-agent", "--resume", "c-1", "--model", "gpt-5.5", "--mode", "ask", "why"]);
+    ).toEqual([
+      "/opt/cursor-agent",
+      "--resume",
+      "c-1",
+      "--model",
+      "gpt-5.5",
+      "--mode",
+      "ask",
+      "why",
+    ]);
   });
 
   test("a prompt that looks like an option comes after --", () => {

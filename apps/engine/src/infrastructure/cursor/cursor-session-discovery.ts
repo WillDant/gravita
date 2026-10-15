@@ -138,7 +138,12 @@ export class CursorSessionDiscovery {
       for (const chat of await this.list(base)) {
         if (!isDir(chat)) continue;
         const dir = join(base, chat.name);
-        const main = await this.candidate(join(dir, `${chat.name}.jsonl`), chat.name, cutoff, isKnown);
+        const main = await this.candidate(
+          join(dir, `${chat.name}.jsonl`),
+          chat.name,
+          cutoff,
+          isKnown,
+        );
         if (main) group.push(main);
         for (const sub of await this.subagentFiles(dir)) {
           const c = await this.candidate(sub.path, sub.chatId, cutoff, isKnown);
@@ -179,7 +184,9 @@ export class CursorSessionDiscovery {
   }
 
   /** The chats that are no one's subagent, each with all the subagents below it. */
-  private roots(group: Candidate[]): { chat: Candidate; children: (Candidate & { parentChatId: string })[] }[] {
+  private roots(
+    group: Candidate[],
+  ): { chat: Candidate; children: (Candidate & { parentChatId: string })[] }[] {
     const parentOf = new Map<string, string>();
     for (const c of group) {
       if (c.folderParent) {

@@ -1,10 +1,10 @@
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/shared/i18n/i18n";
+import { started, stateOf } from "@/test/events";
 import { flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
 import { PROJECT, SQ, squadFixture } from "@/test/squadFixtures";
-import { started, stateOf } from "@/test/events";
 import { Project } from "./Project";
 
 afterEach(cleanup);

@@ -69,7 +69,10 @@ describe("Cursor compliance", () => {
         provider: "cursor",
       });
       await (core.runtimes.get(sid) as CursorAcpRuntime).nextTurn();
-      expect(await call<unknown>(core, "cursorKey.validate")).toEqual({ source: "app", state: "valid" });
+      expect(await call<unknown>(core, "cursorKey.validate")).toEqual({
+        source: "app",
+        state: "valid",
+      });
       const status = JSON.stringify(await call(core, "engine.status"));
       const snapshot = JSON.stringify(await call(core, "state.snapshot"));
       expect(eventsOf(core).length).toBeGreaterThan(3);

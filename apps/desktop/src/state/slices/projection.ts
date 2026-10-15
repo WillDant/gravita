@@ -42,7 +42,8 @@ export const createProjectionSlice: Slice<ProjectionSlice> = (gateway) => (set, 
     get().noteConversationEvents(batch.events);
     if (
       batch.events.some(
-        (e) => e.type === "session.started" && e.provider === "cursor" && e.data.kind !== "external",
+        (e) =>
+          e.type === "session.started" && e.provider === "cursor" && e.data.kind !== "external",
       )
     ) {
       get().reloadModels("cursor");

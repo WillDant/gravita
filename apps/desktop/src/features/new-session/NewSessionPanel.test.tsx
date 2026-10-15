@@ -49,7 +49,9 @@ const offered = (label: string) =>
 describe("NewSessionPanel", () => {
   it("asks for the folder before starting, and only the folder", async () => {
     const { gateway, store } = renderPanel();
-    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })),
+    );
     await act(flush);
     await start();
     expect(screen.getByText("Choose the folder the agent will work in.")).toBeTruthy();
@@ -59,12 +61,16 @@ describe("NewSessionPanel", () => {
     expect(folderField().textContent).toContain("/work/app");
     expect(gateway.callsOf("startSession")).toEqual([]);
     await start();
-    expect(gateway.callsOf("startSession")).toEqual([{ cwd: "/work/app", permissionMode: "default" }]);
+    expect(gateway.callsOf("startSession")).toEqual([
+      { cwd: "/work/app", permissionMode: "default" },
+    ]);
   });
 
   it("starts with the chosen settings and opens the new session", async () => {
     const { gateway, navigate, store } = renderPanel({ defaultFolder: "/work/p1" });
-    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })),
+    );
     gateway.startResult = { sessionId: "s-new", projectId: "p1" };
     expect(folderField().textContent).toContain("/work/p1");
     await act(flush);
@@ -97,7 +103,9 @@ describe("NewSessionPanel", () => {
     const gateway = new FakeGateway();
     gateway.failures.startSession = new GatewayError(error.code, error.message);
     const { navigate, store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
-    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })),
+    );
     await start();
 
     expect(screen.getByRole("alert").textContent).toContain(text);
@@ -111,7 +119,9 @@ describe("NewSessionPanel", () => {
       RpcErrors.notLoggedIn.message,
     );
     const { store } = renderPanel({ defaultFolder: "/work/p1" }, gateway);
-    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })),
+    );
     await start();
 
     expect(screen.getByRole("heading", { name: "Log in to Claude Code" })).toBeTruthy();
@@ -140,7 +150,9 @@ describe("NewSessionPanel", () => {
   it("sets the folder from the native picker", async () => {
     const pickFolder = vi.fn(async () => "/picked/proj");
     const { store } = renderPanel({}, new FakeGateway(), pickFolder);
-    act(() => store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })));
+    act(() =>
+      store.getState().setEngineStatus(engine({ claude: { found: true, loggedIn: true } })),
+    );
     await act(flush);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Choose folder…" }));
@@ -158,7 +170,10 @@ const engine = (providers: Providers, demo = false): EngineStatus => ({
   indexing: { done: 0, total: 0 },
   demo,
 });
-const BOTH: Providers = { claude: { found: true, loggedIn: true }, codex: { found: true, loggedIn: true } };
+const BOTH: Providers = {
+  claude: { found: true, loggedIn: true },
+  codex: { found: true, loggedIn: true },
+};
 const CODEX_MODELS = [
   { value: "gpt-5.5-codex", displayName: "GPT-5.5 Codex" },
   { value: "gpt-5.5-mini", displayName: "GPT-5.5 mini" },
@@ -167,7 +182,10 @@ const CODEX_MODELS = [
 describe("NewSessionPanel with Claude Code and Codex", () => {
   it.each<[string, EngineStatus]>([
     ["only Claude Code is installed", engine({ claude: { found: true, loggedIn: true } })],
-    ["Codex isn't installed", engine({ claude: { found: true, loggedIn: true }, codex: { found: false } })],
+    [
+      "Codex isn't installed",
+      engine({ claude: { found: true, loggedIn: true }, codex: { found: false } }),
+    ],
     [
       "Codex is older than Gravita supports",
       engine({ claude: { found: true, loggedIn: true }, codex: { found: true, outdated: true } }),
@@ -187,9 +205,7 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     act(() => store.getState().setEngineStatus(engine(BOTH, true)));
     expect(screen.getByRole("radio", { name: "Codex" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("radio", { name: "Cursor" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("radio", { name: "Claude Code" }).hasAttribute("disabled")).toBe(
-      false,
-    );
+    expect(screen.getByRole("radio", { name: "Claude Code" }).hasAttribute("disabled")).toBe(false);
   });
 
   it("starts Codex when it is the only agent that can run", async () => {
@@ -223,7 +239,9 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
     act(() =>
       store
         .getState()
-        .setEngineStatus(engine({ claude: { found: true, loggedIn: true }, codex: { found: false } })),
+        .setEngineStatus(
+          engine({ claude: { found: true, loggedIn: true }, codex: { found: false } }),
+        ),
     );
     await act(async () => {
       fireEvent.click(screen.getByRole("radio", { name: "Codex" }));
@@ -299,11 +317,12 @@ describe("NewSessionPanel with Claude Code and Codex", () => {
   it("shows Codex's sign-in steps when Codex is chosen but logged out", async () => {
     const { store } = renderPanel({ defaultFolder: "/work/p1" });
     act(() =>
-      store
-        .getState()
-        .setEngineStatus(
-          engine({ claude: { found: true, loggedIn: true }, codex: { found: true, loggedIn: false } }),
-        ),
+      store.getState().setEngineStatus(
+        engine({
+          claude: { found: true, loggedIn: true },
+          codex: { found: true, loggedIn: false },
+        }),
+      ),
     );
     expect(screen.queryByRole("heading", { name: "Sign in to Codex" })).toBeNull();
     await act(async () => {
@@ -395,7 +414,9 @@ describe("NewSessionPanel with Cursor", () => {
     act(() =>
       store
         .getState()
-        .setEngineStatus(engine({ claude: { found: true, loggedIn: true }, cursor: { found: false } })),
+        .setEngineStatus(
+          engine({ claude: { found: true, loggedIn: true }, cursor: { found: false } }),
+        ),
     );
     await act(async () => {
       fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));
@@ -410,11 +431,12 @@ describe("NewSessionPanel with Cursor", () => {
   it("shows update steps when Cursor CLI is outdated", async () => {
     const { store } = renderPanel({ defaultFolder: "/work/p1" });
     act(() =>
-      store
-        .getState()
-        .setEngineStatus(
-          engine({ claude: { found: true, loggedIn: true }, cursor: { found: true, outdated: true } }),
-        ),
+      store.getState().setEngineStatus(
+        engine({
+          claude: { found: true, loggedIn: true },
+          cursor: { found: true, outdated: true },
+        }),
+      ),
     );
     await act(async () => {
       fireEvent.click(screen.getByRole("radio", { name: "Cursor" }));

@@ -33,14 +33,15 @@ export function ConfirmDialog({
   }, [onCancel]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div className="absolute inset-0 bg-scrim" aria-hidden="true" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Pressing the dimmed backdrop cancels; the keyboard has Escape, so it skips the tab order. */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onMouseDown={onCancel}
+        className="absolute inset-0 cursor-default bg-scrim"
+      />
       <div
         role="dialog"
         aria-modal="true"
@@ -49,7 +50,9 @@ export function ConfirmDialog({
           "relative w-full max-w-md rounded-xl border border-hairline bg-panel px-5 py-4 shadow-panel",
         )}
       >
-        <h2 id={titleId} className="text-sm font-semibold text-ink">{title}</h2>
+        <h2 id={titleId} className="text-sm font-semibold text-ink">
+          {title}
+        </h2>
         <p className="mt-2 text-sm text-ink-2">{message}</p>
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={busy}>

@@ -12,8 +12,9 @@ export function parseCursorModelsOutput(output: string): ModelOption[] {
     if (!trimmed || trimmed === "Available models") continue;
     const m = LINE.exec(trimmed);
     if (!m) continue;
-    const cliId = m[1];
-    const displayName = m[2]
+    const [, cliId, rawName] = m;
+    if (!cliId || !rawName) continue;
+    const displayName = rawName
       .replace(/\s*\(current,\s*default\)\s*$/i, "")
       .replace(/\s*\(NO ZDR\)\s*$/i, "")
       .trim();

@@ -1,12 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useProjectAppearance } from "@/app/providers";
-import {
-  PROJECT_ICON_IDS,
-  PROJECT_TONE_IDS,
-} from "@/infrastructure/preferences/projectAppearance";
+import { PROJECT_ICON_IDS, PROJECT_TONE_IDS } from "@/infrastructure/preferences/projectAppearance";
 import { t } from "@/shared/i18n/i18n";
-import { PROJECT_ICONS } from "@/shared/ui/projectIcons";
 import { ProjectTile } from "@/shared/ui/ProjectTile";
+import { PROJECT_ICONS } from "@/shared/ui/projectIcons";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
 
@@ -14,13 +11,7 @@ import { cn } from "@/shared/utils";
  * The project's tile in its header, large: pressing it opens a small panel to pick the icon
  * and the colour. A choice applies at once, so the menu on the left follows as it is made.
  */
-export function ProjectAppearancePicker({
-  projectId,
-  name,
-}: {
-  projectId: string;
-  name: string;
-}) {
+export function ProjectAppearancePicker({ projectId, name }: { projectId: string; name: string }) {
   const { appearance, set, reset } = useProjectAppearance(projectId);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);

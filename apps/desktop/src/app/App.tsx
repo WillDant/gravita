@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Home } from "@/features/home/Home";
-import { Settings } from "@/features/settings/Settings";
 import { Sidebar } from "@/features/navigation/Sidebar";
 import { NoticeLine } from "@/features/notice/NoticeLine";
 import { Project } from "@/features/project/Project";
 import { Session } from "@/features/session/Session";
+import { Settings } from "@/features/settings/Settings";
 import { TerminalScreen } from "@/features/terminal/TerminalScreen";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { useConnection, useIsDemo, useProjection, useRoute } from "@/state/hooks";

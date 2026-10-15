@@ -141,7 +141,9 @@ function CursorKeyNotice({
 }) {
   const navigate = useNavigate();
   const titleKey =
-    problem === "keyMissing" ? "connect.cursor.keyMissing.title" : "connect.cursor.keyInvalid.title";
+    problem === "keyMissing"
+      ? "connect.cursor.keyMissing.title"
+      : "connect.cursor.keyInvalid.title";
   const bodyKey =
     problem === "keyMissing" ? "connect.cursor.keyMissing.body" : "connect.cursor.keyInvalid.body";
   const headingId = "connect-cursor-key";

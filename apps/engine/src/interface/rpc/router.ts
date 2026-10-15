@@ -19,8 +19,8 @@ import type { GetEngineStatus } from "../../application/usecases/get-engine-stat
 import type { GetSessionEvents } from "../../application/usecases/get-session-events";
 import type { GetSnapshot } from "../../application/usecases/get-snapshot";
 import type { InterruptSession } from "../../application/usecases/interrupt-session";
-import type { RemoveSession } from "../../application/usecases/remove-session";
 import type { ListModels } from "../../application/usecases/list-models";
+import type { RemoveSession } from "../../application/usecases/remove-session";
 import type { RespondToPermission } from "../../application/usecases/respond-to-permission";
 import type { SendMessage } from "../../application/usecases/send-message";
 import type { SetModel } from "../../application/usecases/set-model";

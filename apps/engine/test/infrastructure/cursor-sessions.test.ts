@@ -102,8 +102,14 @@ describe("CursorSessionDiscovery", () => {
         clock,
         rolloutFs,
         fs: {
-          readdir: (p) => (seen(p), nodeCursorDiscoveryFs.readdir(p)),
-          stat: (p) => (seen(p), nodeCursorDiscoveryFs.stat(p)),
+          readdir: (p) => {
+            seen(p);
+            return nodeCursorDiscoveryFs.readdir(p);
+          },
+          stat: (p) => {
+            seen(p);
+            return nodeCursorDiscoveryFs.stat(p);
+          },
         },
       });
       await discovery.scan(() => false);
@@ -119,7 +125,11 @@ describe("CursorSessionDiscovery", () => {
         /^chats\/[^/]+$/,
         /^chats\/[^/]+\/[^/]+\/meta\.json$/,
       ];
-      for (const p of touched) expect(allowed.some((r) => r.test(p)), p).toBe(true);
+      for (const p of touched)
+        expect(
+          allowed.some((r) => r.test(p)),
+          p,
+        ).toBe(true);
       for (const p of touched) expect(p).not.toMatch(/auth|config|acp-sessions|store\.db/);
     });
   });
@@ -142,7 +152,9 @@ describe("Cursor chats in the tail scheduler", () => {
       expect(s?.provider).toBe("cursor");
       expect(s?.cwd).toBe("/work/demo");
       expect(s?.firstUserText).toContain("hello.txt");
-      expect(Object.keys(s?.agents ?? {}).sort()).toEqual(["main", cursorSessionId(CHILD_CHAT)].sort());
+      expect(Object.keys(s?.agents ?? {}).sort()).toEqual(
+        ["main", cursorSessionId(CHILD_CHAT)].sort(),
+      );
       expect(s?.agents[cursorSessionId(CHILD_CHAT)]?.parentId).toBe("main");
       // The subagent is not a session of its own.
       expect(core.projection.session(cursorSessionId(CHILD_CHAT))).toBeUndefined();

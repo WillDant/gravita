@@ -94,15 +94,15 @@ import { CodexTranscriptReader } from "../infrastructure/codex/codex-transcript-
 import { MemoryCredentialSource } from "../infrastructure/credentials/memory-credential-source";
 import { CursorAcpRuntimeFactory } from "../infrastructure/cursor/cursor-acp-runtime";
 import { CursorDetector } from "../infrastructure/cursor/cursor-detector";
-import { CursorPresence } from "../infrastructure/cursor/cursor-presence";
-import { CursorSessionDiscovery } from "../infrastructure/cursor/cursor-session-discovery";
-import { CursorSessionSource } from "../infrastructure/cursor/cursor-session-source";
 import {
   cursorTerminalEnv,
   DetectedCursorEnvironment,
 } from "../infrastructure/cursor/cursor-environment";
 import { CursorCliKeyValidator } from "../infrastructure/cursor/cursor-key-validator";
 import { cursorModelsCatalog } from "../infrastructure/cursor/cursor-models-catalog";
+import { CursorPresence } from "../infrastructure/cursor/cursor-presence";
+import { CursorSessionDiscovery } from "../infrastructure/cursor/cursor-session-discovery";
+import { CursorSessionSource } from "../infrastructure/cursor/cursor-session-source";
 import { RuntimeConversationReader } from "../infrastructure/cursor/runtime-conversation-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
@@ -575,16 +575,10 @@ export function createCore(o: CoreOptions): EngineCore {
       setPermissionMode: new SetPermissionMode(runtimes, settings),
       answerQuestion: new AnswerQuestion(runtimes),
       getConversation: new GetConversation(transcripts),
-      listModels: new ListModels(
-        runtimes,
-        clock,
-        logger,
-        DEFAULT_FALLBACKS,
-        {
-          ...(codexModels ? { codex: codexModels } : {}),
-          ...(cursorModels ? { cursor: cursorModels } : {}),
-        },
-      ),
+      listModels: new ListModels(runtimes, clock, logger, DEFAULT_FALLBACKS, {
+        ...(codexModels ? { codex: codexModels } : {}),
+        ...(cursorModels ? { cursor: cursorModels } : {}),
+      }),
       stopAll,
       ...(squads ? { squads } : {}),
       ...(usage ? { usage } : {}),
@@ -633,8 +627,7 @@ export function createCore(o: CoreOptions): EngineCore {
   };
 }
 
-export interface EngineOptions
-  extends Omit<EngineArgs, "tokenStdin" | "codexHome" | "cursorHome"> {
+export interface EngineOptions extends Omit<EngineArgs, "tokenStdin" | "codexHome" | "cursorHome"> {
   token: string;
   /** `--codex-home`; `~/.codex` when absent. */
   codexHome?: string;

@@ -212,7 +212,9 @@ describe("TerminalSessionLinker", () => {
     expect(manager.list().find((t) => t.terminalId === cursor.terminalId)?.sessionId).toBe(
       "cursor:c1",
     );
-    expect(manager.list().find((t) => t.terminalId === shell.terminalId)?.sessionId).toBeUndefined();
+    expect(
+      manager.list().find((t) => t.terminalId === shell.terminalId)?.sessionId,
+    ).toBeUndefined();
   });
 
   test("ignores sessions that started before the terminal, or elsewhere", () => {
@@ -333,7 +335,14 @@ describe("SpawnTerminal", () => {
     });
     expect(t.sessionId).toBeUndefined();
     const { argv, env } = host.spawned[0]!.o;
-    expect(argv.slice(4)).toEqual(["/bin/cursor-agent", "--model", "gpt-5.5", "--mode", "plan", "hi"]);
+    expect(argv.slice(4)).toEqual([
+      "/bin/cursor-agent",
+      "--model",
+      "gpt-5.5",
+      "--mode",
+      "plan",
+      "hi",
+    ]);
     expect(env.CURSOR_API_KEY).toBe("app-key");
     expect(env.AGENT_CLI_X).toBeUndefined();
     expect(env.AGENT_CLI_CREDENTIAL_STORE).toBe("memory");

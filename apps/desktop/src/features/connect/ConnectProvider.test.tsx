@@ -2,8 +2,8 @@ import type { EngineStatus } from "@gravita/protocol";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/shared/i18n/i18n";
-import { renderWithApp } from "@/test/render";
 import { canStartWith, codexNoteOf, optionalNoteOf, problemOf } from "@/state/hooks";
+import { renderWithApp } from "@/test/render";
 import { ConnectProvider } from "./ConnectProvider";
 
 afterEach(cleanup);
@@ -69,9 +69,7 @@ describe("connect guidance per provider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     expect(navigate).toHaveBeenCalledWith({ level: "settings" });
     cleanup();
-    const invalid = renderWithApp(
-      <ConnectProvider provider="cursor" problem="keyInvalid" />,
-    );
+    const invalid = renderWithApp(<ConnectProvider provider="cursor" problem="keyInvalid" />);
     expect(screen.getByRole("heading", { name: "Cursor API key not working" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     expect(invalid.navigate).toHaveBeenCalledWith({ level: "settings" });

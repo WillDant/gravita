@@ -13,8 +13,8 @@ import type {
 import type {
   ProjectAppearance,
   ProjectAppearancePatch,
-  ProjectAppearances,
   ProjectAppearanceStore,
+  ProjectAppearances,
 } from "@/infrastructure/preferences/projectAppearance";
 import { StoreContext } from "@/state/hooks";
 import type { Route } from "@/state/slices/route";

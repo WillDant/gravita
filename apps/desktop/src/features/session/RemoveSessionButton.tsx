@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useState } from "react";
-import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { t } from "@/shared/i18n/i18n";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { cn } from "@/shared/utils";
 import { useAppStore } from "@/state/hooks";
 

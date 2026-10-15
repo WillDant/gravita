@@ -3,6 +3,7 @@ import { Bell, House, Languages, MoonStar, Settings, Sun, UsersRound } from "luc
 import { useMemo } from "react";
 import { useNavigate, useProjectAppearances, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
+import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
@@ -14,7 +15,6 @@ import {
   squadDecisions,
   squadTitle,
 } from "@/shared/presenters/squad";
-import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { ProjectTile } from "@/shared/ui/ProjectTile";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { cn } from "@/shared/utils";

@@ -13,12 +13,7 @@ import { t } from "@/shared/i18n/i18n";
 import { ProviderIcon } from "@/shared/ui/ProviderIcon";
 import { Button } from "@/shared/ui/ui";
 import { cn } from "@/shared/utils";
-import {
-  useIsDemo,
-  useModels,
-  useProviderProblem,
-  useTerminalSupported,
-} from "@/state/hooks";
+import { useIsDemo, useModels, useProviderProblem, useTerminalSupported } from "@/state/hooks";
 import { FolderField, type RecentFolder } from "./FolderField";
 import { type RunIn, useNewSession } from "./useNewSession";
 
@@ -196,12 +191,7 @@ export function NewSessionPanel({
           <Button variant="ghost" onClick={onClose}>
             {t("newSession.cancel")}
           </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            aria-busy={form.busy}
-            disabled={providerBlocked}
-          >
+          <Button type="submit" variant="primary" aria-busy={form.busy} disabled={providerBlocked}>
             {form.busy ? t("newSession.starting") : t("newSession.start")}
           </Button>
         </div>

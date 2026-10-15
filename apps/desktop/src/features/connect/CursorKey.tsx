@@ -62,7 +62,10 @@ export function CursorKey({ className }: { className?: string }) {
           </h2>
           <p className="mt-0.5 max-w-[68ch] text-sm text-ink-2">{t("cursorKey.body")}</p>
           <p
-            className={cn("mt-2 flex items-center gap-1.5 text-sm font-medium", STATE_TONE[key.state])}
+            className={cn(
+              "mt-2 flex items-center gap-1.5 text-sm font-medium",
+              STATE_TONE[key.state],
+            )}
             aria-live="polite"
           >
             {key.state === "valid" && <CircleCheck size={15} aria-hidden="true" />}

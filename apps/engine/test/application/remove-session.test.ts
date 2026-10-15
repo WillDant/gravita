@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { keys } from "@gravita/protocol/ids";
-import { RemoveSession } from "../../src/application/usecases/remove-session";
-import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
-import { ProjectionService } from "../../src/application/services/projection-service";
-import { IngestEvents } from "../../src/application/usecases/ingest-events";
-import { EventBroadcaster } from "../../src/application/services/event-broadcaster";
-import { SqliteEventStore } from "../../src/infrastructure/persistence/sqlite-event-store";
-import { openDatabase } from "../../src/infrastructure/persistence/sqlite-database";
-import { FakeClock } from "../fakes";
 import type { SessionRuntime } from "../../src/application/ports/session-runtime";
+import { EventBroadcaster } from "../../src/application/services/event-broadcaster";
+import { ProjectionService } from "../../src/application/services/projection-service";
+import { InMemorySessionRuntimeRegistry } from "../../src/application/services/session-runtime-registry";
+import { IngestEvents } from "../../src/application/usecases/ingest-events";
+import { RemoveSession } from "../../src/application/usecases/remove-session";
+import { openDatabase } from "../../src/infrastructure/persistence/sqlite-database";
+import { SqliteEventStore } from "../../src/infrastructure/persistence/sqlite-event-store";
+import { FakeClock } from "../fakes";
 
 const SID = "s-remove-1";
 const PID = "p1";

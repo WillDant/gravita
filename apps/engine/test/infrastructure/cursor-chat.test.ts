@@ -79,9 +79,7 @@ describe("Cursor chats through cursor-agent acp", () => {
     );
     expect(conv.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
     expect(conv.messages[0]?.text).toBe("Summarize the README");
-    expect(conv.messages[1]?.text).toBe(
-      "The README describes a demo project with two scripts.",
-    );
+    expect(conv.messages[1]?.text).toBe("The README describes a demo project with two scripts.");
     // The turn is named by Gravita's user message.
     const user = ofType(events, "message.user")[0]!;
     expect(ofType(events, "turn.completed")[0]?.key).toContain(user.data.uuid);
@@ -303,10 +301,16 @@ describe("Cursor chats through cursor-agent acp", () => {
 describe("the Cursor key's state", () => {
   test("cursorKey.validate checks the key and answers only its state", async () => {
     const { core, validator } = cursorChatCore(new CursorLauncher());
-    expect(await call<unknown>(core, "cursorKey.validate", {})).toEqual({ source: "app", state: "valid" });
+    expect(await call<unknown>(core, "cursorKey.validate", {})).toEqual({
+      source: "app",
+      state: "valid",
+    });
     expect(validator.seen).toEqual([TEST_KEY]);
     validator.answer = "invalid";
-    expect(await call<unknown>(core, "cursorKey.validate")).toEqual({ source: "app", state: "invalid" });
+    expect(await call<unknown>(core, "cursorKey.validate")).toEqual({
+      source: "app",
+      state: "invalid",
+    });
     expect(core.broadcaster.status().providers.cursor?.credential).toEqual({
       source: "app",
       state: "invalid",
@@ -315,7 +319,10 @@ describe("the Cursor key's state", () => {
 
   test("without a key: missing, and nothing is checked", async () => {
     const { core, validator } = cursorChatCore(new CursorLauncher(), { key: null });
-    expect(await call<unknown>(core, "cursorKey.validate")).toEqual({ source: "none", state: "missing" });
+    expect(await call<unknown>(core, "cursorKey.validate")).toEqual({
+      source: "none",
+      state: "missing",
+    });
     expect(validator.seen).toEqual([]);
   });
 

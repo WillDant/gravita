@@ -1,12 +1,7 @@
 import { type GravitaEvent, keys } from "@gravita/protocol";
 import { preview } from "@gravita/protocol/tools";
 import { cursorCallId, cursorMessageId } from "../ids";
-import {
-  normalizedPrompt,
-  type TranscriptRecord,
-  userQueryOf,
-  visibleText,
-} from "./records";
+import { normalizedPrompt, type TranscriptRecord, userQueryOf, visibleText } from "./records";
 import { type TaskCall, todoItems, transcriptTool } from "./tools";
 
 // Transcript records as Gravita events. A transcript has no results, ids or timestamps of its
@@ -63,7 +58,12 @@ function envelope(c: NormalizeContext, ts: string) {
   };
 }
 
-function closeOpen(c: NormalizeContext, s: FileState, ts: string, failure?: string): GravitaEvent[] {
+function closeOpen(
+  c: NormalizeContext,
+  s: FileState,
+  ts: string,
+  failure?: string,
+): GravitaEvent[] {
   const events = s.open.map(
     (toolUseId): GravitaEvent => ({
       ...envelope(c, ts),
@@ -86,7 +86,12 @@ export function normalizeRecord(
   const line = s.line++;
   const e = envelope(c, ts);
   // Whatever the agent was waiting for is over once it writes again.
-  const events = closeOpen(c, s, ts, r.kind === "turn_ended" && r.status !== "success" ? r.status : undefined);
+  const events = closeOpen(
+    c,
+    s,
+    ts,
+    r.kind === "turn_ended" && r.status !== "success" ? r.status : undefined,
+  );
 
   if (r.kind === "user") {
     const text = userQueryOf(r.text);

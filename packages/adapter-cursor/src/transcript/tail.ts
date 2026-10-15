@@ -126,7 +126,12 @@ export class CursorSessionTail {
     let p = this.progress.get(f.path);
     // A replaced or shortened file starts over; keys make a second pass harmless.
     if (!p || p.ino !== st.ino || st.size < p.offset) {
-      p = { ino: st.ino, offset: 0, state: newFileState(), ...(p?.spawned ? { spawned: true } : {}) };
+      p = {
+        ino: st.ino,
+        offset: 0,
+        state: newFileState(),
+        ...(p?.spawned ? { spawned: true } : {}),
+      };
       this.progress.set(f.path, p);
     }
     const isRoot = f.chatId === this.o.chatId;
