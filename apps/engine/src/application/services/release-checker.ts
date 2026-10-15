@@ -1,13 +1,25 @@
-import { newerRelease } from "../../domain/release-version";
+import { type AvailableUpdate, newerRelease } from "../../domain/release-version";
 import type { Clock } from "../ports/clock";
 import type { Logger } from "../ports/logger";
 import type { ReleaseSource } from "../ports/release-source";
+
+/** What the UI is told: the installer's link stays in the engine. */
+export type PublicUpdate = Omit<AvailableUpdate, "asset"> & {
+  asset?: { name: string; size: number; sha256: string };
+};
+
+export function publicView(u: AvailableUpdate): PublicUpdate {
+  const { asset, ...rest } = u;
+  return asset
+    ? { ...rest, asset: { name: asset.name, size: asset.size, sha256: asset.sha256 } }
+    : rest;
+}
 
 export interface ReleaseCheckerOptions {
   source: ReleaseSource;
   /** Where the result goes: the engine status the UI reads. */
   status: {
-    updateStatus(patch: { update: { version: string; url: string } | undefined }): void;
+    updateStatus(patch: { update: PublicUpdate | undefined }): void;
   };
   clock: Clock;
   logger: Logger;
@@ -29,6 +41,7 @@ const INTERVAL_MS = 6 * 3_600_000;
 export class ReleaseChecker {
   private cancel: (() => void) | undefined;
   private stopped = false;
+  private found: AvailableUpdate | undefined;
 
   constructor(private readonly o: ReleaseCheckerOptions) {}
 
@@ -41,13 +54,20 @@ export class ReleaseChecker {
     this.cancel?.();
   }
 
-  /** One look; resolves once the status is up to date. */
-  async check(): Promise<void> {
+  /** The update the last look found, with its installer link (which never leaves the engine). */
+  get latest(): AvailableUpdate | undefined {
+    return this.found;
+  }
+
+  /** One look; resolves once the status is up to date. Rejects only when `strict`. */
+  async check({ strict = false }: { strict?: boolean } = {}): Promise<void> {
     try {
       const releases = await this.o.source.list();
-      this.o.status.updateStatus({ update: newerRelease(releases, this.o.current) });
+      this.found = newerRelease(releases, this.o.current);
+      this.o.status.updateStatus({ update: this.found && publicView(this.found) });
     } catch (err) {
       this.o.logger.log("release check failed", err);
+      if (strict) throw err;
     }
   }
 

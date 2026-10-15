@@ -95,6 +95,8 @@ export const Methods = {
   codexProfileSignOut: "codexProfile.signOut",
   /** Checks the Cursor API key the engine holds (never takes or returns the key). */
   cursorKeyValidate: "cursorKey.validate",
+  updateCheck: "update.check",
+  updateInstall: "update.install",
   terminalSpawn: "terminal.spawn",
   terminalWrite: "terminal.write",
   terminalResize: "terminal.resize",

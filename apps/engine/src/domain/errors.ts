@@ -248,3 +248,11 @@ export class TerminalNotFoundError extends Error {
     this.name = "TerminalNotFoundError";
   }
 }
+
+/** An update can't be checked or installed; the message says why, in words for the user. */
+export class UpdateUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UpdateUnavailableError";
+  }
+}

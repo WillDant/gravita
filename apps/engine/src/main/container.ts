@@ -9,6 +9,7 @@ import type { Clock } from "../application/ports/clock";
 import type { CredentialSource, CursorKeyValidator } from "../application/ports/credential-source";
 import type { GitWorkspace, PullRequestHost } from "../application/ports/git-workspace";
 import type { IdGenerator } from "../application/ports/id-generator";
+import type { InstallerLauncher } from "../application/ports/installer-launcher";
 import type { Logger } from "../application/ports/logger";
 import type { ProjectDirectory } from "../application/ports/project-directory";
 import type { ProviderDetector } from "../application/ports/provider-detector";
@@ -33,6 +34,7 @@ import { SessionSettingsRecorder } from "../application/services/session-setting
 import { TerminalManager } from "../application/services/terminal-manager";
 import { TerminalSessionLinker } from "../application/services/terminal-session-linker";
 import { TranscriptRouter } from "../application/services/transcript-router";
+import { UpdateControl } from "../application/services/update-control";
 import type { SquadOrchestrator } from "../application/squad/squad-orchestrator";
 import { AnnounceProject } from "../application/usecases/announce-project";
 import { AnswerQuestion } from "../application/usecases/answer-question";
@@ -114,6 +116,7 @@ import { LoopbackMcpServer } from "../infrastructure/mcp/loopback-mcp-server";
 import { SqliteCheckpointStore } from "../infrastructure/persistence/sqlite-checkpoint-store";
 import { openDatabase } from "../infrastructure/persistence/sqlite-database";
 import { SqliteEventStore } from "../infrastructure/persistence/sqlite-event-store";
+import { DmgInstaller } from "../infrastructure/releases/dmg-installer";
 import { TailScheduler } from "../infrastructure/sessions/tail-scheduler";
 import { FsHookSpool } from "../infrastructure/system/fs-hook-spool";
 import { FsRuntimeFile } from "../infrastructure/system/fs-runtime-file";
@@ -257,6 +260,8 @@ export function createSquadToolkit(
 }
 
 export interface CoreOptions {
+  /** Where releases are listed, and how an installer is fetched; absent: no update checks. */
+  releases?: { source: ReleaseSource; installer?: InstallerLauncher };
   /** A file path, or ":memory:" (demo mode, tests). */
   dbPath: string;
   demo: boolean;
@@ -313,6 +318,8 @@ export interface EngineCore {
   codexProfile?: CodexSquadProfile;
   /** The state of the Cursor key pasted in Gravita (real mode). */
   cursorKey?: CursorKeyStatus;
+  /** Looks for newer releases (real mode); `startEngine` starts its schedule. */
+  releaseChecker?: ReleaseChecker;
   /** Plan usage reads (real mode); `startEngine` starts its polling. */
   usage?: PlanUsageMonitor;
   /** Embedded terminals: the user's, so the kill switch leaves them; shutdown ends them. */
@@ -347,7 +354,21 @@ export function createCore(o: CoreOptions): EngineCore {
     providers: { claude: { found: false } },
     indexing: { done: 0, total: 0 },
     demo: o.demo,
+    version: ENGINE_VERSION,
   });
+  const releaseChecker = o.releases
+    ? new ReleaseChecker({
+        source: o.releases.source,
+        status: broadcaster,
+        clock,
+        logger,
+        current: ENGINE_VERSION,
+      })
+    : undefined;
+  const updates =
+    o.releases && releaseChecker
+      ? new UpdateControl(releaseChecker, o.releases.installer ?? new DmgInstaller(ENGINE_VERSION))
+      : undefined;
   const ingest = new IngestEvents(events, projection, broadcaster);
   const runtimes = new InMemorySessionRuntimeRegistry(ingest, clock);
   // Each session's conversation comes from its provider (files, rollouts, or live Cursor buffer).
@@ -587,6 +608,7 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(codexProfile ? { codexProfile } : {}),
       ...(terminals ? { terminals } : {}),
       ...(cursorKey ? { cursorKey } : {}),
+      ...(updates ? { updates } : {}),
     }),
     logger,
   );
@@ -610,6 +632,7 @@ export function createCore(o: CoreOptions): EngineCore {
     ...(mcp ? { mcp } : {}),
     ...(codexProfile ? { codexProfile } : {}),
     ...(cursorKey ? { cursorKey } : {}),
+    ...(releaseChecker ? { releaseChecker } : {}),
     ...(terminals ? { terminals: terminals.manager } : {}),
     homes: { codex: o.codexHome ?? join(homedir(), ".codex") },
     async disposeRuntimes(capMs = DISPOSE_CAP_MS) {
@@ -765,6 +788,7 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     dbPath,
     demo: opts.demo,
     clock,
+    ...(opts.releaseSource ? { releases: { source: opts.releaseSource } } : {}),
     codexHome,
     ...(chat ? { chat } : {}),
     terminal: {
@@ -897,14 +921,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
     codexPresence.start();
     cursorPresence.start();
     tails.start();
-    if (opts.releaseSource) {
-      const releases = new ReleaseChecker({
-        source: opts.releaseSource,
-        status: broadcaster,
-        clock,
-        logger,
-        current: ENGINE_VERSION,
-      });
+    if (core.releaseChecker) {
+      const releases = core.releaseChecker;
       releases.start();
       stops.push(() => releases.stop());
     }

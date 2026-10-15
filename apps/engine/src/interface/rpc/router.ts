@@ -12,6 +12,7 @@ import type { CodexProfileControl } from "../../application/ports/squad-profile"
 import type { CursorKeyStatus } from "../../application/services/cursor-key-status";
 import type { PlanUsageMonitor } from "../../application/services/plan-usage-monitor";
 import type { TerminalManager } from "../../application/services/terminal-manager";
+import type { UpdateControl } from "../../application/services/update-control";
 import type { SquadOrchestrator } from "../../application/squad/squad-orchestrator";
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
 import type { GetConversation } from "../../application/usecases/get-conversation";
@@ -52,6 +53,7 @@ import {
   TooManySessionsError,
   TooManySquadsError,
   TooManyTerminalsError,
+  UpdateUnavailableError,
 } from "../../domain/errors";
 
 // Method → use case, with params validated by the protocol's RpcContract. Pure dispatch:
@@ -107,6 +109,8 @@ export interface RouterDeps {
   terminals?: { spawn: SpawnTerminal; manager: TerminalManager };
   /** The state of the Cursor key pasted in Gravita; absent when Cursor can't run here. */
   cursorKey?: CursorKeyStatus;
+  /** Looking for and installing updates; absent in the demo and in tests. */
+  updates?: UpdateControl;
 }
 
 const OK = { ok: true } as const;
@@ -119,6 +123,10 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
   const codexProfile = (): CodexProfileControl => {
     if (!d.codexProfile) throw new ProviderUnavailableError("codex", "not-found");
     return d.codexProfile;
+  };
+  const updates = (): UpdateControl => {
+    if (!d.updates) throw new UpdateUnavailableError("Updates aren't available here.");
+    return d.updates;
   };
   const terminals = () => {
     if (!d.terminals) throw new TerminalUnsupportedError();
@@ -196,6 +204,11 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
       if (!d.cursorKey) throw new ProviderUnavailableError("cursor", "not-found");
       return d.cursorKey.check();
     },
+    "update.check": () => updates().check(),
+    "update.install": async () => {
+      await updates().install();
+      return OK;
+    },
     "terminal.spawn": (p) => terminals().spawn.execute(p),
     "terminal.write": (p) => {
       terminals().manager.write(p.terminalId, p.data);
@@ -262,6 +275,8 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
       { code: RpcErrors.codexProfileSignedOut.code, message: err.message },
       err.provider,
     );
+  if (err instanceof UpdateUnavailableError)
+    return { code: RpcErrors.badRequest.code, message: err.message };
   if (err instanceof TerminalUnsupportedError) return RpcErrors.terminalUnsupported;
   if (err instanceof TooManyTerminalsError) return RpcErrors.tooManyTerminals;
   if (err instanceof TerminalNotFoundError) return RpcErrors.terminalNotFound;

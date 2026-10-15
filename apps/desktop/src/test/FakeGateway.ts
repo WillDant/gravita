@@ -44,6 +44,8 @@ export type FakeCommand =
   | "codexProfileSignIn"
   | "codexProfileSignOut"
   | "validateCursorKey"
+  | "checkForUpdate"
+  | "installUpdate"
   | "spawnTerminal"
   | "writeTerminal"
   | "resizeTerminal"
@@ -85,6 +87,7 @@ export class FakeGateway implements EngineGateway {
     authUrl: "https://auth.openai.com/oauth/authorize?client_id=codex",
   };
   cursorKeyResult: RpcResult<"cursorKey.validate"> = { source: "app", state: "valid" };
+  updateCheckResult: RpcResult<"update.check"> = { update: undefined };
   terminalInfo: TerminalInfo = {
     terminalId: "t1",
     command: "shell",
@@ -249,6 +252,12 @@ export class FakeGateway implements EngineGateway {
   }
   validateCursorKey() {
     return this.run("validateCursorKey", {}, () => this.cursorKeyResult);
+  }
+  checkForUpdate() {
+    return this.run("checkForUpdate", {}, () => this.updateCheckResult);
+  }
+  installUpdate() {
+    return this.run("installUpdate", {}, () => ({ ok: true }) as const);
   }
 
   spawnTerminal(params: RpcParams<"terminal.spawn">) {

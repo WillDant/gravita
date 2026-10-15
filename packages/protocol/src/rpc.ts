@@ -140,9 +140,21 @@ export const EngineStatus = z.object({
   /** Whether embedded terminals can run here (not on Windows yet). Absent: an older engine. */
   terminal: z.boolean().optional(),
   /** A release newer than this one is out: its version and its page. Absent: none known. */
-  update: z.object({ version: z.string(), url: z.string() }).optional(),
+  update: z
+    .object({
+      version: z.string(),
+      url: z.string(),
+      /** The installer to download: its name, size and SHA-256. Absent: open the page instead. */
+      asset: z.object({ name: z.string(), size: z.number(), sha256: z.string() }).optional(),
+    })
+    .optional(),
+  /** The version of this engine, and so of the app it ships in. Absent: an older engine. */
+  version: z.string().optional(),
 });
 export type EngineStatus = z.infer<typeof EngineStatus>;
+
+/** `update.check` looks for a newer release now; the answer is the update found, if any. */
+export const UpdateCheckResult = z.object({ update: EngineStatus.shape.update });
 
 /** `session.events` returns every stored event of one session, in seq order (for the line map). */
 export const SessionEventsParams = z.object({ sessionId: z.string() });
@@ -362,6 +374,10 @@ export const RpcContract = {
   "codexProfile.signIn": { params: z.object({}).optional(), result: CodexProfileSignInResult },
   "codexProfile.signOut": { params: z.object({}).optional(), result: OkResult },
   "cursorKey.validate": { params: z.object({}).optional(), result: CursorKeyValidateResult },
+  /** Looks for a newer release now (the engine also looks on its own every few hours). */
+  "update.check": { params: z.object({}).optional(), result: UpdateCheckResult },
+  /** Downloads the update the engine found, checks its SHA-256 and opens the installer. */
+  "update.install": { params: z.object({}).optional(), result: OkResult },
   "terminal.spawn": { params: TerminalSpawnParams, result: TerminalInfo },
   "terminal.write": { params: TerminalWriteParams, result: OkResult },
   "terminal.resize": { params: TerminalResizeParams, result: OkResult },
