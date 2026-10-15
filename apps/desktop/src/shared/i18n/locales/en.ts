@@ -267,7 +267,7 @@ export const en = {
   "terminal.title.shell": "Shell",
   "terminal.title.claude": "Claude Code",
   "terminal.title.codex": "Codex",
-  "terminal.title.cursor": "Cursor",
+  "terminal.title.cursor": "Cursor Agent",
   "terminal.open": "Open a terminal",
   "terminal.continue": "Continue in a terminal",
   "terminal.failed": "Couldn't open a terminal. {reason}",

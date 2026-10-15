@@ -3,11 +3,11 @@ import { RotateCcw, X } from "lucide-react";
 import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { t } from "@/shared/i18n/i18n";
 import { describeError } from "@/shared/presenters/errors";
-import { terminalTitle } from "@/shared/presenters/terminal";
+import { terminalProvider, terminalTitle } from "@/shared/presenters/terminal";
 import { TerminalIcon } from "@/shared/ui/TerminalIcon";
 import { Button } from "@/shared/ui/ui";
 import { tildify } from "@/shared/utils";
-import { useTerminalControl, useTerminalProvider } from "@/state/hooks";
+import { useTerminalControl } from "@/state/hooks";
 
 // xterm and its stylesheet load with the first terminal, off the initial bundle.
 const TerminalPane = lazy(() => import("./TerminalPane"));
@@ -38,7 +38,7 @@ export function TerminalView({
   autoFocus?: boolean;
 }) {
   const { spawn, kill } = useTerminalControl();
-  const provider = useTerminalProvider(terminal);
+  const provider = terminalProvider(terminal);
   const [error, setError] = useState<string>();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);

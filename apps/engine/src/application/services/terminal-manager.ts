@@ -1,4 +1,9 @@
-import type { TerminalCommand, TerminalInfo, TerminalUpdate } from "@gravita/protocol";
+import type {
+  AgentProvider,
+  TerminalCommand,
+  TerminalInfo,
+  TerminalUpdate,
+} from "@gravita/protocol";
 import {
   TerminalNotFoundError,
   TerminalUnsupportedError,
@@ -104,6 +109,24 @@ export class TerminalManager {
     return [...this.terminals.values()]
       .filter((e) => e.info.running)
       .map((e) => ({ info: e.info, startedMs: e.startedMs }));
+  }
+
+  /** The running plain shells with their process ids (to see what runs in front in them). */
+  shells(): { terminalId: string; pid: number }[] {
+    return [...this.terminals.values()].flatMap((e) =>
+      e.info.running && e.info.command === "shell" && e.pty
+        ? [{ terminalId: e.info.terminalId, pid: e.pty.pid }]
+        : [],
+    );
+  }
+
+  /** Records the agent running in front in a shell (none: back at the prompt). */
+  setActiveProvider(terminalId: string, provider: AgentProvider | undefined): void {
+    const e = this.terminals.get(terminalId);
+    if (!e || e.info.activeProvider === provider) return;
+    const { activeProvider: _was, ...rest } = e.info;
+    e.info = provider ? { ...rest, activeProvider: provider } : rest;
+    this.announce(e);
   }
 
   spawn(spec: TerminalSpec): TerminalInfo {

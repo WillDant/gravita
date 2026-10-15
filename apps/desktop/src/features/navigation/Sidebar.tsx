@@ -99,7 +99,7 @@ export function Sidebar() {
           />
           <ul className="flex max-h-40 flex-none flex-col gap-0.5 overflow-y-auto px-2">
             {terminalRows.map((terminal) => {
-              const provider = terminalProvider(terminal, state.sessions);
+              const provider = terminalProvider(terminal);
               const title = terminalTitle(provider);
               const active = route.level === "terminals" && focusedTerminal === terminal.terminalId;
               return (

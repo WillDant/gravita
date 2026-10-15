@@ -107,15 +107,14 @@ describe("Sidebar: terminals", () => {
   });
 
   it("lists each terminal under Terminals, with the agent's icon when one runs", async () => {
-    const codex = started("s9", 2, "p1").map((e) => ({ ...e, provider: "codex" as const }));
-    const { store, navigate } = renderWithApp(<Sidebar />, { state: stateOf(codex) });
+    const { store, navigate } = renderWithApp(<Sidebar />, { state });
     act(() => {
       store.getState().setEngineStatus(engine);
       store.getState().applyTerminalUpdate({ terminal: term() });
       store.getState().applyTerminalUpdate({
         terminal: term({
           terminalId: "t2",
-          sessionId: "s9",
+          activeProvider: "codex",
           startedAt: "2026-10-12T12:05:00.000Z",
         }),
       });
@@ -132,7 +131,7 @@ describe("Sidebar: terminals", () => {
     expect(rows.map((r) => r.getAttribute("title"))).toEqual([
       "Shell · me",
       "Codex · me",
-      "Cursor · me",
+      "Cursor Agent · me",
     ]);
     // A plain shell wears the terminal icon; a shell running Codex and a Cursor terminal wear the agent's.
     const icons = rows.map((r) => r.querySelector("svg")?.getAttribute("class") ?? "");
@@ -143,5 +142,17 @@ describe("Sidebar: terminals", () => {
     fireEvent.click(rows[1] as HTMLElement);
     expect(navigate).toHaveBeenCalledWith({ level: "terminals", terminalId: "t2" });
     expect(store.getState().focusedTerminal).toBe("t2");
+
+    // Codex exits: the shell is back at its prompt, and the row says so.
+    act(() =>
+      store.getState().applyTerminalUpdate({
+        terminal: term({ terminalId: "t2", startedAt: "2026-10-12T12:05:00.000Z" }),
+      }),
+    );
+    expect(screen.getAllByTitle(/· me$/).map((r) => r.getAttribute("title"))).toEqual([
+      "Shell · me",
+      "Shell · me",
+      "Cursor Agent · me",
+    ]);
   });
 });

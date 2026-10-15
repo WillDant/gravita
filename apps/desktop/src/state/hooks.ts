@@ -12,7 +12,6 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import type { ProviderProblem } from "@/shared/presenters/errors";
 import { accountPlan } from "@/shared/presenters/planUsage";
-import { terminalProvider } from "@/shared/presenters/terminal";
 import type { ModelOption } from "./slices/control";
 
 export type { CommandResult, ModelOption } from "./slices/control";
@@ -261,10 +260,6 @@ export function terminalOfSession(
   }
   return best;
 }
-
-/** The agent a terminal runs, if any (see `terminalProvider`). */
-export const useTerminalProvider = (terminal: TerminalInfo): AgentProvider | undefined =>
-  useAppStore((s) => terminalProvider(terminal, s.projection.sessions));
 
 export const useSessionTerminal = (sessionId: string): TerminalInfo | undefined =>
   useAppStore((s) => terminalOfSession(s.terminals, sessionId));

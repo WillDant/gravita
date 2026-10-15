@@ -267,7 +267,7 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "terminal.title.shell": "Shell",
   "terminal.title.claude": "Claude Code",
   "terminal.title.codex": "Codex",
-  "terminal.title.cursor": "Cursor",
+  "terminal.title.cursor": "Cursor Agent",
   "terminal.open": "Abrir um terminal",
   "terminal.continue": "Continuar num terminal",
   "terminal.failed": "Não consegui abrir um terminal. {reason}",

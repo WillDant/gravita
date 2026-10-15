@@ -288,6 +288,8 @@ export const TerminalInfo = z.object({
   projectId: z.string(),
   /** The session it runs (or that was started in it), once known. */
   sessionId: z.string().optional(),
+  /** A plain shell only: the agent running in front in it right now, if any. */
+  activeProvider: AgentProviderSchema.optional(),
   startedAt: z.string(),
   running: z.boolean(),
   /** Once it exited: the process's code, or null when a signal ended it. */
