@@ -4,15 +4,45 @@
     {
       "name": "engine-demo",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@gravita/engine", "dev:demo"],
+      "runtimeArgs": [
+        "--filter",
+        "@gravita/engine",
+        "dev:demo"
+      ],
       "port": 4319
     },
     {
       "name": "ui",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@gravita/desktop", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@gravita/desktop",
+        "dev"
+      ],
       "port": 5173,
       "url": "http://127.0.0.1:5173"
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "site",
+        "dev"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "site-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3101",
+        "-d",
+        "site/out"
+      ],
+      "port": 3101
     }
   ]
 }

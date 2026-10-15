@@ -25,3 +25,6 @@ apps/desktop/src-tauri/binaries/*
 
 # Worktrees of local agent sessions
 .claude/worktrees/
+
+# The landing page lives in its own git repository
+site/
