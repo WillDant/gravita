@@ -85,6 +85,11 @@ export interface EngineGateway {
    */
   validateCursorKey(): Promise<RpcResult<"cursorKey.validate">>;
 
+  /** Looks for a newer release now. */
+  checkForUpdate(): Promise<RpcResult<"update.check">>;
+  /** Downloads the update the engine found, checks it and opens its installer. */
+  installUpdate(): Promise<RpcResult<"update.install">>;
+
   // Embedded terminals: a PTY in the engine. Output arrives through `onTerminalOutput`.
   spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">>;
   writeTerminal(params: RpcParams<"terminal.write">): Promise<RpcResult<"terminal.write">>;

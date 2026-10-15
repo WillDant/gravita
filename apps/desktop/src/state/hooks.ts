@@ -233,8 +233,12 @@ export const useTerminalSupported = (): boolean =>
   useAppStore((s) => s.engineStatus?.terminal === true);
 
 /** The newer release the engine found, if any: its version and its page. */
-export const useAvailableUpdate = (): { version: string; url: string } | undefined =>
+export const useAvailableUpdate = (): NonNullable<EngineStatus["update"]> | undefined =>
   useAppStore((s) => s.engineStatus?.update);
+
+/** The version of the engine, and so of the app, once the engine has said (older ones don't). */
+export const useEngineVersion = (): string | undefined =>
+  useAppStore((s) => s.engineStatus?.version);
 
 export const useTerminal = (terminalId: string): TerminalInfo | undefined =>
   useAppStore((s) => s.terminals[terminalId]);

@@ -211,6 +211,14 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.cursorKeyValidate, {});
   }
 
+  checkForUpdate(): Promise<RpcResult<"update.check">> {
+    return this.call(Methods.updateCheck, {});
+  }
+
+  installUpdate(): Promise<RpcResult<"update.install">> {
+    return this.call(Methods.updateInstall, {});
+  }
+
   spawnTerminal(params: RpcParams<"terminal.spawn">): Promise<RpcResult<"terminal.spawn">> {
     return this.call(Methods.terminalSpawn, params);
   }

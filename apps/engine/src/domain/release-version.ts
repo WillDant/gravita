@@ -43,19 +43,37 @@ export function compareVersions(a: ParsedVersion, b: ParsedVersion): number {
   return 0;
 }
 
+/** The installer a release ships: what to download and how to check what came down. */
+export interface ReleaseAsset {
+  name: string;
+  /** Its download link (under the repository's own releases). */
+  url: string;
+  size: number;
+  /** Lowercase hex SHA-256, from GitHub's own digest of the uploaded file. */
+  sha256: string;
+}
+
 export interface ReleaseInfo {
   /** The release's tag (`v0.5.0-beta`). */
   tag: string;
   /** Its page. */
   url: string;
   draft: boolean;
+  /** The macOS installer, when the release has one with a digest. */
+  asset?: ReleaseAsset;
+}
+
+export interface AvailableUpdate {
+  version: string;
+  url: string;
+  asset?: ReleaseAsset;
 }
 
 /** The newest published release that is newer than `current`, if there is one. */
 export function newerRelease(
   releases: readonly ReleaseInfo[],
   current: string,
-): { version: string; url: string } | undefined {
+): AvailableUpdate | undefined {
   const now = parseVersion(current);
   if (!now) return undefined;
   let best: { parsed: ParsedVersion; release: ReleaseInfo } | undefined;
@@ -65,5 +83,11 @@ export function newerRelease(
     if (!parsed || compareVersions(parsed, now) <= 0) continue;
     if (!best || compareVersions(parsed, best.parsed) > 0) best = { parsed, release };
   }
-  return best ? { version: best.release.tag.replace(/^v/, ""), url: best.release.url } : undefined;
+  if (!best) return undefined;
+  const { release } = best;
+  return {
+    version: release.tag.replace(/^v/, ""),
+    url: release.url,
+    ...(release.asset ? { asset: release.asset } : {}),
+  };
 }
