@@ -34,10 +34,13 @@ Settings shows the version you run, looks for a newer one and installs it by dow
 ### Quieter menu — [v0.7.2-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta)
 The menu's footer keeps only Settings and Notifications; theme and language live in Settings.
 
+### Self-updating — [v0.8.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta)
+"Install" in Settings downloads the new version, checks its signature, replaces Gravita and opens it again.
+
 ## Next
 
 ### Polish and public launch
-Replay with a scrubber, a full Portuguese pass, signed and notarized builds, an updater that installs by itself, the landing page, docs, an in-app tour and an accessibility audit.
+Replay with a scrubber, a full Portuguese pass, signed and notarized builds, the landing page, docs, an in-app tour and an accessibility audit.
 
 ## Earlier milestone codes
 

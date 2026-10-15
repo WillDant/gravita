@@ -4,6 +4,19 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.8.0-beta] - 2026-10-15
+
+Gravita can now update itself: one click in Settings, and it downloads the new version, swaps itself and opens again.
+
+### Updates
+- **Install in place:** in Settings → Updates, "Install" downloads the new version with a progress count, checks its signature against a key built into the app, replaces Gravita and opens it again. Running agents stop, as on any quit, and the screen says so before you press.
+- **If it can't:** a release without an update package falls back to downloading the `.dmg` and opening it; if that fails too, a button opens the release page.
+- **How it looks:** the app asks one file on GitHub (`latest.json` of this repository) and downloads the package from this repository's releases; nothing about you is sent. A package whose signature doesn't verify is refused. See [COMPLIANCE](docs/COMPLIANCE.md).
+
+### Known limits
+- This is the last release you install by hand: builds before 0.8.0-beta don't know how to update in place. From here on, Settings → Updates does it.
+- Builds are still signed ad hoc and not notarized, so macOS may ask once more to let Gravita read its Cursor key from the Keychain after an update.
+
 ## [0.7.2-beta] - 2026-10-15
 
 A quieter menu: the footer keeps only what you reach for while working.
@@ -181,6 +194,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.8.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta
 [0.7.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.2-beta
 [0.7.1-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.1-beta
 [0.7.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.0-beta
