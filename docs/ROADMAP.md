@@ -28,6 +28,9 @@ Gravita tells you in the app when a newer release is out (one anonymous look at 
 ### Window polish — [v0.7.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.0-beta)
 A transparent macOS title bar that takes the app's colour, and a quieter Home without the Cursor key line.
 
+### Updates in Settings — [v0.7.1-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.1-beta)
+Settings shows the version you run, looks for a newer one and installs it by downloading and opening the release's installer.
+
 ## Next
 
 ### Polish and public launch
