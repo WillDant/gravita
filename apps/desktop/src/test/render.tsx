@@ -6,6 +6,7 @@ import { vi } from "vitest";
 import { AppProviders } from "@/app/providers";
 import type { CursorKeyBridge, PickFolder } from "@/infrastructure/platform/tauri";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
+import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import type { Route } from "@/state/slices/route";
 import { type AppStore, createAppStore } from "@/state/store";
 import { NOW } from "./events";
@@ -46,6 +47,7 @@ export function renderWithApp(
         ...(cursorKey ? { cursorKey } : {}),
         ...(pickFolder ? { pickFolder } : {}),
         notificationPrefs: createNotificationPrefs(() => storage),
+        projectAppearance: createProjectAppearance(() => storage),
       }}
     >
       {ui}

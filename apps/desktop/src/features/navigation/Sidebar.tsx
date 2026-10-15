@@ -1,7 +1,7 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
 import { Bell, House, Languages, MoonStar, Settings, Sun, UsersRound } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate, useToggleTheme } from "@/app/providers";
+import { useNavigate, useProjectAppearances, useToggleTheme } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { ago, getLocale, setLocale, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
@@ -15,6 +15,7 @@ import {
   squadTitle,
 } from "@/shared/presenters/squad";
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
+import { ProjectTile } from "@/shared/ui/ProjectTile";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { cn } from "@/shared/utils";
 import { useNow, useProjection, useRoute } from "@/state/hooks";
@@ -27,6 +28,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const toggleTheme = useToggleTheme();
   const summaries = useMemo(() => projectSummaries(state, now), [state, now]);
+  const appearances = useProjectAppearances();
   const waiting = needsYouCount(state, now);
   const currentProject =
     route.level === "project" || route.level === "session" || route.level === "squad"
@@ -100,7 +102,7 @@ export function Sidebar() {
               <NavItem
                 active={route.level === "project" && open}
                 onClick={() => navigate({ level: "project", projectId: project.id })}
-                icon={<ProjectMark name={project.name} />}
+                icon={<ProjectTile name={project.name} appearance={appearances[project.id]} />}
                 label={project.name}
                 badge={{ count: counts.running + counts.waiting, waiting: counts.waiting > 0 }}
               >
@@ -334,18 +336,6 @@ export function Wordmark() {
       <span className="text-[15px] font-bold tracking-[-0.02em] text-ink max-[1100px]:hidden">
         Gravita
       </span>
-    </span>
-  );
-}
-
-/** A project's initial on a small tile, so projects stay distinguishable in the icon rail. */
-function ProjectMark({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-4 items-center justify-center rounded-[4px] bg-ink-3/20 text-[10px] font-bold text-ink-2 uppercase"
-    >
-      {name.replace(/[^a-z0-9]/gi, "").slice(0, 1) || "·"}
     </span>
   );
 }

@@ -10,6 +10,12 @@ import type {
   NotificationPrefs,
   NotificationPrefsStore,
 } from "@/infrastructure/preferences/notificationPrefs";
+import type {
+  ProjectAppearance,
+  ProjectAppearancePatch,
+  ProjectAppearances,
+  ProjectAppearanceStore,
+} from "@/infrastructure/preferences/projectAppearance";
 import { StoreContext } from "@/state/hooks";
 import type { Route } from "@/state/slices/route";
 import type { AppStore } from "@/state/store";
@@ -28,6 +34,8 @@ export interface AppServices {
   cursorKey?: CursorKeyBridge;
   /** Which OS notifications to send while Gravita is in the background. */
   notificationPrefs: NotificationPrefsStore;
+  /** How each project's tile looks (its icon and colour). */
+  projectAppearance: ProjectAppearanceStore;
 }
 
 const GatewayContext = createContext<EngineGateway | null>(null);
@@ -37,6 +45,7 @@ const PickFolderContext = createContext<PickFolder | undefined>(undefined);
 const OpenSignInContext = createContext<OpenSignIn>(createSignInOpener());
 const CursorKeyContext = createContext<CursorKeyBridge | undefined>(undefined);
 const NotificationPrefsContext = createContext<NotificationPrefsStore | null>(null);
+const ProjectAppearanceContext = createContext<ProjectAppearanceStore | null>(null);
 
 function required<T>(value: T | null, name: string): T {
   if (value === null) throw new Error(`${name} is missing: wrap the app in <AppProviders>`);
@@ -59,7 +68,9 @@ export function AppProviders({
               <OpenSignInContext.Provider value={services.openSignIn ?? createSignInOpener()}>
                 <CursorKeyContext.Provider value={services.cursorKey}>
                   <NotificationPrefsContext.Provider value={services.notificationPrefs}>
-                    {children}
+                    <ProjectAppearanceContext.Provider value={services.projectAppearance}>
+                      {children}
+                    </ProjectAppearanceContext.Provider>
                   </NotificationPrefsContext.Provider>
                 </CursorKeyContext.Provider>
               </OpenSignInContext.Provider>
@@ -87,4 +98,25 @@ export function useNotificationPrefs(): [
   const store = required(useContext(NotificationPrefsContext), "NotificationPrefs");
   const prefs = useSyncExternalStore(store.subscribe, store.get);
   return [prefs, store.set];
+}
+
+/** A project's tile look and the setters for it (persisted by the store). */
+export function useProjectAppearance(projectId: string): {
+  appearance: ProjectAppearance | undefined;
+  set: (patch: ProjectAppearancePatch) => void;
+  reset: () => void;
+} {
+  const store = required(useContext(ProjectAppearanceContext), "ProjectAppearance");
+  const all = useSyncExternalStore(store.subscribe, store.get);
+  return {
+    appearance: all[projectId],
+    set: (patch) => store.set(projectId, patch),
+    reset: () => store.reset(projectId),
+  };
+}
+
+/** Every project's tile look, for lists. */
+export function useProjectAppearances(): ProjectAppearances {
+  const store = required(useContext(ProjectAppearanceContext), "ProjectAppearance");
+  return useSyncExternalStore(store.subscribe, store.get);
 }

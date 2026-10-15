@@ -8,6 +8,7 @@ import { NewSquadButton, NewSquadPanel } from "@/features/new-squad/NewSquadPane
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { SquadRow } from "@/features/squad-row/SquadRow";
 import { OpenTerminalButton, TerminalList } from "@/features/terminal/ProjectTerminals";
+import { ProjectAppearancePicker } from "./ProjectAppearancePicker";
 import { ago, compact, t, useLocale } from "@/shared/i18n/i18n";
 import {
   projectSummaries,
@@ -40,17 +41,20 @@ export function Project({ projectId }: { projectId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-8 px-8 pt-8 pb-16">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-[-0.02em]">{project.name}</h1>
-          <p className="mt-1 flex items-center gap-3 text-sm text-ink-2">
-            <span className="truncate">{tildify(project.root)}</span>
-            {branch && (
-              <span className="inline-flex items-center gap-1 text-ink-3">
-                <GitBranch size={13} aria-hidden="true" />
-                {branch}
-              </span>
-            )}
-          </p>
+        <div className="flex min-w-0 items-center gap-4">
+          <ProjectAppearancePicker projectId={projectId} name={project.name} />
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-[-0.02em]">{project.name}</h1>
+            <p className="mt-1 flex items-center gap-3 text-sm text-ink-2">
+              <span className="truncate">{tildify(project.root)}</span>
+              {branch && (
+                <span className="inline-flex items-center gap-1 text-ink-3">
+                  <GitBranch size={13} aria-hidden="true" />
+                  {branch}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <CountChips counts={counts} />

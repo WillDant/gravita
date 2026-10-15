@@ -11,6 +11,7 @@ import {
 } from "@/infrastructure/platform/tauri";
 import { createTray } from "@/infrastructure/platform/tray";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
+import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
 import { startTheme } from "@/infrastructure/theme/themeStorage";
 import { getLocale, subscribeLocale } from "@/shared/i18n/i18n";
 import { syncWithEngine } from "@/state/engineSync";
@@ -31,6 +32,7 @@ export function bootstrap(): App {
   const gateway = new WsEngineGateway(resolveEndpoint);
   const store = createAppStore(gateway, { route: router.current(), now: Date.now() });
   const notificationPrefs = createNotificationPrefs();
+  const projectAppearance = createProjectAppearance();
 
   const unsync = syncWithEngine(store, gateway);
   const unroute = router.subscribe((route) => store.getState().setRoute(route));
@@ -69,6 +71,7 @@ export function bootstrap(): App {
       openSignIn: createSignInOpener(),
       cursorKey: createCursorKeyBridge(),
       notificationPrefs,
+      projectAppearance,
     },
     dispose: () => {
       clearInterval(clock);
