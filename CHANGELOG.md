@@ -4,6 +4,14 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.7.0-beta] - 2026-10-15
+
+A cleaner macOS window: the title bar is gone and the app runs up to the top edge.
+
+### Interface
+- **Transparent title bar (macOS):** the native bar is replaced by an overlay, so the window's top has the app's own colour and follows the theme; the close, minimise and zoom buttons sit over it. Drag the window by its top edge.
+- **Cursor key on Home:** the line about the Cursor API key is gone from Home. The key is still set in Settings, and New session still points you there when it's missing.
+
 ## [0.6.0-beta] - 2026-10-15
 
 Gravita now tells you, inside the app, when a newer release is out, and Settings gets the preferences that used to live only in the menu.
@@ -153,6 +161,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.7.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.7.0-beta
 [0.6.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.6.0-beta
 [0.5.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.5.0-beta
 [0.4.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.4.0-beta

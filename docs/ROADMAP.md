@@ -25,6 +25,9 @@ Cursor as a third agent: start and steer Cursor chats through the `cursor-agent`
 ### Release notice — [v0.6.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.6.0-beta)
 Gravita tells you in the app when a newer release is out (one anonymous look at GitHub's public releases list, a notice with a link; nothing is installed by itself), and Settings gets theme, language and notification preferences.
 
+### Window polish — [v0.7.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.7.0-beta)
+A transparent macOS title bar that takes the app's colour, and a quieter Home without the Cursor key line.
+
 ## Next
 
 ### Polish and public launch
