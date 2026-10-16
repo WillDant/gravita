@@ -103,6 +103,7 @@ export const Methods = {
   terminalKill: "terminal.kill",
   terminalList: "terminal.list",
   terminalAttach: "terminal.attach",
+  gitInfo: "git.info",
 } as const;
 
 /**

@@ -243,6 +243,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.terminalAttach, params);
   }
 
+  gitInfo(params: RpcParams<"git.info">): Promise<RpcResult<"git.info">> {
+    return this.call(Methods.gitInfo, params);
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }

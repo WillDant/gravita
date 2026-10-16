@@ -330,6 +330,74 @@ export interface TerminalOutput {
 /** `terminal.update` params: the terminal as it is now, or `closed` once it is gone. */
 export type TerminalUpdate = { terminal: TerminalInfo } | { closed: string };
 
+// The repository a session works in, read on demand (`git.info`): its branch, what changed
+// against HEAD and the branch's pull request. Read-only: nothing here writes to the repo.
+
+export const GitInfoParams = z.object({
+  cwd: z.string().min(1),
+  /** Branch and files only: no diff and no pull request lookup (cheap enough to poll). */
+  summary: z.boolean().optional(),
+});
+
+export const GIT_FILE_STATES = [
+  "modified",
+  "added",
+  "deleted",
+  "renamed",
+  "untracked",
+  "conflicted",
+] as const;
+
+export const GitFileChange = z.object({
+  /** Repo-relative, forward slashes. */
+  path: z.string(),
+  /** A rename's former path. */
+  from: z.string().optional(),
+  state: z.enum(GIT_FILE_STATES),
+  /** The change (or part of it) is in the index. */
+  staged: z.boolean(),
+});
+export type GitFileChange = z.infer<typeof GitFileChange>;
+
+export const PullRequestInfo = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  url: z.string(),
+  state: z.enum(["open", "closed", "merged"]),
+  draft: z.boolean(),
+  base: z.string(),
+  /** What the checks add up to; absent when the PR has none. */
+  checks: z.enum(["passing", "failing", "pending"]).optional(),
+  /** GitHub's review decision, when there is one. */
+  review: z.enum(["approved", "changes-requested", "review-required"]).optional(),
+});
+export type PullRequestInfo = z.infer<typeof PullRequestInfo>;
+
+export const GitInfo = z.union([
+  z.object({ repo: z.literal(false) }),
+  z.object({
+    repo: z.literal(true),
+    root: z.string(),
+    /** null on a detached HEAD. */
+    branch: z.string().nullable(),
+    /** Short sha of HEAD; absent before the first commit. */
+    head: z.string().optional(),
+    upstream: z.string().optional(),
+    ahead: z.number().int().nonnegative(),
+    behind: z.number().int().nonnegative(),
+    files: z.array(GitFileChange),
+    /** Unified diff of every change against HEAD (untracked text files too). */
+    diff: z.string(),
+    /** The diff was larger than the engine sends and was cut. */
+    diffTruncated: z.boolean(),
+    /** The branch's pull request; null when it has none. */
+    pr: PullRequestInfo.nullable(),
+    /** Why the pull request couldn't be looked up (then `pr` is null). */
+    prUnavailable: z.enum(["not-installed", "not-logged-in", "no-remote", "failed"]).optional(),
+  }),
+]);
+export type GitInfo = z.infer<typeof GitInfo>;
+
 /**
  * Every method's params and result, in one place. The engine's router validates with
  * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
@@ -388,6 +456,8 @@ export const RpcContract = {
   "terminal.kill": { params: TerminalRef, result: OkResult },
   "terminal.list": { params: z.object({}).optional(), result: TerminalListResult },
   "terminal.attach": { params: TerminalRef, result: TerminalAttachResult },
+  /** The folder's repository: branch, changes against HEAD and the branch's pull request. */
+  "git.info": { params: GitInfoParams, result: GitInfo },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;

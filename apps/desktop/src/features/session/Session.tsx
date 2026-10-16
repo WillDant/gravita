@@ -25,6 +25,7 @@ import {
 } from "@/state/hooks";
 import { AgentPanel } from "./agent-panel/AgentPanel";
 import { Composer } from "./composer/Composer";
+import { GitButton } from "./git/GitPanel";
 import { Happening } from "./happening/Happening";
 import { LineMap } from "./line-map/LineMap";
 import { TreeLens } from "./tree-lens/TreeLens";
@@ -136,6 +137,7 @@ export function Workspace({
   };
   const selected = agentId && session ? session.agents[agentId] : undefined;
   const projectName = project?.name ?? basename(terminal?.cwd ?? "");
+  const cwd = session?.cwd ?? terminal?.cwd;
   const title = session
     ? (sessionTitle(session) ?? t("session.untitled"))
     : t(`terminal.title.${terminal?.command ?? "shell"}`);
@@ -227,6 +229,7 @@ export function Workspace({
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {session && <CountChips counts={sessionCounts(session, now)} scope="session" />}
+          {cwd && <GitButton key={cwd} cwd={cwd} />}
           <LayoutSwitch value={layout} onChange={setLayout} />
         </div>
       </header>

@@ -98,6 +98,9 @@ export interface EngineGateway {
   listTerminals(): Promise<RpcResult<"terminal.list">>;
   attachTerminal(params: RpcParams<"terminal.attach">): Promise<RpcResult<"terminal.attach">>;
 
+  /** A folder's repository: branch, changes against HEAD and the branch's pull request. */
+  gitInfo(params: RpcParams<"git.info">): Promise<RpcResult<"git.info">>;
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
   /** What terminals print; high-frequency, so it never goes through the store. */
   onTerminalOutput(listener: (output: TerminalOutput) => void): Unsubscribe;

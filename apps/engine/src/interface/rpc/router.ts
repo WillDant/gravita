@@ -17,6 +17,7 @@ import type { SquadOrchestrator } from "../../application/squad/squad-orchestrat
 import type { AnswerQuestion } from "../../application/usecases/answer-question";
 import type { GetConversation } from "../../application/usecases/get-conversation";
 import type { GetEngineStatus } from "../../application/usecases/get-engine-status";
+import type { GetGitInfo } from "../../application/usecases/get-git-info";
 import type { GetSessionEvents } from "../../application/usecases/get-session-events";
 import type { GetSnapshot } from "../../application/usecases/get-snapshot";
 import type { InterruptSession } from "../../application/usecases/interrupt-session";
@@ -111,6 +112,8 @@ export interface RouterDeps {
   cursorKey?: CursorKeyStatus;
   /** Looking for and installing updates; absent in the demo and in tests. */
   updates?: UpdateControl;
+  /** Reads a folder's repository; absent: `git.info` answers that the folder isn't one. */
+  gitInfo?: GetGitInfo;
 }
 
 const OK = { ok: true } as const;
@@ -224,6 +227,7 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     },
     "terminal.list": () => ({ terminals: d.terminals?.manager.list() ?? [] }),
     "terminal.attach": (p) => terminals().manager.attach(p.terminalId),
+    "git.info": (p) => d.gitInfo?.execute(p) ?? { repo: false },
     "usage.refresh": (p) => {
       void d.usage?.refresh(p?.provider ? { provider: p.provider } : {});
       return OK;

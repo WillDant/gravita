@@ -605,3 +605,15 @@ describe("rpc router: terminals", () => {
     );
   });
 });
+
+describe("rpc router: git", () => {
+  test("answers that a folder isn't a repository when the engine reads none", async () => {
+    const { router } = setup();
+    expect(await router.dispatch("git.info", { cwd: "/work/demo" })).toEqual({
+      result: { repo: false },
+    });
+    expect(await router.dispatch("git.info", { cwd: "" })).toMatchObject({
+      error: { code: RpcErrors.badRequest.code },
+    });
+  });
+});
