@@ -4,6 +4,10 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.0-beta] - 2026-10-16
+
+See what the agent changed without leaving the chat: the branch, its pull request and the diff, one click away.
+
 ### Interface
 - **Git in the session:** a button at the top right of a chat shows its branch and how many files changed; it (or ⇧⌘G) opens a panel with the branch and its upstream, the branch's pull request (state, checks, review) and the diff of every changed file, new files included. It only reads the repository, never writes to it.
 
@@ -226,6 +230,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta
 [0.9.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.9.0-beta
 [0.8.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.2-beta
 [0.8.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.0-beta

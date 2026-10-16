@@ -43,6 +43,9 @@ Icons on the New squad and New session forms and on the titles of Home and Setti
 ### Terminais — [v0.9.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.9.0-beta)
 A New terminal button, a screen where terminals split side by side or stacked, and a Terminais list in the menu that shows the agent (Claude Code, Codex, Cursor Agent) running in each.
 
+### Git in the session — [v0.10.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta)
+A button at the top right of a chat shows the branch and how many files changed, and opens a panel with the branch's pull request (state, checks, review) and the diff of every changed file.
+
 ## Next
 
 ### Polish and public launch
