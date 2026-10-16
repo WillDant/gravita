@@ -4,6 +4,13 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Interface
+- **Git in the session:** a button at the top right of a chat shows its branch and how many files changed; it (or ⇧⌘G) opens a panel with the branch and its upstream, the branch's pull request (state, checks, review) and the diff of every changed file, new files included. It only reads the repository, never writes to it.
+
+### Known limits
+- The pull request comes from the GitHub CLI (`gh`): without it, or signed out of it, the panel says so and shows the rest.
+- Very large diffs are cut at 512 KB.
+
 ## [0.9.0-beta] - 2026-10-15
 
 Terminals get their own screen: open as many as you like, split them, and see each one in the menu.

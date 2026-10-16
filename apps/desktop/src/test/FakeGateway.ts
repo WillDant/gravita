@@ -51,7 +51,8 @@ export type FakeCommand =
   | "resizeTerminal"
   | "killTerminal"
   | "listTerminals"
-  | "attachTerminal";
+  | "attachTerminal"
+  | "gitInfo";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -97,6 +98,7 @@ export class FakeGateway implements EngineGateway {
     running: true,
   };
   terminalsResult: RpcResult<"terminal.list"> = { terminals: [] };
+  gitInfoResult: RpcResult<"git.info"> = { repo: false };
   scrollback = "";
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
@@ -283,6 +285,9 @@ export class FakeGateway implements EngineGateway {
       terminal: this.terminalInfo,
       scrollback: this.scrollback,
     }));
+  }
+  gitInfo(params: RpcParams<"git.info">) {
+    return this.run("gitInfo", params, () => this.gitInfoResult);
   }
 
   onTerminalOutput(l: (o: TerminalOutput) => void): Unsubscribe {

@@ -46,6 +46,7 @@ import { DrainHookSpool } from "../application/usecases/drain-hook-spool";
 import { FreezeContract } from "../application/usecases/freeze-contract";
 import { GetConversation } from "../application/usecases/get-conversation";
 import { GetEngineStatus } from "../application/usecases/get-engine-status";
+import { GetGitInfo } from "../application/usecases/get-git-info";
 import { GetSessionEvents } from "../application/usecases/get-session-events";
 import { GetSnapshot } from "../application/usecases/get-snapshot";
 import { IngestEvents } from "../application/usecases/ingest-events";
@@ -111,6 +112,7 @@ import { CursorSessionSource } from "../infrastructure/cursor/cursor-session-sou
 import { RuntimeConversationReader } from "../infrastructure/cursor/runtime-conversation-reader";
 import { DemoRuntime } from "../infrastructure/demo/demo-runtime";
 import { CliGitWorkspace } from "../infrastructure/git/cli-git-workspace";
+import { CliRepoReader } from "../infrastructure/git/cli-repo-reader";
 import { GhCli } from "../infrastructure/git/gh-cli";
 import { type Env, GitRunner } from "../infrastructure/git/git-runner";
 import { LoopbackMcpServer } from "../infrastructure/mcp/loopback-mcp-server";
@@ -283,6 +285,8 @@ export interface CoreOptions {
   squad?: SquadOptions;
   /** Embedded terminals; absent: the terminal methods answer that they're unsupported. */
   terminal?: TerminalOptions;
+  /** The environment `gh` runs with for `git.info` (default: the engine's). */
+  ghEnv?: () => Promise<Env>;
 }
 
 export interface TerminalOptions {
@@ -619,6 +623,11 @@ export function createCore(o: CoreOptions): EngineCore {
       ...(terminals ? { terminals } : {}),
       ...(cursorKey ? { cursorKey } : {}),
       ...(updates ? { updates } : {}),
+      gitInfo: new GetGitInfo({
+        workspace: o.chat?.workspace ?? new NodeWorkspace(),
+        repo: new CliRepoReader(new GitRunner()),
+        prs: new GhCli(o.ghEnv ? { env: o.ghEnv } : {}),
+      }),
     }),
     logger,
   );
@@ -816,6 +825,8 @@ export function startEngine(opts: EngineOptions): RunningEngine {
             locate: async (threadId) =>
               (await codexDiscovery.locate(threadId)) ?? squadCodexSessions.locate(threadId),
           }),
+          // gh is often in Homebrew's folder, which a Dock-launched app's PATH lacks.
+          ghEnv: async () => ({ ...process.env, ...(await shellEnv.load()) }),
           squad: {
             worktreesRoot,
             // A Dock-launched app lacks the profile's PATH; checks need it to find pnpm & co.
