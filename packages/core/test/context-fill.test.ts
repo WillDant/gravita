@@ -102,4 +102,25 @@ describe("session context fill", () => {
       ])?.window,
     ).toBe(272_000);
   });
+
+  test("takes the window the turn reported, and keeps it over later replies", () => {
+    const turn = {
+      key: "turn:r1",
+      ts: "2026-10-18T10:01:30.000Z",
+      source: "fake",
+      provider: "claude",
+      projectId: "p1",
+      sessionId: "s1",
+      type: "turn.completed",
+      data: { contextWindow: 1_000_000 },
+    } as GravitaEvent;
+    expect(
+      ctx([
+        started,
+        usage("2026-10-18T10:01:00.000Z", "m1", { input: 0, output: 0, cacheRead: 300_000 }),
+        turn,
+        usage("2026-10-18T10:02:00.000Z", "m2", { input: 0, output: 0, cacheRead: 310_000 }),
+      ]),
+    ).toMatchObject({ tokens: 310_000, window: 1_000_000 });
+  });
 });

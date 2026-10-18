@@ -70,6 +70,19 @@ describe("the context meter", () => {
     expect(meter.className).toContain("text-waiting-ink");
   });
 
+  it("measures against the window the turn reported (a 1M Claude chat)", () => {
+    render([
+      reply(84_000),
+      ev("turn.completed", { contextWindow: 1_000_000 }, { sessionId: "s1" }),
+    ]);
+    expect(screen.getByRole("button", { name: "Context window: 8% used" })).toBeTruthy();
+  });
+
+  it("takes a session already past 200K for a 1M window", () => {
+    render([reply(300_000)]);
+    expect(screen.getByRole("button", { name: "Context window: 30% used" })).toBeTruthy();
+  });
+
   it("is hidden before the first reply", () => {
     render([]);
     expect(screen.queryByRole("button", { name: /Context window/ })).toBeNull();

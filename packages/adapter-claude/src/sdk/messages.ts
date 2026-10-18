@@ -65,6 +65,8 @@ export interface SdkResultMessage {
   total_cost_usd?: number;
   duration_ms?: number;
   num_turns?: number;
+  /** Per model used in the session: its tokens, cost and context window. */
+  modelUsage?: Record<string, { contextWindow?: number }>;
 }
 
 /**

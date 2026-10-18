@@ -125,6 +125,8 @@ export const TurnCompleted = ev("turn.completed", {
   costUsd: z.number().optional(),
   durationMs: z.number().optional(),
   numTurns: z.number().optional(),
+  /** The main model's context window, as the agent reported it at the end of the turn. */
+  contextWindow: z.number().int().positive().optional(),
 });
 
 export const AgentSpawned = ev("agent.spawned", {

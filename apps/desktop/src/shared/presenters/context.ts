@@ -14,7 +14,9 @@ export function contextWindow(session: SessionState): number {
   const c = session.context;
   if (c?.window) return c.window;
   const model = c?.model ?? session.model ?? "";
-  return /\[1m\]|-1m\b/i.test(model) ? LONG_WINDOW : DEFAULT_WINDOW;
+  if (/\[1m\]|-1m\b/i.test(model)) return LONG_WINDOW;
+  // Already past 200K: the window can't be that one.
+  return (c?.tokens ?? 0) > DEFAULT_WINDOW ? LONG_WINDOW : DEFAULT_WINDOW;
 }
 
 export interface ContextView {
