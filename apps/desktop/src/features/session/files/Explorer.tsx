@@ -1,11 +1,12 @@
 import type { FsEntry } from "@gravita/protocol";
-import { ChevronRight, File, Folder, FolderOpen, RefreshCw } from "lucide-react";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useGateway } from "@/app/providers";
 import { toGatewayError } from "@/infrastructure/engine/GatewayError";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { describeError } from "@/shared/presenters/errors";
 import { basename, cn } from "@/shared/utils";
+import { type FileIcon, fileIcon, folderIcon } from "./fileIcon";
 
 type Listing = { entries: FsEntry[] } | { error: string };
 
@@ -162,16 +163,12 @@ function FolderItems({
                     aria-hidden="true"
                     className={cn("flex-none text-ink-3 transition-transform", open && "rotate-90")}
                   />
-                  {open ? (
-                    <FolderOpen size={15} aria-hidden="true" className="flex-none text-ink-3" />
-                  ) : (
-                    <Folder size={15} aria-hidden="true" className="flex-none text-ink-3" />
-                  )}
+                  <EntryIcon icon={folderIcon(open)} />
                 </>
               ) : (
                 <>
                   <span className="w-3.5 flex-none" aria-hidden="true" />
-                  <File size={15} aria-hidden="true" className="flex-none text-ink-3" />
+                  <EntryIcon icon={fileIcon(e.name)} />
                 </>
               )}
               <span className="min-w-0 flex-1 truncate">{e.name}</span>
@@ -192,4 +189,8 @@ function FolderItems({
       })}
     </ul>
   );
+}
+
+function EntryIcon({ icon: { Icon, className } }: { icon: FileIcon }) {
+  return <Icon size={15} aria-hidden="true" className={cn("flex-none", className)} />;
 }

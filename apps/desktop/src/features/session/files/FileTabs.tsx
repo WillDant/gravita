@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { t, useLocale } from "@/shared/i18n/i18n";
 import { cn } from "@/shared/utils";
+import { fileIcon } from "./fileIcon";
 import { isDirty, type OpenFile } from "./openFiles";
 import { baseName } from "./useFileActions";
 
@@ -30,6 +31,7 @@ export function FileTabs({
         const selected = f.path === active;
         const dirty = isDirty(f);
         const name = baseName(f.path);
+        const { Icon, className } = fileIcon(name);
         return (
           <div
             key={f.path}
@@ -50,8 +52,9 @@ export function FileTabs({
               onAuxClick={(e) => {
                 if (e.button === 1) onClose(f.path);
               }}
-              className="h-full pr-1 pl-3 font-mono text-xs whitespace-nowrap"
+              className="inline-flex h-full items-center gap-1.5 pr-1 pl-3 font-mono text-xs whitespace-nowrap"
             >
+              <Icon size={13} aria-hidden="true" className={cn("flex-none", className)} />
               {name}
               {dirty && <span className="sr-only"> ({t("files.unsaved")})</span>}
             </button>
