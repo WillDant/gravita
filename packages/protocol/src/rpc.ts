@@ -438,6 +438,70 @@ export const FsWriteParams = z.object({
 
 export const FsWriteResult = z.object({ mtimeMs: z.number() });
 
+// What fills a session's context window, as Claude Code's /context reports it
+// (`session.context`). Only sessions Gravita runs through the Agent SDK can tell; the rest
+// answer `unavailable` and the UI falls back to the total from the latest reply.
+
+const Tokens = z.number().nonnegative();
+
+export const ContextUsage = z.object({
+  model: z.string(),
+  totalTokens: Tokens,
+  maxTokens: Tokens,
+  /** 0–100 (more when over the limit). */
+  percentage: z.number(),
+  /**
+   * What each row is: `used` fills the window, `free` is what's left, `buffer` is the
+   * autocompact reserve, `deferred` rows are tool schemas kept out of the window.
+   */
+  categories: z.array(
+    z.object({
+      name: z.string(),
+      tokens: Tokens,
+      kind: z.enum(["used", "free", "buffer", "deferred"]),
+    }),
+  ),
+  memoryFiles: z.array(z.object({ path: z.string(), type: z.string(), tokens: Tokens })),
+  mcpTools: z.array(
+    z.object({
+      name: z.string(),
+      serverName: z.string(),
+      tokens: Tokens,
+      /** False for a deferred tool whose schema isn't in the window yet. */
+      loaded: z.boolean().optional(),
+    }),
+  ),
+  agents: z.array(z.object({ agentType: z.string(), source: z.string(), tokens: Tokens })),
+  skills: z
+    .object({
+      total: z.number().int(),
+      included: z.number().int(),
+      tokens: Tokens,
+      items: z.array(z.object({ name: z.string(), source: z.string(), tokens: Tokens })),
+    })
+    .optional(),
+  systemTools: z.array(z.object({ name: z.string(), tokens: Tokens })).optional(),
+  messages: z
+    .object({
+      toolCalls: Tokens,
+      toolResults: Tokens,
+      attachments: Tokens,
+      assistant: Tokens,
+      user: Tokens,
+    })
+    .optional(),
+  /** Where autocompact kicks in, when it's on. */
+  autoCompactThreshold: Tokens.optional(),
+  autoCompact: z.boolean(),
+});
+export type ContextUsage = z.infer<typeof ContextUsage>;
+
+export const SessionContextResult = z.union([
+  z.object({ kind: z.literal("full"), usage: ContextUsage }),
+  z.object({ kind: z.literal("unavailable") }),
+]);
+export type SessionContextResult = z.infer<typeof SessionContextResult>;
+
 /**
  * Every method's params and result, in one place. The engine's router validates with
  * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
@@ -502,6 +566,8 @@ export const RpcContract = {
   "fs.list": { params: FsListParams, result: FsListResult },
   "fs.read": { params: FsReadParams, result: FsReadResult },
   "fs.write": { params: FsWriteParams, result: FsWriteResult },
+  /** What fills the session's context window (Claude Code's /context), when it can tell. */
+  "session.context": { params: SessionRef, result: SessionContextResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;

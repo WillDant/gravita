@@ -229,6 +229,8 @@ export const UsageReported = ev("usage.reported", {
   output: z.number(),
   cacheRead: z.number(),
   cacheWrite: z.number(),
+  /** The model's context window, when the provider says (Codex does; Claude's transcripts don't). */
+  contextWindow: z.number().int().positive().optional(),
 });
 
 export const UsageWindowSchema = z.enum(USAGE_WINDOWS);

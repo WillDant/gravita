@@ -1,4 +1,10 @@
-import type { ConversationMessage, Provider, SessionKind, SessionMode } from "@gravita/protocol";
+import type {
+  ContextUsage,
+  ConversationMessage,
+  Provider,
+  SessionKind,
+  SessionMode,
+} from "@gravita/protocol";
 
 export type PermissionDecision = "allow" | "deny";
 
@@ -47,6 +53,8 @@ export interface SessionRuntime {
   ): Promise<void>;
   /** The models this runtime's agent offers, when it can tell. */
   supportedModels?(): Promise<ModelOption[]>;
+  /** What fills the agent's context window, by category (Claude Code's /context). */
+  contextUsage?(): Promise<ContextUsage>;
   /** Full message text for the Conversation lens (Cursor keeps this in memory). */
   conversation?(): readonly ConversationMessage[];
   /** Releases whatever the runtime holds (processes, streams). */

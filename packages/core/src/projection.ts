@@ -332,6 +332,16 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
         cacheRead: e.data.cacheRead,
         cacheWrite: e.data.cacheWrite,
       });
+      if (a.id === MAIN_AGENT && (!s.context || e.ts >= s.context.ts)) {
+        const d = e.data;
+        const model = d.model ?? s.context?.model;
+        s.context = {
+          tokens: d.input + d.cacheRead + d.cacheWrite + d.output,
+          ...(d.contextWindow ? { window: d.contextWindow } : {}),
+          ...(model ? { model } : {}),
+          ts: e.ts,
+        };
+      }
       return;
     case "permission.requested":
       if (!a.pendingPermissions.includes(e.data.requestId))

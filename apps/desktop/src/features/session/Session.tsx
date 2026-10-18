@@ -32,6 +32,7 @@ import {
 } from "@/state/hooks";
 import { AgentPanel } from "./agent-panel/AgentPanel";
 import { Composer } from "./composer/Composer";
+import { ContextButton } from "./context/ContextPanel";
 import { Explorer } from "./files/Explorer";
 import { FileTabs } from "./files/FileTabs";
 import { type ProjectTabs, useProjectTabs } from "./files/openFiles";
@@ -299,6 +300,7 @@ export function Workspace({
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {session && <CountChips counts={sessionCounts(session, now)} scope="session" />}
+          {session && <ContextButton session={session} />}
           {cwd && <GitButton key={cwd} cwd={cwd} />}
           {cwd && <ExplorerButton on={explorer} onChange={setExplorer} />}
           <LayoutSwitch value={layout} onChange={setLayout} />

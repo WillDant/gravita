@@ -7,8 +7,11 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 ### Interface
 - **Files in the session:** a folder button at the top right of a chat (or ⇧⌘E) swaps the map for the project's files. Pressing a file opens it in an editor where the terminal or conversation is, with a new File option beside Terminal · Conversation (shown only while a file is open). Open files are tabs under that switch: a dot marks unsaved changes, ⌘S saves and turns it back into a close button. Closing a tab with unsaved changes asks first, and a file changed on disk since it was opened is never overwritten without asking. Folders show in blue and the main file types (TypeScript, JavaScript, JSON, styles, Markdown, Python, Rust, images, config, shell, lockfiles) each have their own coloured icon, in the tree and on the tabs.
 
+- **Context window:** a meter in the session header shows how much of the context window the latest reply used, in orange past 80% and red past 95%. Pressing it opens a panel like Claude Code's /context: the window as one bar by category, the autocompact reserve, MCP tools by server (loaded or deferred), memory files, agents and skills. Codex sessions are measured against the window Codex reports.
+
 ### Known limits
 - Files over 2 MB and binary files don't open in the editor.
+- The context breakdown by category is only there for Claude chats Gravita runs; terminal sessions and Codex show the total alone (in a terminal, `/context` still works).
 
 ## [0.10.0-beta] - 2026-10-16
 

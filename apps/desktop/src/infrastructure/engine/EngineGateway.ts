@@ -101,6 +101,9 @@ export interface EngineGateway {
   /** A folder's repository: branch, changes against HEAD and the branch's pull request. */
   gitInfo(params: RpcParams<"git.info">): Promise<RpcResult<"git.info">>;
 
+  /** What fills a session's context window; `unavailable` for sessions Gravita doesn't run. */
+  sessionContext(params: RpcParams<"session.context">): Promise<RpcResult<"session.context">>;
+
   /** One folder of a project, for the file explorer. */
   fsList(params: RpcParams<"fs.list">): Promise<RpcResult<"fs.list">>;
   fsRead(params: RpcParams<"fs.read">): Promise<RpcResult<"fs.read">>;

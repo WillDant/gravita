@@ -44,6 +44,15 @@ export interface Tokens {
   cacheWrite: number;
 }
 
+export interface ContextFill {
+  tokens: number;
+  /** The model's window, when the provider reported it. */
+  window?: number;
+  model?: string;
+  /** When the reply it was read from happened. */
+  ts: string;
+}
+
 export const ZERO_TOKENS: Tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 export interface AgentNode {
@@ -117,6 +126,11 @@ export interface SessionState {
   roleId?: string;
   taskId?: string;
   agents: Record<string, AgentNode>;
+  /**
+   * How full the main agent's context window was at its latest reply: everything that reply
+   * read (input, cache read and written) plus what it wrote. Absent before the first reply.
+   */
+  context?: ContextFill;
   /** Per agent → per message usage, so repeated usage records are counted once (max). */
   usage: Record<string, Record<string, Tokens>>;
   version: number;
