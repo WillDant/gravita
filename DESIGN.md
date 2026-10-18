@@ -259,9 +259,9 @@ A cool, near-colourless frame around a set of saturated metro-line hues, with or
 
 ## Layout
 
-A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen has a header of about 48px: the breadcrumb, then the count chips, the Git button (branch in mono and a changed-file count; it opens a right-hand panel with the branch, its pull request and the diff) and a three-way layout switch pushed right. Below it, the screen splits in two:
-- **Talk, on the left:** the session's terminal, or its conversation and composer. When a session has both, a Terminal · Conversation tab chooses.
-- **The map, on the right:** a resizable column, 440px by default and never under 360px, which is the narrowest Orbit fits. It holds the Lines · Orbit · Tree tabs, the lens, and "What's happening" or the agent panel under the lens.
+A fixed three-part operating frame. The sidebar is 232px on the cool panel; below 1100px it collapses to a 56px icon rail (labels become tooltips, counts move onto the icons as small badges). The session screen has a header of about 48px: the breadcrumb, then the count chips, the Git button (branch in mono and a changed-file count; it opens a right-hand panel with the branch, its pull request and the diff), the files button (it swaps the map for the project's file tree) and a three-way layout switch pushed right. Below it, the screen splits in two:
+- **Talk, on the left:** the session's terminal, or its conversation and composer, or an open file. A Terminal · Conversation · File tab chooses (File only while a file is open); open files are editor tabs under it, a dot marking unsaved changes where the close button is.
+- **The map, on the right:** a resizable column, 440px by default and never under 360px, which is the narrowest Orbit fits. It holds the Lines · Orbit · Tree tabs, the lens, and "What's happening" or the agent panel under the lens. With the files button on, it holds the project's file tree instead (the map stays alive behind it).
 
 The layout switch picks side by side, talk alone, or the map alone. The map alone is the classic frame: the lens filling the centre and a fixed 340px agent column. Hiding a side never unmounts it, so a terminal keeps its screen.
 

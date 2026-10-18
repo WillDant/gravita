@@ -30,6 +30,27 @@
   --station: #ffffff;
   --shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%);
   --shadow-lg: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%);
+  /* Syntax colours for the file editor. */
+  --code-keyword: #8a3ffc;
+  --code-string: #0e7a48;
+  --code-number: #b8430a;
+  --code-function: #2f5bea;
+  --code-type: #a3215e;
+  --code-property: #1f6f8b;
+  /* File explorer icons: folders and the main file types. */
+  --file-folder: #3b82f6;
+  --file-ts: #2f74c0;
+  --file-js: #b8920a;
+  --file-json: #c2700c;
+  --file-style: #7c4dda;
+  --file-markup: #d0502a;
+  --file-md: #3f6fb5;
+  --file-py: #2b7f8f;
+  --file-rs: #b4541d;
+  --file-image: #2c9a5a;
+  --file-config: #64748b;
+  --file-shell: #3f8f3a;
+  --file-lock: #8a8f99;
 }
 
 /* The app always sets data-theme explicitly (from the user's choice or the OS). */
@@ -58,6 +79,25 @@
     --station: #0f1115;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
     --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
+    --code-keyword: #c5a3ff;
+    --code-string: #5fd99d;
+    --code-number: #ffa76b;
+    --code-function: #8fb0ff;
+    --code-type: #ff9ccf;
+    --code-property: #7fd4ec;
+    --file-folder: #6ea8fe;
+    --file-ts: #5aa2f0;
+    --file-js: #f0d35a;
+    --file-json: #f5a742;
+    --file-style: #b59cff;
+    --file-markup: #ff8a65;
+    --file-md: #8fb4ec;
+    --file-py: #5cc6d6;
+    --file-rs: #f08a4b;
+    --file-image: #5fd38f;
+    --file-config: #9aa8bd;
+    --file-shell: #7fd17a;
+    --file-lock: #9098a6;
   }
 }
 
@@ -83,6 +123,19 @@
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
   --color-scrim: var(--scrim);
+  --color-file-folder: var(--file-folder);
+  --color-file-ts: var(--file-ts);
+  --color-file-js: var(--file-js);
+  --color-file-json: var(--file-json);
+  --color-file-style: var(--file-style);
+  --color-file-markup: var(--file-markup);
+  --color-file-md: var(--file-md);
+  --color-file-py: var(--file-py);
+  --color-file-rs: var(--file-rs);
+  --color-file-image: var(--file-image);
+  --color-file-config: var(--file-config);
+  --color-file-shell: var(--file-shell);
+  --color-file-lock: var(--file-lock);
   --shadow-panel: var(--shadow);
   --shadow-float: var(--shadow-lg);
   /* Product type scale, ratio ~1.125, fixed rem. */

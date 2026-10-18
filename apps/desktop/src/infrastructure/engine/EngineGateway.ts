@@ -101,6 +101,12 @@ export interface EngineGateway {
   /** A folder's repository: branch, changes against HEAD and the branch's pull request. */
   gitInfo(params: RpcParams<"git.info">): Promise<RpcResult<"git.info">>;
 
+  /** One folder of a project, for the file explorer. */
+  fsList(params: RpcParams<"fs.list">): Promise<RpcResult<"fs.list">>;
+  fsRead(params: RpcParams<"fs.read">): Promise<RpcResult<"fs.read">>;
+  /** Saves a file; refused (`fileConflict`) when it changed on disk since `expectedMtimeMs`. */
+  fsWrite(params: RpcParams<"fs.write">): Promise<RpcResult<"fs.write">>;
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe;
   /** What terminals print; high-frequency, so it never goes through the store. */
   onTerminalOutput(listener: (output: TerminalOutput) => void): Unsubscribe;

@@ -53,6 +53,7 @@ import { IngestEvents } from "../application/usecases/ingest-events";
 import { InterruptSession } from "../application/usecases/interrupt-session";
 import { DEFAULT_FALLBACKS, ListModels } from "../application/usecases/list-models";
 import { PrepareSquadWorkspace } from "../application/usecases/prepare-squad-workspace";
+import { ProjectFiles } from "../application/usecases/project-files";
 import { RegenerateShared } from "../application/usecases/regenerate-shared";
 import { RemoveSession } from "../application/usecases/remove-session";
 import { RespondToPermission } from "../application/usecases/respond-to-permission";
@@ -125,6 +126,7 @@ import { FsHookSpool } from "../infrastructure/system/fs-hook-spool";
 import { FsRuntimeFile } from "../infrastructure/system/fs-runtime-file";
 import { GitProjectDirectory } from "../infrastructure/system/git-project-directory";
 import { LoginShellEnv } from "../infrastructure/system/login-shell-env";
+import { NodeFileTree } from "../infrastructure/system/node-file-tree";
 import { NodeWorkspace } from "../infrastructure/system/node-workspace";
 import { RandomIds } from "../infrastructure/system/random-ids";
 import { StderrLogger } from "../infrastructure/system/stderr-logger";
@@ -627,6 +629,10 @@ export function createCore(o: CoreOptions): EngineCore {
         workspace: o.chat?.workspace ?? new NodeWorkspace(),
         repo: new CliRepoReader(new GitRunner()),
         prs: new GhCli(o.ghEnv ? { env: o.ghEnv } : {}),
+      }),
+      files: new ProjectFiles({
+        workspace: o.chat?.workspace ?? new NodeWorkspace(),
+        files: new NodeFileTree(),
       }),
     }),
     logger,

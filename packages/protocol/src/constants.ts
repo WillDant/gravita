@@ -104,6 +104,9 @@ export const Methods = {
   terminalList: "terminal.list",
   terminalAttach: "terminal.attach",
   gitInfo: "git.info",
+  fsList: "fs.list",
+  fsRead: "fs.read",
+  fsWrite: "fs.write",
 } as const;
 
 /**
@@ -202,4 +205,10 @@ export const RpcErrors = {
   terminalUnsupported: { code: 4016, message: "Terminals aren't available here" },
   tooManyTerminals: { code: 4017, message: "Too many terminals are open" },
   terminalNotFound: { code: 4018, message: "No such terminal" },
+  /** A file path that leads outside the folder it was asked under (`..`, a symlink). */
+  pathOutsideRoot: { code: 4019, message: "That path is outside the project" },
+  /** The file changed on disk since it was read; saving would lose those changes. */
+  fileConflict: { code: 4020, message: "The file changed on disk" },
+  /** No such file or folder under the project. */
+  fileNotFound: { code: 4021, message: "No such file" },
 } as const;

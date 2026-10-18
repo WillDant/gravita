@@ -22,6 +22,7 @@ import type { GetSessionEvents } from "../../application/usecases/get-session-ev
 import type { GetSnapshot } from "../../application/usecases/get-snapshot";
 import type { InterruptSession } from "../../application/usecases/interrupt-session";
 import type { ListModels } from "../../application/usecases/list-models";
+import type { ProjectFiles } from "../../application/usecases/project-files";
 import type { RemoveSession } from "../../application/usecases/remove-session";
 import type { RespondToPermission } from "../../application/usecases/respond-to-permission";
 import type { SendMessage } from "../../application/usecases/send-message";
@@ -34,6 +35,8 @@ import type { StopAllSessions } from "../../application/usecases/stop-all-sessio
 import {
   BypassLockedError,
   DirtyWorktreeError,
+  FileConflictError,
+  FileNotFoundError,
   GhUnavailableError,
   InvalidAnswerError,
   InvalidCwdError,
@@ -42,6 +45,7 @@ import {
   NotARepositoryError,
   NotControllableError,
   NotLoggedInError,
+  PathOutsideRootError,
   PlanUsageUnavailableError,
   ProviderUnavailableError,
   SquadNotFoundError,
@@ -114,6 +118,8 @@ export interface RouterDeps {
   updates?: UpdateControl;
   /** Reads a folder's repository; absent: `git.info` answers that the folder isn't one. */
   gitInfo?: GetGitInfo;
+  /** The file explorer's reads and saves; absent: every `fs.*` method finds no folder. */
+  files?: ProjectFiles;
 }
 
 const OK = { ok: true } as const;
@@ -126,6 +132,10 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
   const codexProfile = (): CodexProfileControl => {
     if (!d.codexProfile) throw new ProviderUnavailableError("codex", "not-found");
     return d.codexProfile;
+  };
+  const files = (root: string): ProjectFiles => {
+    if (!d.files) throw new InvalidCwdError(root);
+    return d.files;
   };
   const updates = (): UpdateControl => {
     if (!d.updates) throw new UpdateUnavailableError("Updates aren't available here.");
@@ -228,6 +238,9 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "terminal.list": () => ({ terminals: d.terminals?.manager.list() ?? [] }),
     "terminal.attach": (p) => terminals().manager.attach(p.terminalId),
     "git.info": (p) => d.gitInfo?.execute(p) ?? { repo: false },
+    "fs.list": (p) => files(p.root).list(p),
+    "fs.read": (p) => files(p.root).read(p),
+    "fs.write": (p) => files(p.root).write(p),
     "usage.refresh": (p) => {
       void d.usage?.refresh(p?.provider ? { provider: p.provider } : {});
       return OK;
@@ -284,6 +297,9 @@ export function toRpcError(err: unknown, logger: Logger, method: string): RpcErr
   if (err instanceof TerminalUnsupportedError) return RpcErrors.terminalUnsupported;
   if (err instanceof TooManyTerminalsError) return RpcErrors.tooManyTerminals;
   if (err instanceof TerminalNotFoundError) return RpcErrors.terminalNotFound;
+  if (err instanceof PathOutsideRootError) return RpcErrors.pathOutsideRoot;
+  if (err instanceof FileConflictError) return RpcErrors.fileConflict;
+  if (err instanceof FileNotFoundError) return RpcErrors.fileNotFound;
   if (err instanceof PlanUsageUnavailableError)
     return providerError(
       { code: RpcErrors.planUsageUnavailable.code, message: err.message },

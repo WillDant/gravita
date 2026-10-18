@@ -7,13 +7,14 @@ import type {
   TerminalOutput,
   TerminalUpdate,
 } from "@gravita/protocol";
+import { RpcErrors } from "@gravita/protocol/constants";
 import type {
   EngineGateway,
   EngineSnapshot,
   GatewayConnection,
   Unsubscribe,
 } from "@/infrastructure/engine/EngineGateway";
-import type { GatewayError } from "@/infrastructure/engine/GatewayError";
+import { GatewayError } from "@/infrastructure/engine/GatewayError";
 
 /** The session-driving methods the fake records and can fail on demand. */
 export type FakeCommand =
@@ -52,7 +53,10 @@ export type FakeCommand =
   | "killTerminal"
   | "listTerminals"
   | "attachTerminal"
-  | "gitInfo";
+  | "gitInfo"
+  | "fsList"
+  | "fsRead"
+  | "fsWrite";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -99,6 +103,10 @@ export class FakeGateway implements EngineGateway {
   };
   terminalsResult: RpcResult<"terminal.list"> = { terminals: [] };
   gitInfoResult: RpcResult<"git.info"> = { repo: false };
+  /** The project the file explorer sees: relative path → contents. */
+  files: Record<string, string> = {};
+  /** Each file's mtime; bumped on every write. */
+  fileMtimes: Record<string, number> = {};
   scrollback = "";
   /** Methods whose calls wait until `release()`. */
   readonly held = new Set<FakeCommand>();
@@ -157,8 +165,12 @@ export class FakeGateway implements EngineGateway {
     return new Promise<T>((resolve, reject) => {
       const settle = () => {
         const failure = this.failures[method];
-        if (failure) reject(failure);
-        else resolve(value());
+        if (failure) return reject(failure);
+        try {
+          resolve(value());
+        } catch (e) {
+          reject(e);
+        }
       };
       if (this.held.has(method)) this.pendingCalls.push(settle);
       else settle();
@@ -288,6 +300,40 @@ export class FakeGateway implements EngineGateway {
   }
   gitInfo(params: RpcParams<"git.info">) {
     return this.run("gitInfo", params, () => this.gitInfoResult);
+  }
+  fsList(params: RpcParams<"fs.list">) {
+    return this.run("fsList", params, () => {
+      const prefix = params.path ? `${params.path}/` : "";
+      const seen = new Map<string, "file" | "dir">();
+      for (const path of Object.keys(this.files)) {
+        if (!path.startsWith(prefix)) continue;
+        const [name, ...rest] = path.slice(prefix.length).split("/");
+        if (name) seen.set(name, rest.length > 0 ? "dir" : "file");
+      }
+      const entries = [...seen].map(([name, kind]) => ({ name, kind }));
+      entries.sort((a, b) =>
+        a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "dir" ? -1 : 1,
+      );
+      return { entries };
+    });
+  }
+  fsRead(params: RpcParams<"fs.read">) {
+    return this.run("fsRead", params, () => {
+      const text = this.files[params.path];
+      if (text === undefined)
+        throw new GatewayError(RpcErrors.fileNotFound.code, RpcErrors.fileNotFound.message);
+      return { kind: "text" as const, text, mtimeMs: this.fileMtimes[params.path] ?? 1 };
+    });
+  }
+  fsWrite(params: RpcParams<"fs.write">) {
+    return this.run("fsWrite", params, () => {
+      const mtime = this.fileMtimes[params.path] ?? 1;
+      if (params.expectedMtimeMs !== undefined && params.expectedMtimeMs !== mtime)
+        throw new GatewayError(RpcErrors.fileConflict.code, RpcErrors.fileConflict.message);
+      this.files[params.path] = params.text;
+      this.fileMtimes[params.path] = mtime + 1;
+      return { mtimeMs: mtime + 1 };
+    });
   }
 
   onTerminalOutput(l: (o: TerminalOutput) => void): Unsubscribe {

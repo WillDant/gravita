@@ -74,6 +74,12 @@ export function describeError(error: GatewayError): ErrorView {
       return { text: t("error.tooManyTerminals") };
     case KnownErrors.terminalNotFound:
       return { text: t("error.terminalNotFound") };
+    case KnownErrors.pathOutsideRoot:
+      return { text: t("error.pathOutsideRoot") };
+    case KnownErrors.fileConflict:
+      return { text: t("error.fileConflict") };
+    case KnownErrors.fileNotFound:
+      return { text: t("error.fileNotFound") };
     case LocalErrors.offline:
       return { text: t("error.offline") };
     case LocalErrors.timeout:

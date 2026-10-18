@@ -57,4 +57,7 @@ export const KnownErrors = {
   terminalUnsupported: RpcErrors.terminalUnsupported.code,
   tooManyTerminals: RpcErrors.tooManyTerminals.code,
   terminalNotFound: RpcErrors.terminalNotFound.code,
+  pathOutsideRoot: RpcErrors.pathOutsideRoot.code,
+  fileConflict: RpcErrors.fileConflict.code,
+  fileNotFound: RpcErrors.fileNotFound.code,
 } as const;
