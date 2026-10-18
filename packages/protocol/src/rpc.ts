@@ -398,6 +398,46 @@ export const GitInfo = z.union([
 ]);
 export type GitInfo = z.infer<typeof GitInfo>;
 
+// A session's folder as the file explorer shows it (`fs.*`). Every path is relative to
+// `root` with forward slashes; the engine refuses one that leads outside it.
+
+export const FsListParams = z.object({
+  root: z.string().min(1),
+  /** The folder to list; "" is `root` itself. */
+  path: z.string(),
+});
+
+export const FsEntry = z.object({
+  name: z.string(),
+  kind: z.enum(["file", "dir"]),
+});
+export type FsEntry = z.infer<typeof FsEntry>;
+
+/** Folders first, then files, each by name. `.git` is left out. */
+export const FsListResult = z.object({ entries: z.array(FsEntry) });
+
+export const FsReadParams = z.object({
+  root: z.string().min(1),
+  path: z.string().min(1),
+});
+
+export const FsReadResult = z.union([
+  z.object({ kind: z.literal("text"), text: z.string(), mtimeMs: z.number() }),
+  z.object({ kind: z.literal("binary") }),
+  z.object({ kind: z.literal("tooLarge"), size: z.number().int().nonnegative() }),
+]);
+export type FsReadResult = z.infer<typeof FsReadResult>;
+
+export const FsWriteParams = z.object({
+  root: z.string().min(1),
+  path: z.string().min(1),
+  text: z.string(),
+  /** The file's mtime when it was read: a different one on disk refuses the write. */
+  expectedMtimeMs: z.number().optional(),
+});
+
+export const FsWriteResult = z.object({ mtimeMs: z.number() });
+
 /**
  * Every method's params and result, in one place. The engine's router validates with
  * these schemas; the UI derives its types from them (type-only, so no zod in the bundle).
@@ -458,6 +498,10 @@ export const RpcContract = {
   "terminal.attach": { params: TerminalRef, result: TerminalAttachResult },
   /** The folder's repository: branch, changes against HEAD and the branch's pull request. */
   "git.info": { params: GitInfoParams, result: GitInfo },
+  /** One folder of a session's project, for the file explorer. */
+  "fs.list": { params: FsListParams, result: FsListResult },
+  "fs.read": { params: FsReadParams, result: FsReadResult },
+  "fs.write": { params: FsWriteParams, result: FsWriteResult },
 } as const;
 
 export type RpcMethod = keyof typeof RpcContract;

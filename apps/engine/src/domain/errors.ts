@@ -45,6 +45,30 @@ export class InvalidCwdError extends Error {
   }
 }
 
+/** A file path leads outside the project folder it was asked under. */
+export class PathOutsideRootError extends Error {
+  constructor(readonly path: string) {
+    super("That path is outside the project");
+    this.name = "PathOutsideRootError";
+  }
+}
+
+/** The file changed on disk since the editor read it. */
+export class FileConflictError extends Error {
+  constructor(readonly path: string) {
+    super("The file changed on disk");
+    this.name = "FileConflictError";
+  }
+}
+
+/** No such file or folder under the project. */
+export class FileNotFoundError extends Error {
+  constructor(readonly path: string) {
+    super("No such file");
+    this.name = "FileNotFoundError";
+  }
+}
+
 /** Starting another session would exceed `MAX_CHAT_SESSIONS`. */
 export class TooManySessionsError extends Error {
   constructor(readonly limit: number) {

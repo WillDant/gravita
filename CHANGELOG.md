@@ -4,6 +4,12 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Interface
+- **Files in the session:** a folder button at the top right of a chat (or ⇧⌘E) swaps the map for the project's files. Pressing a file opens it in an editor where the terminal or conversation is, with a new File option beside Terminal · Conversation (shown only while a file is open). Open files are tabs under that switch: a dot marks unsaved changes, ⌘S saves and turns it back into a close button. Closing a tab with unsaved changes asks first, and a file changed on disk since it was opened is never overwritten without asking.
+
+### Known limits
+- Files over 2 MB and binary files don't open in the editor.
+
 ## [0.10.0-beta] - 2026-10-16
 
 See what the agent changed without leaving the chat: the branch, its pull request and the diff, one click away.

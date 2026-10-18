@@ -1,8 +1,15 @@
 import type { ProjectState, SessionState } from "@gravita/core";
 import { sessionCounts } from "@gravita/core";
 import type { GravitaEvent, TerminalInfo } from "@gravita/protocol";
-import { ChevronRight, Columns2, Map as MapIcon, PanelRightClose, Terminal } from "lucide-react";
-import { lazy, type ReactNode, Suspense, useState } from "react";
+import {
+  ChevronRight,
+  Columns2,
+  FolderTree,
+  Map as MapIcon,
+  PanelRightClose,
+  Terminal,
+} from "lucide-react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "@/app/providers";
 import { START_SIZE, TerminalView } from "@/features/terminal/TerminalView";
 import { t, useLocale } from "@/shared/i18n/i18n";
@@ -25,6 +32,10 @@ import {
 } from "@/state/hooks";
 import { AgentPanel } from "./agent-panel/AgentPanel";
 import { Composer } from "./composer/Composer";
+import { Explorer } from "./files/Explorer";
+import { FileTabs } from "./files/FileTabs";
+import { type ProjectTabs, useProjectTabs } from "./files/openFiles";
+import { type FileActions, useFileActions } from "./files/useFileActions";
 import { GitButton } from "./git/GitPanel";
 import { Happening } from "./happening/Happening";
 import { LineMap } from "./line-map/LineMap";
@@ -34,6 +45,8 @@ import { TreeLens } from "./tree-lens/TreeLens";
 // off the initial bundle.
 const ConversationLens = lazy(() => import("./conversation/ConversationLens"));
 const OrbitLens = lazy(() => import("./orbit-lens/OrbitLens"));
+// The editor (CodeMirror and its languages) loads when the first file opens.
+const FileEditor = lazy(() => import("./files/FileEditor"));
 
 const LENSES = ["lines", "orbit", "tree"] as const;
 type Lens = (typeof LENSES)[number];
@@ -67,6 +80,35 @@ function useLayout(): [Layout, (l: Layout) => void] {
     },
   ];
 }
+
+/** Whether the right pane shows the file explorer instead of the map. */
+const EXPLORER_KEY = "gravita.session.explorer";
+
+function useExplorer(): [boolean, (on: boolean | ((on: boolean) => boolean)) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(EXPLORER_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    on,
+    (next) =>
+      setOn((was) => {
+        const value = typeof next === "function" ? next(was) : next;
+        try {
+          localStorage.setItem(EXPLORER_KEY, value ? "1" : "0");
+        } catch {}
+        return value;
+      }),
+  ];
+}
+
+const isExplorerKey = (e: KeyboardEvent) =>
+  (e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "e";
+
+type Talk = "terminal" | "conversation" | "file";
 
 export function Session({
   projectId,
@@ -129,7 +171,21 @@ export function Workspace({
   const navigate = useNavigate();
   const [layout, setLayout] = useLayout();
   const [lens, setLens] = useState<Lens>("lines");
-  const [talk, setTalk] = useState<"terminal" | "conversation">("terminal");
+  const [talk, setTalk] = useState<Talk>("terminal");
+  const [explorer, setExplorer] = useExplorer();
+  const cwd = session?.cwd ?? terminal?.cwd;
+  const files = useProjectTabs(cwd);
+  const fileActions = useFileActions(cwd);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isExplorerKey(e)) return;
+      e.preventDefault();
+      setExplorer((on) => !on);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setExplorer]);
 
   const select = (id?: string) => {
     if (!sessionId) return;
@@ -137,7 +193,6 @@ export function Workspace({
   };
   const selected = agentId && session ? session.agents[agentId] : undefined;
   const projectName = project?.name ?? basename(terminal?.cwd ?? "");
-  const cwd = session?.cwd ?? terminal?.cwd;
   const title = session
     ? (sessionTitle(session) ?? t("session.untitled"))
     : t(`terminal.title.${terminal?.command ?? "shell"}`);
@@ -179,6 +234,19 @@ export function Workspace({
       <Happening session={session} now={now} onSelect={select} />
     )
   ) : null;
+  // "File" shows only while a file is open; without a terminal, talk is the conversation.
+  const shownTalk: Talk =
+    talk === "file" && files.tabs.length > 0
+      ? "file"
+      : terminal && talk !== "conversation"
+        ? "terminal"
+        : "conversation";
+  const openFile = (path: string) => {
+    fileActions.open(path);
+    setTalk("file");
+    // The map alone has no room for the editor: bring the talk side back.
+    if (layout === "map") setLayout("split");
+  };
   const lensTabs = (
     <Tabs
       label={t("session.map")}
@@ -194,8 +262,10 @@ export function Workspace({
     <TalkPane
       session={session}
       terminal={terminal}
-      talk={terminal ? talk : "conversation"}
+      talk={shownTalk}
       setTalk={setTalk}
+      files={files}
+      fileActions={fileActions}
       onSelect={select}
       onTerminalGone={onTerminalGone}
       onReplaced={onReplaced}
@@ -230,6 +300,7 @@ export function Workspace({
         <div className="ml-auto flex items-center gap-3">
           {session && <CountChips counts={sessionCounts(session, now)} scope="session" />}
           {cwd && <GitButton key={cwd} cwd={cwd} />}
+          {cwd && <ExplorerButton on={explorer} onChange={setExplorer} />}
           <LayoutSwitch value={layout} onChange={setLayout} />
         </div>
       </header>
@@ -238,25 +309,44 @@ export function Workspace({
       <SplitPane
         storageKey="gravita.session.map-width"
         label={t("session.resizeMap")}
-        show={layout === "split" ? "both" : layout === "talk" ? "start" : "end"}
+        show={
+          layout === "split" || (layout === "talk" && explorer && cwd)
+            ? "both"
+            : layout === "talk"
+              ? "start"
+              : "end"
+        }
         start={talkPane}
         end={
-          <div className={cn("flex h-full min-h-0", wide ? "flex-row" : "flex-col")}>
-            <div className={cn("flex min-h-0 min-w-0 flex-col", wide ? "flex-1" : "flex-[3]")}>
-              <div className="flex flex-none items-center px-4 pt-3 pb-2">{lensTabs}</div>
-              <div className="min-h-0 flex-1">{map}</div>
-            </div>
-            {details && (
-              <div
-                className={cn(
-                  "relative flex flex-col border-hairline",
-                  wide ? "w-[340px] flex-none border-l" : "min-h-[200px] flex-[2] border-t",
-                )}
-              >
-                {details}
-              </div>
+          <>
+            {explorer && cwd && (
+              <Explorer
+                root={cwd}
+                {...(shownTalk === "file" && files.active ? { activePath: files.active } : {})}
+                onOpen={openFile}
+              />
             )}
-          </div>
+            {/* Hidden, not unmounted, behind the explorer: the map keeps its state. */}
+            <div
+              hidden={Boolean(explorer && cwd)}
+              className={cn("flex h-full min-h-0", wide ? "flex-row" : "flex-col")}
+            >
+              <div className={cn("flex min-h-0 min-w-0 flex-col", wide ? "flex-1" : "flex-[3]")}>
+                <div className="flex flex-none items-center px-4 pt-3 pb-2">{lensTabs}</div>
+                <div className="min-h-0 flex-1">{map}</div>
+              </div>
+              {details && (
+                <div
+                  className={cn(
+                    "relative flex flex-col border-hairline",
+                    wide ? "w-[340px] flex-none border-l" : "min-h-[200px] flex-[2] border-t",
+                  )}
+                >
+                  {details}
+                </div>
+              )}
+            </div>
+          </>
         }
       />
     </div>
@@ -289,6 +379,25 @@ function LayoutSwitch({ value, onChange }: { value: Layout; onChange: (l: Layout
         </button>
       ))}
     </fieldset>
+  );
+}
+
+function ExplorerButton({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  const label = on ? t("files.hideExplorer") : t("files.showExplorer");
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={label}
+      title={`${label} (⇧⌘E)`}
+      onClick={() => onChange(!on)}
+      className={cn(
+        "inline-flex size-8 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-panel hover:text-ink",
+        on && "bg-panel text-ink",
+      )}
+    >
+      <FolderTree size={16} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -340,34 +449,64 @@ function TalkPane({
   terminal,
   talk,
   setTalk,
+  files,
+  fileActions,
   onSelect,
   onTerminalGone,
   onReplaced,
 }: {
   session?: SessionState;
   terminal?: TerminalInfo;
-  talk: "terminal" | "conversation";
-  setTalk: (talk: "terminal" | "conversation") => void;
+  talk: Talk;
+  setTalk: (talk: Talk) => void;
+  files: ProjectTabs;
+  fileActions: FileActions;
   onSelect: (id?: string) => void;
   onTerminalGone: () => void;
   onReplaced: (next: TerminalInfo) => void;
 }) {
+  const items = [
+    ...(terminal ? [{ value: "terminal" as const, label: t("session.talk.terminal") }] : []),
+    ...(session ? [{ value: "conversation" as const, label: t("session.talk.conversation") }] : []),
+    ...(files.tabs.length > 0 ? [{ value: "file" as const, label: t("session.talk.file") }] : []),
+  ];
+  const activeFile = files.tabs.find((f) => f.path === files.active) ?? files.tabs[0];
+  const closeFile = (path: string) => {
+    // The last tab closed: back to what was there before.
+    if (fileActions.close(path) && files.tabs.length === 1)
+      setTalk(terminal ? "terminal" : "conversation");
+  };
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {terminal && session && (
+      {items.length > 1 && (
         <div className="flex flex-none items-center px-4 pt-3 pb-2">
-          <Tabs
-            label={t("session.talk")}
-            items={[
-              { value: "terminal", label: t("session.talk.terminal") },
-              { value: "conversation", label: t("session.talk.conversation") },
-            ]}
-            value={talk}
-            onChange={setTalk}
-          />
+          <Tabs label={t("session.talk")} items={items} value={talk} onChange={setTalk} />
         </div>
       )}
-      {terminal && talk === "terminal" ? (
+      {files.tabs.length > 0 && (
+        <FileTabs
+          tabs={files.tabs}
+          {...(talk === "file" && activeFile ? { active: activeFile.path } : {})}
+          onActivate={(path) => {
+            fileActions.activate(path);
+            setTalk("file");
+          }}
+          onClose={closeFile}
+        />
+      )}
+      {talk === "file" && activeFile ? (
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={null}>
+            <FileEditor
+              file={activeFile}
+              onChange={(text) => fileActions.edit(activeFile.path, text)}
+              onSave={() => void fileActions.save(activeFile.path)}
+              onReload={() => fileActions.reload(activeFile.path)}
+              onOverwrite={() => void fileActions.save(activeFile.path, { overwrite: true })}
+            />
+          </Suspense>
+        </div>
+      ) : terminal && talk === "terminal" ? (
         <div className="min-h-0 flex-1">
           <TerminalView terminal={terminal} onClosed={onTerminalGone} onReplaced={onReplaced} />
         </div>

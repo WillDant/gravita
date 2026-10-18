@@ -30,6 +30,13 @@
   --station: #ffffff;
   --shadow: 0 1px 2px rgb(18 20 23 / 6%), 0 4px 12px rgb(18 20 23 / 6%);
   --shadow-lg: 0 2px 6px rgb(18 20 23 / 8%), 0 16px 40px rgb(18 20 23 / 12%);
+  /* Syntax colours for the file editor. */
+  --code-keyword: #8a3ffc;
+  --code-string: #0e7a48;
+  --code-number: #b8430a;
+  --code-function: #2f5bea;
+  --code-type: #a3215e;
+  --code-property: #1f6f8b;
 }
 
 /* The app always sets data-theme explicitly (from the user's choice or the OS). */
@@ -58,6 +65,12 @@
     --station: #0f1115;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
     --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
+    --code-keyword: #c5a3ff;
+    --code-string: #5fd99d;
+    --code-number: #ffa76b;
+    --code-function: #8fb0ff;
+    --code-type: #ff9ccf;
+    --code-property: #7fd4ec;
   }
 }
 

@@ -247,6 +247,18 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.gitInfo, params);
   }
 
+  fsList(params: RpcParams<"fs.list">): Promise<RpcResult<"fs.list">> {
+    return this.call(Methods.fsList, params);
+  }
+
+  fsRead(params: RpcParams<"fs.read">): Promise<RpcResult<"fs.read">> {
+    return this.call(Methods.fsRead, params);
+  }
+
+  fsWrite(params: RpcParams<"fs.write">): Promise<RpcResult<"fs.write">> {
+    return this.call(Methods.fsWrite, params);
+  }
+
   onEvents(listener: (batch: EventsNotification) => void): Unsubscribe {
     return this.events.add(listener);
   }
