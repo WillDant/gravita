@@ -7,7 +7,10 @@ import { FakeGateway, flush } from "@/test/FakeGateway";
 import { renderWithApp } from "@/test/render";
 import { Sidebar } from "./Sidebar";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 setLocale("en");
 
 const state = stateOf(started("s1", 5, "p1"));
@@ -154,5 +157,50 @@ describe("Sidebar: terminals", () => {
       "Shell · me",
       "Cursor Agent · me",
     ]);
+  });
+});
+
+describe("Sidebar: collapsing", () => {
+  it("folds into the icon rail, with short bars for the group titles, and opens again", async () => {
+    const { store } = renderWithApp(<Sidebar />, { state });
+    act(() => {
+      store.getState().setEngineStatus(engine);
+      store.getState().applyTerminalUpdate({ terminal: term() });
+    });
+    expect(screen.getByText("Projects")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse menu" }));
+    expect(screen.queryByText("Projects")).toBeNull();
+    expect(screen.queryByText("Terminals")).toBeNull();
+    expect(screen.queryByText("Gravita")).toBeNull();
+    expect(screen.getByRole("separator", { name: "Projects" })).toBeTruthy();
+    expect(screen.getByRole("separator", { name: "Terminals" })).toBeTruthy();
+    // Every row is still reachable by name, as an icon.
+    expect(screen.getByRole("button", { name: "Home" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "New terminal" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^p1/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add terminal" })).toBeNull();
+    expect(localStorage.getItem("gravita.sidebar.collapsed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand menu" }));
+    expect(screen.getByText("Projects")).toBeTruthy();
+    expect(localStorage.getItem("gravita.sidebar.collapsed")).toBe("false");
+  });
+
+  it("starts collapsed when the user left it that way", async () => {
+    localStorage.setItem("gravita.sidebar.collapsed", "true");
+    renderWithApp(<Sidebar />, { state });
+    expect(screen.queryByText("Projects")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand menu" }).getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+  });
+
+  it("toggles with ⌘B", async () => {
+    renderWithApp(<Sidebar />, { state });
+    fireEvent.keyDown(window, { key: "b", metaKey: true });
+    expect(screen.queryByText("Projects")).toBeNull();
+    fireEvent.keyDown(window, { key: "b", metaKey: true });
+    expect(screen.getByText("Projects")).toBeTruthy();
   });
 });

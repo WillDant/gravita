@@ -4,6 +4,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "nav.home": "Início",
   "nav.settings": "Configurações",
   "nav.projects": "Projetos",
+  "nav.collapse": "Recolher menu",
+  "nav.expand": "Expandir menu",
   "nav.noProjects": "Nenhum projeto ainda",
   "nav.newProject": "Novo projeto",
 
