@@ -10,7 +10,6 @@ import {
 } from "@/features/session-settings/SettingsSelects";
 import { t } from "@/shared/i18n/i18n";
 import { AutoTextarea, fieldFrame } from "@/shared/ui/form";
-import { Button } from "@/shared/ui/ui";
 import { cn, isComposerSend } from "@/shared/utils";
 import { useModels, useNow } from "@/state/hooks";
 import { useComposer } from "./useComposer";
@@ -18,7 +17,7 @@ import { useComposer } from "./useComposer";
 /**
  * Talk to a session Gravita runs: one card with the message box on top (return sends,
  * shift-return breaks the line) and a quiet toolbar under it (model, permissions, send).
- * Interrupt stands apart from the card so the destructive action is never a slip away.
+ * While the agents work, the send button turns into interrupt in the same spot.
  */
 export function Composer({
   session,
@@ -50,14 +49,14 @@ export function Composer({
 
   return (
     <div className="flex-none bg-ground px-6 pt-2 pb-4">
-      <div className="mx-auto flex max-w-[760px] items-end gap-3">
+      <div className="mx-auto max-w-[760px]">
         <form
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
-          className={cn(fieldFrame, "flex min-w-0 flex-1 flex-col rounded-xl bg-panel")}
+          className={cn(fieldFrame, "flex min-w-0 flex-col rounded-xl bg-panel")}
         >
           <label htmlFor={`${id}-text`} className="sr-only">
             {t("composer.label")}
@@ -107,34 +106,40 @@ export function Composer({
             <span id={`${id}-hint`} className="hidden px-1 text-2xs text-ink-3 sm:inline">
               {t("composer.shortcut")}
             </span>
-            <button
-              type="submit"
-              aria-label={t("composer.send")}
-              title={t("composer.send")}
-              aria-busy={c.sending}
-              className={cn(
-                "inline-flex size-8 flex-none items-center justify-center rounded-lg border transition-colors",
-                ready
-                  ? "border-ink bg-ink text-ground hover:bg-ink/85"
-                  : "border-hairline-strong text-ink-3 hover:bg-panel-2 hover:text-ink",
-              )}
-            >
-              <ArrowUp size={16} aria-hidden="true" />
-            </button>
+            {working ? (
+              <button
+                key="interrupt"
+                type="button"
+                onClick={c.interrupt}
+                aria-label={c.interrupting ? t("composer.interrupting") : t("composer.interrupt")}
+                title={t("composer.interruptHint")}
+                aria-busy={c.interrupting}
+                className={cn(
+                  "inline-flex size-8 flex-none items-center justify-center rounded-lg border border-ink bg-ink text-ground transition-colors hover:bg-ink/85",
+                  c.interrupting && "opacity-60",
+                )}
+              >
+                <Square size={12} aria-hidden="true" className="fill-current" />
+              </button>
+            ) : (
+              <button
+                key="send"
+                type="submit"
+                aria-label={t("composer.send")}
+                title={t("composer.send")}
+                aria-busy={c.sending}
+                className={cn(
+                  "inline-flex size-8 flex-none items-center justify-center rounded-lg border transition-colors",
+                  ready
+                    ? "border-ink bg-ink text-ground hover:bg-ink/85"
+                    : "border-hairline-strong text-ink-3 hover:bg-panel-2 hover:text-ink",
+                )}
+              >
+                <ArrowUp size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </form>
-
-        <div className="flex flex-none flex-col justify-end border-l border-hairline pb-2 pl-3">
-          <Button
-            variant={working ? "secondary" : "ghost"}
-            onClick={c.interrupt}
-            aria-busy={c.interrupting}
-            title={t("composer.interruptHint")}
-          >
-            <Square size={13} aria-hidden="true" className="fill-current" />
-            {c.interrupting ? t("composer.interrupting") : t("composer.interrupt")}
-          </Button>
-        </div>
       </div>
       {(c.error || (settings && isFullAccess(c.provider, c.mode))) && (
         <div className="mx-auto max-w-[760px]">

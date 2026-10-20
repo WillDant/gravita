@@ -106,14 +106,14 @@ export function Sidebar() {
       aria-label="Gravita"
       className={cn(
         "flex h-full flex-none flex-col border-r border-hairline bg-panel transition-[width] motion-reduce:transition-none",
-        collapsed ? "w-14" : "w-[232px]",
+        collapsed ? "w-20" : "w-[232px]",
       )}
     >
       <div data-tauri-drag-region className="h-7 flex-none" />
       <div
         className={cn(
           "flex flex-none items-center",
-          collapsed ? "flex-col gap-1 pb-1" : "h-12 justify-between pr-2 pl-4",
+          collapsed ? "flex-col gap-2 pb-1" : "h-12 justify-between pr-2 pl-4",
         )}
       >
         <Wordmark compact={collapsed} />

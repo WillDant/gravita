@@ -13,9 +13,11 @@ afterEach(cleanup);
 setLocale("en");
 
 const at = { ts: ago(1), projectId: "p1", sessionId: "s" };
+/** A chat whose last turn is over: the agents rest and the composer offers to send. */
 const state = stateOf(started("s", 5, "p1", "chat"), [
   ev("session.control", { controllable: true }, at),
   ev("session.settings", { model: "opus", permissionMode: "default" }, at),
+  ev("turn.completed", {}, at),
 ]);
 
 function renderComposer() {
@@ -83,12 +85,24 @@ describe("Composer", () => {
     expect(box.value).toBe("hello");
   });
 
-  it("interrupts from its own button", async () => {
-    const { gateway } = renderComposer();
+  it("turns the send button into interrupt while the agents work", async () => {
+    const busy = stateOf(started("s", 5, "p1", "chat"), [
+      ev("session.control", { controllable: true }, at),
+      ev("turn.completed", {}, at),
+      ev("session.presence", { pid: 1, status: "busy" }, at),
+    ]);
+    const { gateway } = renderWithApp(<Composer session={busy.sessions.s!} />, { state: busy });
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "Interrupt" }));
     await settle();
     expect(gateway.callsOf("interruptSession")).toEqual([{ sessionId: "s" }]);
     expect(gateway.callsOf("sendMessage")).toEqual([]);
+  });
+
+  it("offers no interrupt while the session is idle", () => {
+    renderComposer();
+    expect(screen.queryByRole("button", { name: "Interrupt" })).toBeNull();
   });
 
   it("changes model and permissions, but never offers bypass mid-session", async () => {
