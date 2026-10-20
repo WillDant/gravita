@@ -49,6 +49,9 @@ A button at the top right of a chat shows the branch and how many files changed,
 ### Files and context in the session — [v0.10.5-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta)
 A file explorer with editor tabs replaces the map on demand, and a header meter opens a panel with the context window broken down by category, MCP tools and memory files.
 
+### Welcome and collapsible menu — [v0.10.7-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta)
+A new chat opens with a welcome and the agent's coloured logo, agent icons in terminals are coloured, and the menu folds into an icon rail you can choose.
+
 ## Next
 
 ### Polish and public launch

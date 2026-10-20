@@ -1,6 +1,6 @@
 {
   "name": "@gravita/core",
-  "version": "0.10.5-beta",
+  "version": "0.10.7-beta",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",

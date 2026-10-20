@@ -1396,7 +1396,7 @@ dependencies = [
 
 [[package]]
 name = "gravita"
-version = "0.10.5-beta"
+version = "0.10.7-beta"
 dependencies = [
  "getrandom 0.3.4",
  "libc",

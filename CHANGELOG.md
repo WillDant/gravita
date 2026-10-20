@@ -4,6 +4,16 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.7-beta] - 2026-10-20
+
+A friendlier new chat and a menu you can fold away.
+
+### Interface
+- **New chat:** a chat that hasn't started no longer says "Main agent is thinking". It opens with a centred welcome, the agent's own coloured logo and "Hello! Claude Code is ready. Start working whenever you like." (Cursor's logo stays black and white). The welcome gives way to the conversation with your first message.
+- **Agent icons in terminals:** the icon of an agent running in a terminal, in the menu and in the terminal's header, is now its coloured logo instead of a plain outline.
+- **Collapsible menu:** a button beside the Gravita name (or ⌘B) folds the menu into a narrow rail: the Gravita mark, Home, New terminal, a short bar in place of the Terminais and Projetos titles, and only the icons of your terminals and projects. Press the button under the mark to open it again. The choice is remembered; until you make one, the menu still folds by itself in a narrow window.
+- **Files button:** the folder button at the top right of a chat gets a blue ring while the file explorer is open.
+
 ## [0.10.5-beta] - 2026-10-20
 
 Open and edit the project's files inside the session, and see what fills the context window.
@@ -243,6 +253,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.7-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta
 [0.10.5-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta
 [0.10.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta
 [0.9.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.9.0-beta
