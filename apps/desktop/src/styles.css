@@ -51,6 +51,14 @@
   --file-config: #64748b;
   --file-shell: #3f8f3a;
   --file-lock: #8a8f99;
+  /* Context panel: one colour per category in use, by order. */
+  --ctx-1: #2f5bea;
+  --ctx-2: #12a15f;
+  --ctx-3: #e8590c;
+  --ctx-4: #8a3ffc;
+  --ctx-5: #d6336c;
+  --ctx-6: #0b8ea8;
+  --ctx-7: #b8920a;
 }
 
 /* The app always sets data-theme explicitly (from the user's choice or the OS). */
@@ -98,6 +106,13 @@
     --file-config: #9aa8bd;
     --file-shell: #7fd17a;
     --file-lock: #9098a6;
+    --ctx-1: #7f9cff;
+    --ctx-2: #3ccb86;
+    --ctx-3: #ff8a3d;
+    --ctx-4: #b59cff;
+    --ctx-5: #ff7aa8;
+    --ctx-6: #4fd1e8;
+    --ctx-7: #f0d35a;
   }
 }
 

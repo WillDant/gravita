@@ -262,3 +262,45 @@ describe("conversationOf", () => {
     ]);
   });
 });
+
+describe("SdkSessionMapper context window", () => {
+  const mapper = () => new SdkSessionMapper({ projectId: "p1", sessionId: SID, now: () => NOW });
+  const assistant = (model: string, agent_id?: string) => ({
+    type: "assistant",
+    uuid: `a-${model}`,
+    ...(agent_id ? { agent_id } : {}),
+    message: { id: `m-${model}`, model, content: [{ type: "text", text: "hi" }] },
+  });
+  const result = (modelUsage: Record<string, { contextWindow: number }>) => ({
+    type: "result",
+    subtype: "success",
+    uuid: "r1",
+    modelUsage,
+  });
+  const windowOf = (events: GravitaEvent[]) =>
+    byType(events, "turn.completed")[0]?.data.contextWindow;
+
+  test("reports the main model's window at the end of the turn", () => {
+    const m = mapper();
+    m.map(assistant("claude-opus-5-5"));
+    m.map(assistant("claude-haiku-5-5", "a1"));
+    const events = m.map(
+      result({
+        "claude-opus-5-5": { contextWindow: 200_000 },
+        "claude-haiku-5-5": { contextWindow: 400_000 },
+      }),
+    );
+    expect(windowOf(events)).toBe(200_000);
+  });
+
+  test("takes the largest window when the main model isn't known", () => {
+    const events = mapper().map(
+      result({ a: { contextWindow: 200_000 }, b: { contextWindow: 1_000_000 } }),
+    );
+    expect(windowOf(events)).toBe(1_000_000);
+  });
+
+  test("says nothing without modelUsage", () => {
+    expect(windowOf(mapper().map({ type: "result", uuid: "r1" }))).toBeUndefined();
+  });
+});

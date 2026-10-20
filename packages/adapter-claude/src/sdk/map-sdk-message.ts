@@ -55,6 +55,8 @@ export class SdkSessionMapper {
    * five-hour fraction (0.45) read as 0.45%.
    */
   private readonly percentWindows = new Set<string>();
+  /** The model the main agent last answered with, to pick its window out of `modelUsage`. */
+  private mainModel: string | undefined;
 
   constructor(private readonly o: SdkMapperOptions) {}
 
@@ -120,6 +122,8 @@ export class SdkSessionMapper {
       ...(m.isSynthetic ? { isMeta: true } : {}),
     };
     if (m.type === "assistant") indexAgentCalls([record], agentId, this.calls);
+    if (m.type === "assistant" && agentId === MAIN_AGENT && m.message?.model)
+      this.mainModel = m.message.model;
     const path = this.o.transcriptPath?.(agentId);
     const out = normalizeRecords([record], {
       projectId: this.o.projectId,
@@ -265,6 +269,7 @@ export class SdkSessionMapper {
           ...(m.subtype ? { subtype: m.subtype } : {}),
           ...(typeof m.duration_ms === "number" ? { durationMs: m.duration_ms } : {}),
           ...(typeof m.num_turns === "number" ? { numTurns: m.num_turns } : {}),
+          ...this.contextWindow(m),
         },
       });
     }
@@ -278,6 +283,25 @@ export class SdkSessionMapper {
       });
     }
     return out;
+  }
+
+  /**
+   * The main model's window from the turn's `modelUsage`; without a known main model, the
+   * largest (subagents tend to run on smaller models, never on larger windows than main's).
+   */
+  private contextWindow(m: SdkResultMessage): { contextWindow?: number } {
+    const usage = m.modelUsage;
+    if (!usage) return {};
+    const valid = (n: unknown): n is number => typeof n === "number" && n > 0;
+    const main = this.mainModel ? usage[this.mainModel]?.contextWindow : undefined;
+    if (valid(main)) return { contextWindow: main };
+    const largest = Math.max(
+      0,
+      ...Object.values(usage)
+        .map((u) => u.contextWindow)
+        .filter(valid),
+    );
+    return largest > 0 ? { contextWindow: largest } : {};
   }
 
   private isAgent(taskId: string): boolean {

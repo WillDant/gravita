@@ -9,7 +9,12 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { claudeToolCall, inputPreview, SdkSessionMapper } from "@gravita/adapter-claude";
 import { isClaudeMode } from "@gravita/core";
-import { MAIN_AGENT, type PermissionMode, type SessionMode } from "@gravita/protocol";
+import {
+  type ContextUsage,
+  MAIN_AGENT,
+  type PermissionMode,
+  type SessionMode,
+} from "@gravita/protocol";
 import type {
   ChatRuntime,
   ChatRuntimeFactory,
@@ -39,6 +44,7 @@ import { CLAUDE } from "../provider";
 import { AsyncQueue } from "./async-queue";
 import { claudeAccess } from "./claude-access";
 import { claudeSubagentEnv } from "./claude-subagent-env";
+import { toContextUsage } from "./context-usage";
 import { buildGravitaMcpServer, GRAVITA_MCP_SERVER, guardHooks } from "./gravita-mcp-server";
 
 // One Claude Code session driven through the Agent SDK in streaming-input mode: the user's
@@ -289,6 +295,10 @@ export class ClaudeSdkRuntime implements ChatRuntime {
   async supportedModels(): Promise<ModelOption[]> {
     const models = await this.live().supportedModels();
     return models.map((m) => ({ value: m.value, displayName: m.displayName }));
+  }
+
+  async contextUsage(): Promise<ContextUsage> {
+    return toContextUsage(await this.live().getContextUsage({ detail: "full" }));
   }
 
   /** Aborts the session and closes Claude Code; resolves once the stream ended (or after a cap). */

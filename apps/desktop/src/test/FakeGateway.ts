@@ -56,7 +56,8 @@ export type FakeCommand =
   | "gitInfo"
   | "fsList"
   | "fsRead"
-  | "fsWrite";
+  | "fsWrite"
+  | "sessionContext";
 
 /** In-memory EngineGateway: tests push events and decide what each call returns. */
 export class FakeGateway implements EngineGateway {
@@ -103,6 +104,7 @@ export class FakeGateway implements EngineGateway {
   };
   terminalsResult: RpcResult<"terminal.list"> = { terminals: [] };
   gitInfoResult: RpcResult<"git.info"> = { repo: false };
+  sessionContextResult: RpcResult<"session.context"> = { kind: "unavailable" };
   /** The project the file explorer sees: relative path → contents. */
   files: Record<string, string> = {};
   /** Each file's mtime; bumped on every write. */
@@ -300,6 +302,9 @@ export class FakeGateway implements EngineGateway {
   }
   gitInfo(params: RpcParams<"git.info">) {
     return this.run("gitInfo", params, () => this.gitInfoResult);
+  }
+  sessionContext(params: RpcParams<"session.context">) {
+    return this.run("sessionContext", params, () => this.sessionContextResult);
   }
   fsList(params: RpcParams<"fs.list">) {
     return this.run("fsList", params, () => {

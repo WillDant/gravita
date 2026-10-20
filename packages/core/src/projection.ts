@@ -234,6 +234,7 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
       setLifecycle(main, "idle");
       main.lastEventTs = later(main.lastEventTs, e.ts);
       if (e.data.costUsd !== undefined) s.costUsd = (s.costUsd ?? 0) + e.data.costUsd;
+      if (e.data.contextWindow && s.context) s.context.window = e.data.contextWindow;
       squadSpend(state, s);
       return;
     }
@@ -332,6 +333,18 @@ export function apply(state: GravitaState, e: GravitaEvent): void {
         cacheRead: e.data.cacheRead,
         cacheWrite: e.data.cacheWrite,
       });
+      if (a.id === MAIN_AGENT && (!s.context || e.ts >= s.context.ts)) {
+        const d = e.data;
+        const model = d.model ?? s.context?.model;
+        // A reply that doesn't say its window keeps the one already known.
+        const window = d.contextWindow ?? s.context?.window;
+        s.context = {
+          tokens: d.input + d.cacheRead + d.cacheWrite + d.output,
+          ...(window ? { window } : {}),
+          ...(model ? { model } : {}),
+          ts: e.ts,
+        };
+      }
       return;
     case "permission.requested":
       if (!a.pendingPermissions.includes(e.data.requestId))

@@ -247,6 +247,10 @@ export class WsEngineGateway implements EngineGateway {
     return this.call(Methods.gitInfo, params);
   }
 
+  sessionContext(params: RpcParams<"session.context">): Promise<RpcResult<"session.context">> {
+    return this.call(Methods.sessionContext, params);
+  }
+
   fsList(params: RpcParams<"fs.list">): Promise<RpcResult<"fs.list">> {
     return this.call(Methods.fsList, params);
   }

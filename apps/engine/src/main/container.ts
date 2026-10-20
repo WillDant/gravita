@@ -47,6 +47,7 @@ import { FreezeContract } from "../application/usecases/freeze-contract";
 import { GetConversation } from "../application/usecases/get-conversation";
 import { GetEngineStatus } from "../application/usecases/get-engine-status";
 import { GetGitInfo } from "../application/usecases/get-git-info";
+import { GetSessionContext } from "../application/usecases/get-session-context";
 import { GetSessionEvents } from "../application/usecases/get-session-events";
 import { GetSnapshot } from "../application/usecases/get-snapshot";
 import { IngestEvents } from "../application/usecases/ingest-events";
@@ -614,6 +615,7 @@ export function createCore(o: CoreOptions): EngineCore {
       setPermissionMode: new SetPermissionMode(runtimes, settings),
       answerQuestion: new AnswerQuestion(runtimes),
       getConversation: new GetConversation(transcripts),
+      sessionContext: new GetSessionContext(runtimes, clock, logger),
       listModels: new ListModels(runtimes, clock, logger, DEFAULT_FALLBACKS, {
         ...(codexModels ? { codex: codexModels } : {}),
         ...(cursorModels ? { cursor: cursorModels } : {}),

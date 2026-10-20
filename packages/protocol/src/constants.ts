@@ -107,6 +107,7 @@ export const Methods = {
   fsList: "fs.list",
   fsRead: "fs.read",
   fsWrite: "fs.write",
+  sessionContext: "session.context",
 } as const;
 
 /**

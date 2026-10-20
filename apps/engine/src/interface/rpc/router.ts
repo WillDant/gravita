@@ -18,6 +18,7 @@ import type { AnswerQuestion } from "../../application/usecases/answer-question"
 import type { GetConversation } from "../../application/usecases/get-conversation";
 import type { GetEngineStatus } from "../../application/usecases/get-engine-status";
 import type { GetGitInfo } from "../../application/usecases/get-git-info";
+import type { GetSessionContext } from "../../application/usecases/get-session-context";
 import type { GetSessionEvents } from "../../application/usecases/get-session-events";
 import type { GetSnapshot } from "../../application/usecases/get-snapshot";
 import type { InterruptSession } from "../../application/usecases/interrupt-session";
@@ -118,6 +119,8 @@ export interface RouterDeps {
   updates?: UpdateControl;
   /** Reads a folder's repository; absent: `git.info` answers that the folder isn't one. */
   gitInfo?: GetGitInfo;
+  /** Reads a session's context breakdown; absent: every session answers `unavailable`. */
+  sessionContext?: GetSessionContext;
   /** The file explorer's reads and saves; absent: every `fs.*` method finds no folder. */
   files?: ProjectFiles;
 }
@@ -163,6 +166,7 @@ export function rpcHandlers(d: RouterDeps): RpcHandlers {
     "session.setPermissionMode": (p) => d.setPermissionMode.execute(p),
     "question.answer": (p) => d.answerQuestion.execute(p),
     "session.conversation": (p) => d.getConversation.execute(p),
+    "session.context": (p) => d.sessionContext?.execute(p) ?? { kind: "unavailable" },
     "models.list": (p) => d.listModels.execute(p.provider),
     // The alias older clients call: Claude Code's models.
     "claude.models": () => d.listModels.execute("claude"),

@@ -125,6 +125,8 @@ export const TurnCompleted = ev("turn.completed", {
   costUsd: z.number().optional(),
   durationMs: z.number().optional(),
   numTurns: z.number().optional(),
+  /** The main model's context window, as the agent reported it at the end of the turn. */
+  contextWindow: z.number().int().positive().optional(),
 });
 
 export const AgentSpawned = ev("agent.spawned", {
@@ -229,6 +231,8 @@ export const UsageReported = ev("usage.reported", {
   output: z.number(),
   cacheRead: z.number(),
   cacheWrite: z.number(),
+  /** The model's context window, when the provider says (Codex does; Claude's transcripts don't). */
+  contextWindow: z.number().int().positive().optional(),
 });
 
 export const UsageWindowSchema = z.enum(USAGE_WINDOWS);

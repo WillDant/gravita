@@ -468,6 +468,7 @@ export class RolloutNormalizer {
       const cacheWrite = num(last, "cache_write_input_tokens") ?? 0;
       const output = num(last, "output_tokens") ?? 0;
       const messageId = codexItemId(this.ctx.threadId, `usage:${total}`);
+      const contextWindow = num(info, "model_context_window");
       out.push({
         ...this.base(r.timestamp),
         key: `${keys.usage(messageId)}:${output}`,
@@ -479,6 +480,7 @@ export class RolloutNormalizer {
           output,
           cacheRead,
           cacheWrite,
+          ...(contextWindow && contextWindow > 0 ? { contextWindow } : {}),
         },
       });
     }
