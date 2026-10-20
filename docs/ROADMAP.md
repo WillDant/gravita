@@ -46,6 +46,9 @@ A New terminal button, a screen where terminals split side by side or stacked, a
 ### Git in the session — [v0.10.0-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta)
 A button at the top right of a chat shows the branch and how many files changed, and opens a panel with the branch's pull request (state, checks, review) and the diff of every changed file.
 
+### Files and context in the session — [v0.10.5-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta)
+A file explorer with editor tabs replaces the map on demand, and a header meter opens a panel with the context window broken down by category, MCP tools and memory files.
+
 ## Next
 
 ### Polish and public launch

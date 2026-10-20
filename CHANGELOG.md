@@ -4,6 +4,10 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.5-beta] - 2026-10-20
+
+Open and edit the project's files inside the session, and see what fills the context window.
+
 ### Interface
 - **Files in the session:** a folder button at the top right of a chat (or ⇧⌘E) swaps the map for the project's files. Pressing a file opens it in an editor where the terminal or conversation is, with a new File option beside Terminal · Conversation (shown only while a file is open). Open files are tabs under that switch: a dot marks unsaved changes, ⌘S saves and turns it back into a close button. Closing a tab with unsaved changes asks first, and a file changed on disk since it was opened is never overwritten without asking. Folders show in blue and the main file types (TypeScript, JavaScript, JSON, styles, Markdown, Python, Rust, images, config, shell, lockfiles) each have their own coloured icon, in the tree and on the tabs.
 
@@ -239,6 +243,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.5-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta
 [0.10.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta
 [0.9.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.9.0-beta
 [0.8.2-beta]: https://github.com/WillDant/gravita/releases/tag/v0.8.2-beta
