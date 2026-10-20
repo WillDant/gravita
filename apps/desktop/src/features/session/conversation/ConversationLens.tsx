@@ -27,6 +27,7 @@ import { hasArrived } from "@/state/slices/conversation";
 import { Story } from "../agent-panel/Timeline";
 import { MessageText } from "./MessageText";
 import { BEFORE_FIRST, summarizeSteps, toolStepsByMessage } from "./toolSteps";
+import { Welcome } from "./Welcome";
 
 /** Spawn tool-use id → the subagent it started, from the session's `agent.spawned` events. */
 export function spawnedAgents(events: readonly GravitaEvent[]): Map<string, string> {
@@ -90,6 +91,15 @@ function Conversation({
   const waitingForEcho = pending && !hasArrived(messages, pending) ? pending : undefined;
   const working = workingLine(session, now, speaker, Boolean(waitingForEcho));
   const stepCount = steps.size;
+  // A fresh chat: the agent is up but nothing has been said or done. Its startup reads as
+  // "thinking", which isn't worth announcing before the first message.
+  const main = session.agents[MAIN_AGENT];
+  const activity = main ? activityOf(main, session, now) : undefined;
+  const fresh =
+    count === 0 &&
+    stepCount === 0 &&
+    !waitingForEcho &&
+    (activity === undefined || activity === "thinking");
 
   const toBottom = (smooth: boolean) => {
     const el = scroller.current;
@@ -126,6 +136,10 @@ function Conversation({
         <Button onClick={retry}>{t("conversation.retry")}</Button>
       </div>
     );
+  }
+
+  if (fresh && session.controllable && !session.ended && !speaker && !empty) {
+    return <Welcome provider={session.provider} />;
   }
 
   if (count === 0 && !waitingForEcho && !working && stepCount === 0) {
