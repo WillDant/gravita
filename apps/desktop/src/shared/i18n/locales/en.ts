@@ -5,6 +5,8 @@ export const en = {
   "nav.home": "Home",
   "nav.settings": "Settings",
   "nav.projects": "Projects",
+  "nav.collapse": "Collapse menu",
+  "nav.expand": "Expand menu",
   "nav.noProjects": "No projects yet",
   "nav.newProject": "New project",
 

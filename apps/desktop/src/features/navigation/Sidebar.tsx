@@ -1,10 +1,22 @@
 import { type GravitaState, sessionCounts } from "@gravita/core";
-import { House, Plus, Settings, SquareTerminal, UsersRound } from "lucide-react";
-import { useMemo } from "react";
+import {
+  House,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Settings,
+  SquareTerminal,
+  UsersRound,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useProjectAppearances } from "@/app/providers";
 import { NotificationSettings } from "@/features/notifications/NotificationSettings";
 import { RemoveSessionButton } from "@/features/session/RemoveSessionButton";
 import { useOpenTerminal } from "@/features/terminal/useOpenTerminal";
+import {
+  readSidebarCollapsed,
+  writeSidebarCollapsed,
+} from "@/infrastructure/preferences/sidebarCollapsed";
 import { ago, t, useLocale } from "@/shared/i18n/i18n";
 import { projectSummaries, sessionStatus, sessionTitle } from "@/shared/presenters/selectors";
 import {
@@ -19,11 +31,47 @@ import { terminalProvider, terminalTitle } from "@/shared/presenters/terminal";
 import { ProjectTile } from "@/shared/ui/ProjectTile";
 import { ProviderMark } from "@/shared/ui/ProviderMark";
 import { TerminalIcon } from "@/shared/ui/TerminalIcon";
-import { basename, cn } from "@/shared/utils";
+import { basename, cn, MOD_KEY } from "@/shared/utils";
 import { useAppStore, useNow, useProjection, useRoute, useTerminalSupported } from "@/state/hooks";
+
+/** Below this width the menu folds into the icon rail by itself, until the user chooses. */
+const NARROW = "(max-width: 1100px)";
+
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia === "function" && matchMedia(NARROW).matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const mq = matchMedia(NARROW);
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
+}
 
 export function Sidebar() {
   useLocale();
+  const [chosen, setChosen] = useState(() => readSidebarCollapsed());
+  const narrow = useNarrow();
+  // The user's choice wins in both directions; without one the window width decides.
+  const collapsed = chosen ?? narrow;
+  const toggle = () => {
+    setChosen(!collapsed);
+    writeSidebarCollapsed(!collapsed);
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: toggle only closes over `collapsed`.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "b")
+        return;
+      e.preventDefault();
+      toggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [collapsed]);
   const state = useProjection((p) => p);
   const now = useNow();
   const route = useRoute();
@@ -56,14 +104,24 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Gravita"
-      className="flex h-full w-[232px] flex-none flex-col border-r border-hairline bg-panel max-[1100px]:w-14"
+      className={cn(
+        "flex h-full flex-none flex-col border-r border-hairline bg-panel transition-[width] motion-reduce:transition-none",
+        collapsed ? "w-14" : "w-[232px]",
+      )}
     >
       <div data-tauri-drag-region className="h-7 flex-none" />
-      <div className="flex h-12 items-center gap-2 px-4 max-[1100px]:px-[17px]">
-        <Wordmark />
+      <div
+        className={cn(
+          "flex flex-none items-center",
+          collapsed ? "flex-col gap-1 pb-1" : "h-12 justify-between pr-2 pl-4",
+        )}
+      >
+        <Wordmark compact={collapsed} />
+        <CollapseButton collapsed={collapsed} onClick={toggle} />
       </div>
       <div className="flex flex-col gap-0.5 px-2 pt-1">
         <NavItem
+          collapsed={collapsed}
           prominent
           active={route.level === "home"}
           onClick={() => navigate({ level: "home" })}
@@ -74,6 +132,7 @@ export function Sidebar() {
         </NavItem>
         {terminalsSupported && (
           <NavItem
+            collapsed={collapsed}
             active={false}
             busy={newTerminal.busy}
             onClick={() => void newTerminal.open()}
@@ -84,7 +143,7 @@ export function Sidebar() {
           </NavItem>
         )}
         {newTerminal.error && (
-          <p role="alert" className="px-2 text-xs text-error-ink max-[1100px]:sr-only">
+          <p role="alert" className={cn("px-2 text-xs text-error-ink", collapsed && "sr-only")}>
             {newTerminal.error}
           </p>
         )}
@@ -93,6 +152,7 @@ export function Sidebar() {
       {terminalsSupported && (
         <>
           <SectionHeading
+            collapsed={collapsed}
             label={t("terminal.list")}
             actionLabel={t("terminals.add")}
             onAction={() => void newTerminal.open()}
@@ -105,6 +165,7 @@ export function Sidebar() {
               return (
                 <li key={terminal.terminalId}>
                   <NavItem
+                    collapsed={collapsed}
                     active={active}
                     onClick={() => {
                       placeTerminal(terminal.terminalId);
@@ -135,13 +196,16 @@ export function Sidebar() {
       )}
 
       <SectionHeading
+        collapsed={collapsed}
         label={t("nav.projects")}
         actionLabel={t("nav.newProject")}
         onAction={() => navigate({ level: "home", newSession: true })}
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {summaries.length === 0 && (
-          <p className="px-2 text-sm text-ink-3 max-[1100px]:sr-only">{t("nav.noProjects")}</p>
+          <p className={cn("px-2 text-sm text-ink-3", collapsed && "sr-only")}>
+            {t("nav.noProjects")}
+          </p>
         )}
         {summaries.map(({ project, counts }) => {
           const open = currentProject === project.id;
@@ -154,6 +218,7 @@ export function Sidebar() {
           return (
             <div key={project.id}>
               <NavItem
+                collapsed={collapsed}
                 active={route.level === "project" && open}
                 onClick={() => navigate({ level: "project", projectId: project.id })}
                 icon={<ProjectTile name={project.name} appearance={appearances[project.id]} />}
@@ -174,7 +239,8 @@ export function Sidebar() {
                   </span>
                 )}
               </NavItem>
-              {(open || live.length > 0) &&
+              {!collapsed &&
+                (open || live.length > 0) &&
                 (open ? items.slice(0, 6) : live.slice(0, 3)).map((item) => (
                   <SubItem
                     key={item.kind === "squad" ? `q:${item.squad.id}` : item.session.id}
@@ -201,7 +267,12 @@ export function Sidebar() {
         })}
       </div>
 
-      <div className="flex items-center gap-1 border-t border-hairline px-2 py-2 max-[1100px]:flex-col">
+      <div
+        className={cn(
+          "flex items-center gap-1 border-t border-hairline px-2 py-2",
+          collapsed && "flex-col",
+        )}
+      >
         <button
           type="button"
           onClick={() => navigate({ level: "settings" })}
@@ -223,23 +294,33 @@ export function Sidebar() {
 
 /** A group's title in the menu, with a "+" that shows on hover (or focus) to add to the group. */
 function SectionHeading({
+  collapsed,
   label,
   actionLabel,
   onAction,
 }: {
+  collapsed: boolean;
   label: string;
   actionLabel: string;
   onAction: () => void;
 }) {
+  // In the icon rail the title shrinks to a short bar that still divides the groups.
+  if (collapsed) {
+    return (
+      <div role="separator" aria-label={label} className="mt-4 mb-2 flex justify-center">
+        <span aria-hidden="true" className="h-0.5 w-5 rounded-full bg-hairline-strong" />
+      </div>
+    );
+  }
   return (
-    <div className="group/heading mt-4 flex items-center justify-between pr-2 pb-1.5 pl-4 text-xs font-semibold text-ink-3 max-[1100px]:sr-only">
+    <div className="group/heading mt-4 flex items-center justify-between pr-2 pb-1.5 pl-4 text-xs font-semibold text-ink-3">
       <span>{label}</span>
       <button
         type="button"
         onClick={onAction}
         aria-label={actionLabel}
         title={actionLabel}
-        className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/heading:opacity-100 max-[1100px]:hidden"
+        className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/heading:opacity-100"
       >
         <Plus size={14} aria-hidden="true" />
       </button>
@@ -298,7 +379,7 @@ function SubItem({
   return (
     <div
       className={cn(
-        "group/subitem flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 pl-1 max-[1100px]:hidden",
+        "group/subitem flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 pl-1",
         active ? "bg-ground shadow-panel" : "hover:bg-panel-2",
       )}
     >
@@ -333,6 +414,7 @@ function SubItem({
 }
 
 function NavItem({
+  collapsed,
   prominent,
   active,
   icon,
@@ -342,6 +424,8 @@ function NavItem({
   children,
   onClick,
 }: {
+  /** The icon rail: the icon alone, centred, with the label kept for assistive tech. */
+  collapsed: boolean;
   /** The row that stands out from the rest of the menu (Home): larger, bolder, with an accent bar. */
   prominent?: boolean;
   active: boolean;
@@ -363,6 +447,7 @@ function NavItem({
       {...(busy ? { "aria-busy": true } : {})}
       className={cn(
         "relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink",
+        collapsed && "justify-center px-0",
         prominent && "h-10 text-base font-semibold text-ink",
         active && "bg-ground text-ink shadow-panel",
         prominent &&
@@ -376,7 +461,8 @@ function NavItem({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute -top-1.5 -right-2 hidden min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] leading-[14px] font-bold tabular-nums max-[1100px]:flex",
+              "absolute -top-1.5 -right-2 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] leading-[14px] font-bold tabular-nums",
+              collapsed ? "flex" : "hidden",
               badge.waiting ? "bg-waiting text-white" : "bg-ink text-ground",
             )}
           >
@@ -384,7 +470,7 @@ function NavItem({
           </span>
         )}
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-2 max-[1100px]:sr-only">
+      <span className={cn("flex min-w-0 flex-1 items-center gap-2", collapsed && "sr-only")}>
         {children}
       </span>
     </button>
@@ -392,7 +478,7 @@ function NavItem({
 }
 
 /** Wordmark: the name set in DM Sans with a small orbit mark: three line colours around a center. */
-export function Wordmark() {
+export function Wordmark({ compact }: { compact?: boolean } = {}) {
   return (
     <span className="flex items-center gap-2">
       <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
@@ -419,9 +505,27 @@ export function Wordmark() {
           strokeLinecap="round"
         />
       </svg>
-      <span className="text-[15px] font-bold tracking-[-0.02em] text-ink max-[1100px]:hidden">
-        Gravita
-      </span>
+      {!compact && (
+        <span className="text-[15px] font-bold tracking-[-0.02em] text-ink">Gravita</span>
+      )}
     </span>
+  );
+}
+
+/** Folds the menu into the icon rail, or opens it again. */
+function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
+  const label = collapsed ? t("nav.expand") : t("nav.collapse");
+  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={`${label} (${MOD_KEY}B)`}
+      className="inline-flex size-7 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-panel-2 hover:text-ink"
+    >
+      <Icon size={16} aria-hidden="true" />
+    </button>
   );
 }
