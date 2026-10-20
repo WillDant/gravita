@@ -1,8 +1,8 @@
 import type { AgentProvider } from "@gravita/protocol/constants";
 import { SquareTerminal } from "lucide-react";
-import { ProviderIcon } from "./ProviderIcon";
+import { ProviderLogo } from "./ProviderLogo";
 
-/** The agent's mark when one runs in the terminal, else the plain terminal icon. */
+/** The agent's coloured logo when one runs in the terminal, else the plain terminal icon. */
 export function TerminalIcon({
   provider,
   size = 15,
@@ -13,7 +13,7 @@ export function TerminalIcon({
   className?: string;
 }) {
   return provider ? (
-    <ProviderIcon provider={provider} size={size} {...(className ? { className } : {})} />
+    <ProviderLogo provider={provider} size={size} {...(className ? { className } : {})} />
   ) : (
     <SquareTerminal size={size} aria-hidden="true" {...(className ? { className } : {})} />
   );

@@ -18,12 +18,13 @@ const said = (uuid: string, minutesAgo: number, text: string, role: "user" | "as
   text,
 });
 
-async function renderLens(extra: ReturnType<typeof ev>[] = []) {
+async function renderLens(extra: ReturnType<typeof ev>[] = [], provider?: string) {
   const events = [...started("s", 5, "p1", "chat"), control, ...extra];
   const state = stateOf(events);
+  const session = provider ? { ...state.sessions.s!, provider } : state.sessions.s!;
   const gateway = new FakeGateway();
   gateway.sessionEventsResult = { events };
-  const view = renderWithApp(<ConversationLens session={state.sessions.s!} onSelect={() => {}} />, {
+  const view = renderWithApp(<ConversationLens session={session} onSelect={() => {}} />, {
     state,
     gateway,
   });
@@ -33,6 +34,18 @@ async function renderLens(extra: ReturnType<typeof ev>[] = []) {
 }
 
 describe("ConversationLens", () => {
+  it("greets a fresh chat instead of announcing that the agent thinks", async () => {
+    await renderLens([], "codex");
+    expect(screen.getByText("Hello! Codex is ready.")).toBeTruthy();
+    expect(screen.getByText("Start working whenever you like.")).toBeTruthy();
+    expect(screen.queryByText("Main agent is thinking")).toBeNull();
+  });
+
+  it("greets by the generic name when the provider has no mark", async () => {
+    await renderLens();
+    expect(screen.getByText("Hello! Main agent is ready.")).toBeTruthy();
+  });
+
   it("shows a sent message right away, then the transcript's copy only", async () => {
     const view = await renderLens();
     view.gateway.conversationResult = { messages: [] };

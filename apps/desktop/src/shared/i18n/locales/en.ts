@@ -384,6 +384,8 @@ export const en = {
   "conversation.loading": "Loading the conversation…",
   "conversation.empty": "No messages in this session yet.",
   "conversation.emptyControllable": "No messages yet. Write to the main agent below.",
+  "conversation.welcome.title": "Hello! {name} is ready.",
+  "conversation.welcome.hint": "Start working whenever you like.",
   "conversation.failed": "Couldn't load the conversation.",
   "conversation.retry": "Try again",
   "conversation.openAgent": "Open {agent}",

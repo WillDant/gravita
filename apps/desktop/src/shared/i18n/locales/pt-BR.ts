@@ -385,6 +385,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "conversation.empty": "Nenhuma mensagem nesta sessão ainda.",
   "conversation.emptyControllable":
     "Nenhuma mensagem ainda. Escreva para o agente principal abaixo.",
+  "conversation.welcome.title": "Olá! {name} está pronto.",
+  "conversation.welcome.hint": "Inicialize o trabalho quando quiser.",
   "conversation.failed": "Não consegui carregar a conversa.",
   "conversation.retry": "Tentar de novo",
   "conversation.openAgent": "Abrir {agent}",
