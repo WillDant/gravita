@@ -1,6 +1,6 @@
 # Contexto do Projeto: gravita
 
-**Gravita** — ver e dirigir agentes de código (Claude Code, Codex, Cursor) e subagentes em todos os projetos. Mapa de linhas ao vivo, chat/terminal integrado, squads em worktrees. **v0.10.7-beta** (preview macOS). Licença Apache-2.0.
+**Gravita** — ver e dirigir agentes de código (Claude Code, Codex, Cursor) e subagentes em todos os projetos. Mapa de linhas ao vivo, chat/terminal integrado, squads em worktrees. **v0.10.9-beta** (preview macOS). Licença Apache-2.0.
 
 ## Tech stack e versões
 

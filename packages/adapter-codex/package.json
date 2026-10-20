@@ -1,6 +1,6 @@
 {
   "name": "@gravita/adapter-codex",
-  "version": "0.10.7-beta",
+  "version": "0.10.9-beta",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",

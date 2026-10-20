@@ -1,7 +1,7 @@
 {
   "name": "deep-observe",
   "displayName": "Gravita Deep Observe",
-  "version": "0.10.7-beta",
+  "version": "0.10.9-beta",
   "description": "Lets the Gravita desktop app see your terminal Claude Code sessions live, including which agent is waiting for a permission. Observe only: the hooks forward events to Gravita on 127.0.0.1 and never block or change what Claude Code does.",
   "author": { "name": "Gravita" },
   "homepage": "https://github.com/WillDant/gravita",

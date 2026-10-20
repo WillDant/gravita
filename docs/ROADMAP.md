@@ -52,6 +52,9 @@ A file explorer with editor tabs replaces the map on demand, and a header meter 
 ### Welcome and collapsible menu — [v0.10.7-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta)
 A new chat opens with a welcome and the agent's coloured logo, agent icons in terminals are coloured, and the menu folds into an icon rail you can choose.
 
+### Send or stop in one button — [v0.10.9-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta)
+The chat is only the message box: its send button turns into a stop button while the agents work, and the folded menu is wide enough to sit beside the window buttons.
+
 ## Next
 
 ### Polish and public launch

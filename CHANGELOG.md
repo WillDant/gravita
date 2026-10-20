@@ -4,6 +4,14 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.9-beta] - 2026-10-20
+
+One place to send or stop in the chat, and a roomier folded menu.
+
+### Interface
+- **Send or interrupt:** the chat is now just the message box. While the agents work, its send button turns into a stop button in the same spot; click it to interrupt. It goes back to send when they rest. The separate Interrupt button is gone. Return still sends a message mid-turn.
+- **Folded menu:** the icon rail is wider (80px instead of 56px) so it no longer ends before the window's close, minimise and zoom buttons, and the button that opens the menu again has the same gap above and below.
+
 ## [0.10.7-beta] - 2026-10-20
 
 A friendlier new chat and a menu you can fold away.
@@ -253,6 +261,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.9-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta
 [0.10.7-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta
 [0.10.5-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta
 [0.10.0-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.0-beta
