@@ -395,7 +395,7 @@ function ExplorerButton({ on, onChange }: { on: boolean; onChange: (on: boolean)
       onClick={() => onChange(!on)}
       className={cn(
         "inline-flex size-8 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-panel hover:text-ink",
-        on && "bg-panel text-ink",
+        on && "bg-panel text-ink ring-2 ring-focus",
       )}
     >
       <FolderTree size={16} aria-hidden="true" />
