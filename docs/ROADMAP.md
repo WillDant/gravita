@@ -55,6 +55,9 @@ A new chat opens with a welcome and the agent's coloured logo, agent icons in te
 ### Send or stop in one button — [v0.10.9-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta)
 The chat is only the message box: its send button turns into a stop button while the agents work, and the folded menu is wide enough to sit beside the window buttons.
 
+### A frosted menu — [v0.10.11-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.11-beta)
+On macOS the side menu is frosted glass that follows the app's theme, with a setting to make it opaque again.
+
 ## Next
 
 ### Polish and public launch

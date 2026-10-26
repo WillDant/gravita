@@ -4,6 +4,14 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.11-beta] - 2026-10-26
+
+A frosted side menu on macOS.
+
+### Interface
+- **Frosted menu:** on macOS the side menu is now frosted glass, like Finder's or Notes', with the desktop showing through. It dims when the window loses focus and follows the app's light or dark theme. The main area stays opaque.
+- **Reduce transparency:** a new setting in Settings makes the menu opaque again. macOS's own "Reduce transparency" does the same.
+
 ## [0.10.9-beta] - 2026-10-20
 
 One place to send or stop in the chat, and a roomier folded menu.
@@ -261,6 +269,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.11-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.11-beta
 [0.10.9-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta
 [0.10.7-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta
 [0.10.5-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.5-beta
