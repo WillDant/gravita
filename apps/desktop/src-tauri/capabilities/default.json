@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window. No shell or filesystem access for the webview: data comes from the engine over a local, token-authenticated WebSocket. Native extras: the folder picker, OS notifications (send + permission checks, nothing else) and the shell's own tray_update, open_sign_in_url and cursor_key_* commands (allowed for app commands by default; open_sign_in_url opens only Codex's https sign-in page on OpenAI's hosts; cursor_key_set/remove/present store the Cursor API key in the Keychain and hand it to the engine, and never return it).",
+  "description": "Main window. No shell or filesystem access for the webview: data comes from the engine over a local, token-authenticated WebSocket. Native extras: the folder picker, OS notifications (send + permission checks, nothing else) and the shell's own tray_update, open_sign_in_url and cursor_key_* commands (allowed for app commands by default; open_sign_in_url opens only Codex's https sign-in page on OpenAI's hosts; cursor_key_set/remove/present store the Cursor API key in the Keychain and hand it to the engine, and never return it). On macOS the window's frosted sidebar material follows the app's theme (core:window:allow-set-theme).",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "updater:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
     "dialog:allow-open",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",

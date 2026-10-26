@@ -480,6 +480,8 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "settings.theme.body": "Claro ou escuro.",
   "settings.theme.light": "Claro",
   "settings.theme.dark": "Escuro",
+  "settings.transparency": "Reduzir transparência",
+  "settings.transparency.body": "Deixa o menu lateral opaco, sem o efeito de vidro.",
   "settings.language": "Idioma",
   "settings.language.body": "O idioma do app.",
   "settings.language.en": "English",

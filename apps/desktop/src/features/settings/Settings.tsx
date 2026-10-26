@@ -1,5 +1,6 @@
 import {
   BellRing,
+  Blend,
   CircleCheck,
   Hand,
   Languages,
@@ -10,7 +11,7 @@ import {
   Sun,
   TriangleAlert,
 } from "lucide-react";
-import { useTheme, useToggleTheme } from "@/app/providers";
+import { useReduceTransparency, useTheme, useToggleTheme } from "@/app/providers";
 import { CursorKey } from "@/features/connect/CursorKey";
 import { NotificationToggles } from "@/features/notifications/NotificationSettings";
 import { UpdateSettings } from "@/features/update/UpdateSettings";
@@ -52,6 +53,8 @@ export function Settings() {
 function Preferences() {
   const theme = useTheme();
   const toggleTheme = useToggleTheme();
+  // Only where the menu is frosted (the macOS app): elsewhere there's nothing to reduce.
+  const transparency = useReduceTransparency();
   const locale = getLocale();
   return (
     <section aria-labelledby="settings-prefs">
@@ -87,6 +90,21 @@ function Preferences() {
             onChange={(next) => next !== theme && toggleTheme()}
           />
         </Row>
+        {transparency && (
+          <Row
+            icon={<Blend size={16} />}
+            title={t("settings.transparency")}
+            body={t("settings.transparency.body")}
+          >
+            <input
+              type="checkbox"
+              aria-label={t("settings.transparency")}
+              checked={transparency[0]}
+              onChange={(e) => transparency[1](e.target.checked)}
+              className="size-4 cursor-pointer accent-ink"
+            />
+          </Row>
+        )}
         <Row
           icon={<Languages size={16} />}
           title={t("settings.language")}

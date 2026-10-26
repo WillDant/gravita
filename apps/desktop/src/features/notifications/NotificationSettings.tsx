@@ -83,8 +83,8 @@ export function NotificationSettings() {
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "rounded-md p-2 text-ink-2 hover:bg-panel-2 hover:text-ink",
-          open && "bg-panel-2 text-ink",
+          "rounded-md p-2 text-ink-2 hover:bg-sidebar-hover hover:text-ink",
+          open && "bg-sidebar-hover text-ink",
         )}
       >
         <BellRing size={16} aria-hidden="true" />

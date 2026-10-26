@@ -2,9 +2,10 @@ import type { EngineStatus, ProviderCredential } from "@gravita/protocol";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CursorKeyBridge } from "@/infrastructure/platform/tauri";
+import { createReduceTransparency } from "@/infrastructure/preferences/reduceTransparency";
 import { getLocale, setLocale } from "@/shared/i18n/i18n";
 import { FakeGateway, flush } from "@/test/FakeGateway";
-import { renderWithApp } from "@/test/render";
+import { memoryStorage, renderWithApp } from "@/test/render";
 import { Settings } from "./Settings";
 
 afterEach(cleanup);
@@ -115,6 +116,24 @@ describe("Settings", () => {
       expect((waiting as HTMLInputElement).checked).toBe(false);
       expect((finished as HTMLInputElement).checked).toBe(true);
       expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    });
+
+    it("hides reduce transparency where the menu isn't frosted", async () => {
+      renderWithApp(<Settings />);
+      await act(flush);
+      expect(screen.queryByRole("checkbox", { name: "Reduce transparency" })).toBeNull();
+    });
+
+    it("reduces transparency: off by default, the switch makes the menu opaque", async () => {
+      const root = document.createElement("html");
+      const reduceTransparency = createReduceTransparency(root, memoryStorage);
+      renderWithApp(<Settings />, { reduceTransparency });
+      await act(flush);
+      const reduce = screen.getByRole("checkbox", { name: "Reduce transparency" });
+      expect((reduce as HTMLInputElement).checked).toBe(false);
+      fireEvent.click(reduce);
+      expect((reduce as HTMLInputElement).checked).toBe(true);
+      expect(root.hasAttribute("data-reduce-transparency")).toBe(true);
     });
   });
 });
