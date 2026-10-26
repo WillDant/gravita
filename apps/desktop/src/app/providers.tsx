@@ -19,6 +19,7 @@ import type {
   ProjectAppearanceStore,
   ProjectAppearances,
 } from "@/infrastructure/preferences/projectAppearance";
+import type { ReduceTransparencyStore } from "@/infrastructure/preferences/reduceTransparency";
 import { StoreContext } from "@/state/hooks";
 import type { Route } from "@/state/slices/route";
 import type { AppStore } from "@/state/store";
@@ -43,6 +44,8 @@ export interface AppServices {
   notificationPrefs: NotificationPrefsStore;
   /** How each project's tile looks (its icon and colour). */
   projectAppearance: ProjectAppearanceStore;
+  /** Keeps the menu opaque; absent where the window has no frosted material (browser, non-macOS). */
+  reduceTransparency?: ReduceTransparencyStore;
 }
 
 const GatewayContext = createContext<EngineGateway | null>(null);
@@ -55,6 +58,7 @@ const AppUpdaterContext = createContext<AppUpdater | undefined>(undefined);
 const CursorKeyContext = createContext<CursorKeyBridge | undefined>(undefined);
 const NotificationPrefsContext = createContext<NotificationPrefsStore | null>(null);
 const ProjectAppearanceContext = createContext<ProjectAppearanceStore | null>(null);
+const ReduceTransparencyContext = createContext<ReduceTransparencyStore | undefined>(undefined);
 
 function required<T>(value: T | null, name: string): T {
   if (value === null) throw new Error(`${name} is missing: wrap the app in <AppProviders>`);
@@ -80,7 +84,9 @@ export function AppProviders({
                     <CursorKeyContext.Provider value={services.cursorKey}>
                       <NotificationPrefsContext.Provider value={services.notificationPrefs}>
                         <ProjectAppearanceContext.Provider value={services.projectAppearance}>
-                          {children}
+                          <ReduceTransparencyContext.Provider value={services.reduceTransparency}>
+                            {children}
+                          </ReduceTransparencyContext.Provider>
                         </ProjectAppearanceContext.Provider>
                       </NotificationPrefsContext.Provider>
                     </CursorKeyContext.Provider>
@@ -113,6 +119,19 @@ export function useNotificationPrefs(): [
   const store = required(useContext(NotificationPrefsContext), "NotificationPrefs");
   const prefs = useSyncExternalStore(store.subscribe, store.get);
   return [prefs, store.set];
+}
+
+const noStore = () => () => {};
+const notReduced = () => false;
+
+/**
+ * Whether the menu stays opaque, and its setter (persisted by the store); `undefined` where
+ * the window has no frosted material, so there is nothing to reduce.
+ */
+export function useReduceTransparency(): [boolean, (reduce: boolean) => void] | undefined {
+  const store = useContext(ReduceTransparencyContext);
+  const reduce = useSyncExternalStore(store?.subscribe ?? noStore, store?.get ?? notReduced);
+  return store ? [reduce, store.set] : undefined;
 }
 
 /** A project's tile look and the setters for it (persisted by the store). */

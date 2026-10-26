@@ -7,6 +7,7 @@ import { AppProviders } from "@/app/providers";
 import type { CursorKeyBridge, PickFolder } from "@/infrastructure/platform/tauri";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
+import type { ReduceTransparencyStore } from "@/infrastructure/preferences/reduceTransparency";
 import type { Route } from "@/state/slices/route";
 import { type AppStore, createAppStore } from "@/state/store";
 import { NOW } from "./events";
@@ -27,12 +28,14 @@ export function renderWithApp(
     cursorKey,
     pickFolder,
     toggleTheme = () => {},
+    reduceTransparency,
   }: {
     state?: GravitaState;
     gateway?: FakeGateway;
     cursorKey?: CursorKeyBridge;
     pickFolder?: PickFolder;
     toggleTheme?: () => void;
+    reduceTransparency?: ReduceTransparencyStore;
   } = {},
 ): AppRender {
   const storage = memoryStorage();
@@ -48,6 +51,7 @@ export function renderWithApp(
         toggleTheme,
         ...(cursorKey ? { cursorKey } : {}),
         ...(pickFolder ? { pickFolder } : {}),
+        ...(reduceTransparency ? { reduceTransparency } : {}),
         notificationPrefs: createNotificationPrefs(() => storage),
         projectAppearance: createProjectAppearance(() => storage),
       }}

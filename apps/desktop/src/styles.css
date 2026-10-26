@@ -59,6 +59,11 @@
   --ctx-5: #d6336c;
   --ctx-6: #0b8ea8;
   --ctx-7: #b8920a;
+  /* The menu: opaque by default; see "Frosted menu" below for the translucent take. */
+  --sidebar: var(--panel);
+  --sidebar-hover: var(--panel-2);
+  --sidebar-active: var(--ground);
+  --sidebar-edge: var(--hairline);
 }
 
 /* The app always sets data-theme explicitly (from the user's choice or the OS). */
@@ -116,6 +121,34 @@
   }
 }
 
+/* Frosted menu. On macOS the window draws the native sidebar material behind the webview
+   (tauri.macos.conf.json, data-vibrancy); the page is see-through, the main area stays opaque
+   (App.tsx), and the menu lays a light tint over the glass so its text keeps its contrast.
+   Off with the "Reduce transparency" setting or the OS's own. */
+:root[data-vibrancy] {
+  --page: transparent;
+}
+:root[data-vibrancy]:not([data-reduce-transparency]) {
+  --sidebar: color-mix(in srgb, var(--panel) 55%, transparent);
+  --sidebar-hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --sidebar-active: color-mix(in srgb, var(--ground) 78%, transparent);
+  --sidebar-edge: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+:root[data-vibrancy][data-theme="dark"]:not([data-reduce-transparency]) {
+  --sidebar: color-mix(in srgb, var(--panel) 45%, transparent);
+  --sidebar-hover: color-mix(in srgb, var(--ink) 7%, transparent);
+  --sidebar-active: color-mix(in srgb, var(--ink) 11%, transparent);
+  --sidebar-edge: color-mix(in srgb, #000 45%, transparent);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-vibrancy][data-theme]:not([data-reduce-transparency]) {
+    --sidebar: var(--panel);
+    --sidebar-hover: var(--panel-2);
+    --sidebar-active: var(--ground);
+    --sidebar-edge: var(--hairline);
+  }
+}
+
 @theme inline {
   --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -138,6 +171,10 @@
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
   --color-scrim: var(--scrim);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-edge: var(--sidebar-edge);
   --color-file-folder: var(--file-folder);
   --color-file-ts: var(--file-ts);
   --color-file-js: var(--file-js);
@@ -243,7 +280,7 @@ body,
 
 body {
   margin: 0;
-  background: var(--ground);
+  background: var(--page, var(--ground));
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--text-base);

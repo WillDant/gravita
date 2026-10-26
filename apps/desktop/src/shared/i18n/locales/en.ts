@@ -479,6 +479,8 @@ export const en = {
   "settings.theme.body": "Light or dark.",
   "settings.theme.light": "Light",
   "settings.theme.dark": "Dark",
+  "settings.transparency": "Reduce transparency",
+  "settings.transparency.body": "Makes the side menu opaque instead of frosted.",
   "settings.language": "Language",
   "settings.language.body": "The language of the app.",
   "settings.language.en": "English",

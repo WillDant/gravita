@@ -105,7 +105,7 @@ export function Sidebar() {
     <nav
       aria-label="Gravita"
       className={cn(
-        "flex h-full flex-none flex-col border-r border-hairline bg-panel transition-[width] motion-reduce:transition-none",
+        "flex h-full flex-none flex-col border-r border-sidebar-edge bg-sidebar transition-[width] motion-reduce:transition-none",
         collapsed ? "w-20" : "w-[232px]",
       )}
     >
@@ -269,7 +269,7 @@ export function Sidebar() {
 
       <div
         className={cn(
-          "flex items-center gap-1 border-t border-hairline px-2 py-2",
+          "flex items-center gap-1 border-t border-sidebar-edge px-2 py-2",
           collapsed && "flex-col",
         )}
       >
@@ -280,8 +280,8 @@ export function Sidebar() {
           title={t("nav.settings")}
           aria-current={route.level === "settings" ? "page" : undefined}
           className={cn(
-            "rounded-md p-2 text-ink-2 hover:bg-panel-2 hover:text-ink",
-            route.level === "settings" && "bg-ground text-ink shadow-panel",
+            "rounded-md p-2 text-ink-2 hover:bg-sidebar-hover hover:text-ink",
+            route.level === "settings" && "bg-sidebar-active text-ink shadow-panel",
           )}
         >
           <Settings size={16} />
@@ -320,7 +320,7 @@ function SectionHeading({
         onClick={onAction}
         aria-label={actionLabel}
         title={actionLabel}
-        className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-panel-2 hover:text-ink focus-visible:opacity-100 group-hover/heading:opacity-100"
+        className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-sidebar-hover hover:text-ink focus-visible:opacity-100 group-hover/heading:opacity-100"
       >
         <Plus size={14} aria-hidden="true" />
       </button>
@@ -380,7 +380,7 @@ function SubItem({
     <div
       className={cn(
         "group/subitem flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 pl-1",
-        active ? "bg-ground shadow-panel" : "hover:bg-panel-2",
+        active ? "bg-sidebar-active shadow-panel" : "hover:bg-sidebar-hover",
       )}
     >
       <button
@@ -446,10 +446,10 @@ function NavItem({
       aria-current={active ? "page" : undefined}
       {...(busy ? { "aria-busy": true } : {})}
       className={cn(
-        "relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink",
+        "relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-sidebar-hover hover:text-ink",
         collapsed && "justify-center px-0",
         prominent && "h-10 text-base font-semibold text-ink",
-        active && "bg-ground text-ink shadow-panel",
+        active && "bg-sidebar-active text-ink shadow-panel",
         prominent &&
           active &&
           "before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-focus",
@@ -523,7 +523,7 @@ function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: (
       aria-label={label}
       aria-expanded={!collapsed}
       title={`${label} (${MOD_KEY}B)`}
-      className="inline-flex size-7 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-panel-2 hover:text-ink"
+      className="inline-flex size-7 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-sidebar-hover hover:text-ink"
     >
       <Icon size={16} aria-hidden="true" />
     </button>

@@ -11,8 +11,13 @@ import {
   createSignInOpener,
 } from "@/infrastructure/platform/tauri";
 import { createTray } from "@/infrastructure/platform/tray";
+import {
+  hasWindowVibrancy,
+  startWindowAppearance,
+} from "@/infrastructure/platform/windowAppearance";
 import { createNotificationPrefs } from "@/infrastructure/preferences/notificationPrefs";
 import { createProjectAppearance } from "@/infrastructure/preferences/projectAppearance";
+import { createReduceTransparency } from "@/infrastructure/preferences/reduceTransparency";
 import { startTheme } from "@/infrastructure/theme/themeStorage";
 import { getLocale, subscribeLocale } from "@/shared/i18n/i18n";
 import { syncWithEngine } from "@/state/engineSync";
@@ -29,6 +34,9 @@ export interface App {
 /** Composition root: the only place that knows the concrete classes. */
 export function bootstrap(): App {
   const theme = startTheme();
+  const unappearance = startWindowAppearance();
+  // The menu can only be translucent where the window draws the frosted material.
+  const reduceTransparency = hasWindowVibrancy() ? createReduceTransparency() : undefined;
   const router = createHashRouter();
   const gateway = new WsEngineGateway(resolveEndpoint);
   const store = createAppStore(gateway, { route: router.current(), now: Date.now() });
@@ -74,6 +82,7 @@ export function bootstrap(): App {
       appUpdater: createAppUpdater(),
       notificationPrefs,
       projectAppearance,
+      ...(reduceTransparency ? { reduceTransparency } : {}),
     },
     dispose: () => {
       clearInterval(clock);
@@ -84,6 +93,7 @@ export function bootstrap(): App {
       unsync();
       router.dispose();
       gateway.close();
+      unappearance();
       theme.dispose();
     },
   };
