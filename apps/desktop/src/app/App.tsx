@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
+import { CommandPalette } from "@/features/command-palette/CommandPalette";
+import { useCommandPaletteHotkey } from "@/features/command-palette/useCommandPaletteHotkey";
 import { Home } from "@/features/home/Home";
 import { Sidebar } from "@/features/navigation/Sidebar";
 import { NoticeLine } from "@/features/notice/NoticeLine";
@@ -30,6 +32,7 @@ export function App() {
   const connection = useConnection();
   const demo = useIsDemo();
   const hasData = useProjection((p) => Object.keys(p.sessions).length > 0);
+  useCommandPaletteHotkey();
 
   useEffect(() => {
     document.title = "Gravita";
@@ -50,6 +53,7 @@ export function App() {
         )}
         <NoticeLine />
         <UpdateToast />
+        <CommandPalette />
         {demo && (
           <div className="pointer-events-none absolute right-4 bottom-3 z-10 rounded-full bg-panel px-2.5 py-1 text-2xs font-medium text-ink-3">
             {t("engine.demo")}

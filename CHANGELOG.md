@@ -4,6 +4,9 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Interface
+- **Command palette:** ⌘K (Ctrl+K elsewhere), or Search under Home in the menu, opens a search over everything in Gravita. With nothing typed it lists the agents and squads waiting for you, the app's actions and your latest sessions. Typing searches sessions, squads, projects and terminals too, ignoring case and accents. ↑↓ move, return opens, Esc closes and puts the focus back where it was. The actions are new session, new terminal, settings, theme, language and stop all agents, which asks first. ⌘K works even while you type in a terminal or the file editor.
+
 ## [0.10.11-beta] - 2026-10-26
 
 A frosted side menu on macOS.
