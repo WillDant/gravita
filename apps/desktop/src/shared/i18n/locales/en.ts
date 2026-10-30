@@ -965,6 +965,30 @@ export const en = {
   "newSquad.models.codex.sonnet.hint": "Codex at medium effort for every agent, with no step up.",
   "newSquad.models.mixedHint":
     "On Codex roles the same choice sets Codex's reasoning effort: Haiku, Sonnet and Opus become low, medium and high.",
+
+  "palette.open": "Search",
+  "palette.title": "Command palette",
+  "palette.placeholder": "Search sessions, projects and actions…",
+  "palette.empty": "Nothing matches “{query}”.",
+  "palette.hint": "↑↓ to move · ↩ to open · esc to close",
+  "palette.group.needsYou": "Needs you",
+  "palette.group.actions": "Actions",
+  "palette.group.sessions": "Sessions",
+  "palette.group.squads": "Squads",
+  "palette.group.projects": "Projects",
+  "palette.group.terminals": "Terminals",
+  "palette.squadDecision": "{squad} needs a decision",
+  "palette.action.newSession": "New session",
+  "palette.action.newTerminal": "New terminal",
+  "palette.action.settings": "Open settings",
+  "palette.action.themeDark": "Switch to the dark theme",
+  "palette.action.themeLight": "Switch to the light theme",
+  "palette.action.language": "Switch the language to {language}",
+  "palette.action.stopAll": "Stop all agents",
+  "palette.stopAll.title": "Stop all agents?",
+  "palette.stopAll.message":
+    "Every chat and squad Gravita runs stops now. Sessions in a terminal or started outside Gravita keep running.",
+  "palette.stopAll.confirm": "Stop all",
 } as const;
 
 export type MessageKey = keyof typeof en;

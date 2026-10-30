@@ -4,6 +4,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Search,
   Settings,
   SquareTerminal,
   UsersRound,
@@ -82,6 +83,7 @@ export function Sidebar() {
   const terminals = useAppStore((s) => s.terminals);
   const focusedTerminal = useAppStore((s) => s.focusedTerminal);
   const placeTerminal = useAppStore((s) => s.placeTerminal);
+  const openPalette = useAppStore((s) => s.setPaletteOpen);
   const newTerminal = useOpenTerminal((terminal) => {
     placeTerminal(terminal.terminalId);
     navigate({ level: "terminals", terminalId: terminal.terminalId });
@@ -129,6 +131,16 @@ export function Sidebar() {
           label={t("nav.home")}
         >
           {t("nav.home")}
+        </NavItem>
+        <NavItem
+          collapsed={collapsed}
+          active={false}
+          onClick={() => openPalette(true)}
+          icon={<Search size={16} />}
+          label={`${t("palette.open")} (${MOD_KEY}K)`}
+        >
+          {t("palette.open")}
+          <kbd className="ml-auto font-sans text-2xs font-normal text-ink-3">{MOD_KEY}K</kbd>
         </NavItem>
         {terminalsSupported && (
           <NavItem

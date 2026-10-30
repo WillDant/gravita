@@ -39,6 +39,8 @@ export interface ControlSlice {
   setPermissionMode: (sessionId: string, mode: SessionMode) => Promise<CommandResult>;
   answerQuestion: (params: RpcParams<"question.answer">) => Promise<CommandResult>;
   removeSession: (sessionId: string, projectId: string) => Promise<CommandResult>;
+  /** The kill switch: stops every session Gravita runs, as the tray's "Stop all" does. */
+  stopAll: () => Promise<CommandResult<RpcResult<"engine.stopAll">>>;
 }
 
 export async function attempt<T>(call: () => Promise<T>): Promise<CommandResult<T>> {
@@ -102,4 +104,5 @@ export const createControlSlice: Slice<ControlSlice> = (gateway) => (set, get) =
     }
     return r;
   },
+  stopAll: () => attempt(() => gateway.stopAll()),
 });

@@ -972,4 +972,28 @@ export const ptBR: Partial<Record<MessageKey, string>> = {
   "newSquad.models.codex.sonnet.hint": "Codex com esforço médio para cada agente, sem subir.",
   "newSquad.models.mixedHint":
     "Nos papéis no Codex, a mesma escolha define o esforço de raciocínio do Codex: Haiku, Sonnet e Opus viram baixo, médio e alto.",
+
+  "palette.open": "Buscar",
+  "palette.title": "Paleta de comandos",
+  "palette.placeholder": "Buscar sessões, projetos e ações…",
+  "palette.empty": "Nada encontrado para “{query}”.",
+  "palette.hint": "↑↓ para mover · ↩ para abrir · esc para fechar",
+  "palette.group.needsYou": "Precisa de você",
+  "palette.group.actions": "Ações",
+  "palette.group.sessions": "Sessões",
+  "palette.group.squads": "Squads",
+  "palette.group.projects": "Projetos",
+  "palette.group.terminals": "Terminais",
+  "palette.squadDecision": "{squad} precisa de uma decisão",
+  "palette.action.newSession": "Nova sessão",
+  "palette.action.newTerminal": "Novo terminal",
+  "palette.action.settings": "Abrir configurações",
+  "palette.action.themeDark": "Mudar para o tema escuro",
+  "palette.action.themeLight": "Mudar para o tema claro",
+  "palette.action.language": "Mudar o idioma para {language}",
+  "palette.action.stopAll": "Parar todos os agentes",
+  "palette.stopAll.title": "Parar todos os agentes?",
+  "palette.stopAll.message":
+    "Todos os chats e squads que o Gravita roda param agora. Sessões em um terminal ou iniciadas fora do Gravita continuam rodando.",
+  "palette.stopAll.confirm": "Parar todos",
 };
