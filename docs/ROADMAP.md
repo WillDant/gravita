@@ -58,6 +58,9 @@ The chat is only the message box: its send button turns into a stop button while
 ### A frosted menu — [v0.10.11-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.11-beta)
 On macOS the side menu is frosted glass that follows the app's theme, with a setting to make it opaque again.
 
+### A command palette — [v0.10.13-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.13-beta)
+⌘K, or Search in the menu, finds any session, squad, project or terminal and runs the app's actions, with whatever needs you listed first.
+
 ## Next
 
 ### Polish and public launch

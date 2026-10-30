@@ -4,6 +4,10 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.13-beta] - 2026-10-30
+
+A command palette on ⌘K.
+
 ### Interface
 - **Command palette:** ⌘K (Ctrl+K elsewhere), or Search under Home in the menu, opens a search over everything in Gravita. With nothing typed it lists the agents and squads waiting for you, the app's actions and your latest sessions. Typing searches sessions, squads, projects and terminals too, ignoring case and accents. ↑↓ move, return opens, Esc closes and puts the focus back where it was. The actions are new session, new terminal, settings, theme, language and stop all agents, which asks first. ⌘K works even while you type in a terminal or the file editor.
 
@@ -272,6 +276,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.13-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.13-beta
 [0.10.11-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.11-beta
 [0.10.9-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta
 [0.10.7-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.7-beta
