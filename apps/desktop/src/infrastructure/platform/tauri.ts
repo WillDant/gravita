@@ -1,3 +1,5 @@
+import { isExternalUrl } from "@/shared/externalUrl";
+
 /** True inside the Tauri shell; false in a plain browser (dev mode, tests). */
 export function isTauri(): boolean {
   return Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
@@ -130,8 +132,8 @@ export function isReleaseUrl(url: string): boolean {
 
 /**
  * The browser for a release link. Inside Tauri the shell's own `open_release_url` command
- * opens it (it checks the link again; the webview gets no general opener); in a plain
- * browser, a new tab without a way back to Gravita's page.
+ * opens it (it checks the link again); in a plain browser, a new tab without a way back to
+ * Gravita's page.
  */
 export function createReleaseOpener(): OpenRelease {
   return async (url) => {
@@ -139,6 +141,26 @@ export function createReleaseOpener(): OpenRelease {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("open_release_url", { url });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+}
+
+/** Opens a web link from a message in the user's browser. */
+export type OpenExternal = (url: string) => Promise<void>;
+
+/**
+ * The browser for a link an agent wrote: http and https only (`isExternalUrl`). Inside Tauri
+ * the shell's own `open_external_url` command opens it and checks it again; in a plain
+ * browser, a new tab without a way back to Gravita's page.
+ */
+export function createExternalOpener(): OpenExternal {
+  return async (url) => {
+    if (!isExternalUrl(url)) throw new Error("Not a web link");
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_external_url", { url });
       return;
     }
     window.open(url, "_blank", "noopener,noreferrer");

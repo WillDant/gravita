@@ -3,8 +3,10 @@ import type { EngineGateway } from "@/infrastructure/engine/EngineGateway";
 import {
   type AppUpdater,
   type CursorKeyBridge,
+  createExternalOpener,
   createReleaseOpener,
   createSignInOpener,
+  type OpenExternal,
   type OpenRelease,
   type OpenSignIn,
   type PickFolder,
@@ -36,6 +38,8 @@ export interface AppServices {
   openSignIn?: OpenSignIn;
   /** Opens a release page in the user's browser (a default one when absent). */
   openRelease?: OpenRelease;
+  /** Opens a web link from a message in the user's browser (a default one when absent). */
+  openExternal?: OpenExternal;
   /** Installs updates in place; absent in the browser, where only the installer download exists. */
   appUpdater?: AppUpdater;
   /** Where the Cursor key is stored; absent in the browser, where it can't be set. */
@@ -54,6 +58,7 @@ const ThemeContext = createContext<(() => void) | null>(null);
 const PickFolderContext = createContext<PickFolder | undefined>(undefined);
 const OpenSignInContext = createContext<OpenSignIn>(createSignInOpener());
 const OpenReleaseContext = createContext<OpenRelease>(createReleaseOpener());
+const OpenExternalContext = createContext<OpenExternal>(createExternalOpener());
 const AppUpdaterContext = createContext<AppUpdater | undefined>(undefined);
 const CursorKeyContext = createContext<CursorKeyBridge | undefined>(undefined);
 const NotificationPrefsContext = createContext<NotificationPrefsStore | null>(null);
@@ -80,17 +85,21 @@ export function AppProviders({
             <PickFolderContext.Provider value={services.pickFolder}>
               <OpenSignInContext.Provider value={services.openSignIn ?? createSignInOpener()}>
                 <OpenReleaseContext.Provider value={services.openRelease ?? createReleaseOpener()}>
-                  <AppUpdaterContext.Provider value={services.appUpdater}>
-                    <CursorKeyContext.Provider value={services.cursorKey}>
-                      <NotificationPrefsContext.Provider value={services.notificationPrefs}>
-                        <ProjectAppearanceContext.Provider value={services.projectAppearance}>
-                          <ReduceTransparencyContext.Provider value={services.reduceTransparency}>
-                            {children}
-                          </ReduceTransparencyContext.Provider>
-                        </ProjectAppearanceContext.Provider>
-                      </NotificationPrefsContext.Provider>
-                    </CursorKeyContext.Provider>
-                  </AppUpdaterContext.Provider>
+                  <OpenExternalContext.Provider
+                    value={services.openExternal ?? createExternalOpener()}
+                  >
+                    <AppUpdaterContext.Provider value={services.appUpdater}>
+                      <CursorKeyContext.Provider value={services.cursorKey}>
+                        <NotificationPrefsContext.Provider value={services.notificationPrefs}>
+                          <ProjectAppearanceContext.Provider value={services.projectAppearance}>
+                            <ReduceTransparencyContext.Provider value={services.reduceTransparency}>
+                              {children}
+                            </ReduceTransparencyContext.Provider>
+                          </ProjectAppearanceContext.Provider>
+                        </NotificationPrefsContext.Provider>
+                      </CursorKeyContext.Provider>
+                    </AppUpdaterContext.Provider>
+                  </OpenExternalContext.Provider>
                 </OpenReleaseContext.Provider>
               </OpenSignInContext.Provider>
             </PickFolderContext.Provider>
@@ -108,6 +117,7 @@ export const useToggleTheme = (): (() => void) => required(useContext(ThemeConte
 export const usePickFolder = (): PickFolder | undefined => useContext(PickFolderContext);
 export const useOpenSignIn = (): OpenSignIn => useContext(OpenSignInContext);
 export const useOpenRelease = (): OpenRelease => useContext(OpenReleaseContext);
+export const useOpenExternal = (): OpenExternal => useContext(OpenExternalContext);
 export const useAppUpdater = (): AppUpdater | undefined => useContext(AppUpdaterContext);
 export const useCursorKeyBridge = (): CursorKeyBridge | undefined => useContext(CursorKeyContext);
 

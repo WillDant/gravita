@@ -1,7 +1,6 @@
 //! Opens a release page of Gravita's own repository in the user's browser, for the "new
-//! release" notice. Like the Codex sign-in link, it is the one thing the webview may ask to
-//! open: only https pages under `github.com/WillDant/gravita/releases` (the engine hands the
-//! link over and checks it too), through the system's own handler and never a shell.
+//! release" notice: only https pages under `github.com/WillDant/gravita/releases` (the engine
+//! hands the link over and checks it too), through the system's own handler and never a shell.
 
 use crate::sign_in::open;
 
