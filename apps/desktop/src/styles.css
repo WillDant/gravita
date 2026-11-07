@@ -18,6 +18,7 @@
   --ink-3: #646b78;
   --focus: #2f5bea;
   --select: #2f5bea1f;
+  --link: #2f5bea;
   --waiting: #e8590c;
   --waiting-ink: #b8430a;
   --waiting-bg: #fff1e8;
@@ -80,6 +81,7 @@
     --ink-3: #9098a6;
     --focus: #7f9cff;
     --select: #7f9cff26;
+    --link: #7f9cff;
     --waiting: #ff8a3d;
     --waiting-ink: #ffa76b;
     --waiting-bg: #2a1a10;
@@ -162,6 +164,7 @@
   --color-ink-3: var(--ink-3);
   --color-focus: var(--focus);
   --color-select: var(--select);
+  --color-link: var(--link);
   --color-waiting: var(--waiting);
   --color-waiting-ink: var(--waiting-ink);
   --color-waiting-bg: var(--waiting-bg);

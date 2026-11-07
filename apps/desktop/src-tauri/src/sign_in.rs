@@ -1,6 +1,6 @@
 //! Opens Codex's sign-in page for Gravita's own Codex profile (the one squads run Codex in)
-//! in the user's browser. The webview gets no general way to open links: this command
-//! opens only https pages on OpenAI's own hosts, which is what Codex answers
+//! in the user's browser. This command opens only https pages on OpenAI's own hosts, which
+//! is what Codex answers
 //! `account/login/start` with (the engine checks the link too). Codex itself takes the
 //! browser's callback on localhost and keeps the tokens; Gravita never sees them.
 

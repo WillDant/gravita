@@ -1,5 +1,6 @@
 mod cursor_key;
 mod engine_http;
+mod external_link;
 mod release;
 mod sidecar;
 mod sign_in;
@@ -98,6 +99,8 @@ pub fn run() {
             sign_in::open_sign_in_url,
             // A release page of Gravita's own repository, for the "new release" notice (release.rs).
             release::open_release_url,
+            // A web link an agent wrote in a message: http and https only (external_link.rs).
+            external_link::open_external_url,
             // The Cursor API key: set, remove, or ask whether there is one (cursor_key.rs).
             cursor_key_set,
             cursor_key_remove,
