@@ -4,6 +4,14 @@ All notable changes to Gravita. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.15-beta] - 2026-11-06
+
+Tables and clickable links in agents' answers.
+
+### Interface
+- **Tables:** a Markdown table in a message is now a real table, with its header, column alignment, and code and links in its cells. It scrolls sideways in a narrow panel.
+- **Links:** `[text](url)` and bare web addresses in a message are now blue, underlined links that open in your default browser. Hovering shows where a link really goes. Only `http` and `https` links are clickable; anything else, such as a file path, stays as text.
+
 ## [0.10.13-beta] - 2026-10-30
 
 A command palette on ⌘K.
@@ -276,6 +284,7 @@ The first preview: see and steer Claude Code sessions and their subagents, on ma
 - Clicking a notification activates Gravita; when the window was closed, open it from the Dock or the tray to land on the agent.
 - English and Brazilian Portuguese.
 
+[0.10.15-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.15-beta
 [0.10.13-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.13-beta
 [0.10.11-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.11-beta
 [0.10.9-beta]: https://github.com/WillDant/gravita/releases/tag/v0.10.9-beta

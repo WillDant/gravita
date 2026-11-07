@@ -61,6 +61,9 @@ On macOS the side menu is frosted glass that follows the app's theme, with a set
 ### A command palette — [v0.10.13-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.13-beta)
 ⌘K, or Search in the menu, finds any session, squad, project or terminal and runs the app's actions, with whatever needs you listed first.
 
+### Tables and links in messages — [v0.10.15-beta](https://github.com/WillDant/gravita/releases/tag/v0.10.15-beta)
+Agents' Markdown tables render as tables, and their web links are clickable and open in the default browser.
+
 ## Next
 
 ### Polish and public launch
